@@ -18,7 +18,8 @@ export const sessionService = {
   logout() {
     localStorage.removeItem("pagweb_token");
     localStorage.removeItem("pagweb_user");
-    window.location.hash = "#/login";
+    // Redireciona para a tela de escolha de perfil (Welcome)
+    window.location.hash = "#/";
   },
 
   isAuthenticated() {

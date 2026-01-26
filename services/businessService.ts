@@ -36,7 +36,8 @@ export const businessService = {
     if (!response.ok) {
       throw new Error("Falha ao listar planos");
     }
-    return response.json();
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
   },
 
   // === CLIENTES (ADMIN) ===
@@ -62,7 +63,9 @@ export const businessService = {
     if (!response.ok) {
       throw new Error("Falha ao listar clientes");
     }
-    return response.json();
+    const data = await response.json();
+    // Validação de segurança para garantir que é um array
+    return Array.isArray(data) ? data : [];
   },
 
   // === ASSINATURAS ===
@@ -88,6 +91,7 @@ export const businessService = {
     if (!response.ok) {
       throw new Error("Falha ao listar assinaturas");
     }
-    return response.json();
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
   }
 };

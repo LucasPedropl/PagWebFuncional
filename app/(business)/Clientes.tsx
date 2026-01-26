@@ -25,9 +25,11 @@ export const Clientes: React.FC = () => {
     try {
       setIsLoading(true);
       const data = await businessService.listClients();
-      setClientes(data);
+      // Garante que o estado seja sempre um array, mesmo que o serviço falhe silenciosamente
+      setClientes(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao listar clientes", error);
+      setClientes([]); // Fallback em caso de erro
     } finally {
       setIsLoading(false);
     }
@@ -49,8 +51,11 @@ export const Clientes: React.FC = () => {
     }
   };
 
-  const filteredClients = clientes.filter(c => 
-    c.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  // Verificação de segurança: Só tenta filtrar se 'clientes' for de fato um array
+  const safeClientes = Array.isArray(clientes) ? clientes : [];
+  
+  const filteredClients = safeClientes.filter(c => 
+    (c.nome && c.nome.toLowerCase().includes(searchTerm.toLowerCase())) || 
     (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 

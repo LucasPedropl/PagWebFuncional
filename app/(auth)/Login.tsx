@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { userService } from '../../services/userService';
 import { companyService } from '../../services/companyService';
@@ -19,20 +19,6 @@ export const Login: React.FC = () => {
     email: '',
     password: ''
   });
-
-  useEffect(() => {
-    if (isBusiness) {
-      setFormData({
-        email: 'Ultra@pagweb.com',
-        password: '123' // Removed specific password to be safer, user can type
-      });
-    } else {
-      setFormData({
-        email: 'Teste@teste',
-        password: '123'
-      });
-    }
-  }, [isBusiness]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
