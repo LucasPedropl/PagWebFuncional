@@ -9,6 +9,8 @@ import { Clientes } from './app/(business)/Clientes';
 import { Planos } from './app/(business)/Planos';
 import { Assinaturas } from './app/(business)/Assinaturas';
 import { Pagamentos } from './app/(business)/Pagamentos';
+import { Relatorios } from './app/(business)/Relatorios';
+import { Configuracoes } from './app/(business)/Configuracoes';
 import { Welcome } from './app/Welcome';
 import { sessionService } from './services/session';
 
@@ -75,6 +77,22 @@ const App: React.FC = () => {
           element={
             <PrivateRoute>
               <Pagamentos />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/business/relatorios" 
+          element={
+            <PrivateRoute>
+              <Relatorios />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/business/configuracoes" 
+          element={
+            <PrivateRoute>
+              <Configuracoes />
             </PrivateRoute>
           } 
         />

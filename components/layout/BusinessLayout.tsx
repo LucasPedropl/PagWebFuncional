@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutGrid, 
@@ -7,8 +7,6 @@ import {
   CreditCard, 
   DollarSign, 
   FileText, 
-  Activity, 
-  LifeBuoy, 
   Settings, 
   Bell,
   Wallet,
@@ -23,7 +21,17 @@ interface BusinessLayoutProps {
 export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  
+  // Inicializa o estado lendo do localStorage, ou usa false como padrão
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const savedState = localStorage.getItem('pagweb_sidebar_collapsed');
+    return savedState ? JSON.parse(savedState) : false;
+  });
+
+  // Salva no localStorage sempre que o estado mudar
+  useEffect(() => {
+    localStorage.setItem('pagweb_sidebar_collapsed', JSON.stringify(isCollapsed));
+  }, [isCollapsed]);
 
   const menuItems = [
     { icon: LayoutGrid, label: 'Overview', path: '/business/dashboard' },
@@ -32,8 +40,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Gestão de Cobranças', path: '/business/pagamentos' },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
-    { icon: Activity, label: 'Histórico', path: '/business/historico' },
-    { icon: LifeBuoy, label: 'Suporte', path: '/business/suporte' },
+    // Histórico e Suporte removidos conforme solicitado
   ];
 
   return (
@@ -70,14 +77,15 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-6 space-y-2">
+        {/* IMPORTANTE: overflow-visible quando colapsado para permitir que o tooltip saia da caixa */}
+        <nav className={`flex-1 py-6 space-y-2 ${isCollapsed ? 'overflow-visible' : 'overflow-y-auto overflow-x-hidden'}`}>
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
-              <div key={item.path} className="px-3">
+              <div key={item.path} className="px-3 relative group">
                 <Link
                   to={item.path}
-                  className={`flex items-center py-3.5 rounded-lg transition-all duration-200 group relative ${
+                  className={`flex items-center py-3.5 rounded-lg transition-all duration-200 relative ${
                     isActive 
                       ? 'bg-slate-900 text-white shadow-md' 
                       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -90,48 +98,52 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
                     } ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'}`} 
                   />
                   
-                  {/* Fonte aumentada para text-base (16px) */}
-                  <span className={`font-medium text-base whitespace-nowrap transition-all duration-300 ${
+                  {/* Fonte alterada para font-normal (400) */}
+                  <span className={`font-normal text-base whitespace-nowrap transition-all duration-300 ${
                     isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100 block'
                   }`}>
                     {item.label}
                   </span>
-
-                  {/* Tooltip for collapsed state */}
-                  {isCollapsed && (
-                    <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg font-medium">
-                      {item.label}
-                    </div>
-                  )}
                 </Link>
+
+                {/* Tooltip for collapsed state - Moved outside Link to avoid overflow issues if possible, but mainly relying on nav overflow-visible */}
+                {isCollapsed && (
+                    <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-2 bg-slate-800 text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-[60] shadow-lg font-medium transition-opacity">
+                      {item.label}
+                      {/* Seta do tooltip */}
+                      <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 border-4 border-transparent border-r-slate-800"></div>
+                    </div>
+                )}
               </div>
             );
           })}
         </nav>
 
         {/* Footer Actions */}
-        <div className="p-3 border-t border-gray-100 space-y-1">
+        <div className="p-3 border-t border-gray-100 space-y-1 relative group">
           <Link
             to="/business/configuracoes"
-            className={`flex items-center py-3 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors group relative ${
+            className={`flex items-center py-3 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors relative ${
                isCollapsed ? 'justify-center px-0' : 'px-4'
-            }`}
+            } ${location.pathname === '/business/configuracoes' ? 'bg-slate-50 text-slate-900 font-medium' : ''}`}
           >
             <Settings 
                 size={20} 
                 className={`min-w-[20px] ${isCollapsed ? '' : 'mr-3'} text-slate-400 group-hover:text-slate-600`} 
             />
-            <span className={`text-base font-medium whitespace-nowrap transition-all duration-300 ${
+            {/* Fonte alterada para font-normal (400) */}
+            <span className={`text-base font-normal whitespace-nowrap transition-all duration-300 ${
                 isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100 block'
             }`}>
                 Configurações
             </span>
-            {isCollapsed && (
-                <div className="absolute left-full ml-3 px-3 py-2 bg-slate-800 text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg font-medium">
+          </Link>
+           {isCollapsed && (
+                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-2 bg-slate-800 text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-[60] shadow-lg font-medium transition-opacity">
                   Configurações
+                  <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 border-4 border-transparent border-r-slate-800"></div>
                 </div>
             )}
-          </Link>
         </div>
       </aside>
 
@@ -145,7 +157,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
             <span className="hover:text-gray-900 cursor-pointer transition-colors">Dashboards</span>
             <span className="mx-2 text-gray-300">/</span>
             <span className="text-gray-900 font-medium">
-               {menuItems.find(i => i.path === location.pathname)?.label || 'Overview'}
+               {menuItems.find(i => i.path === location.pathname)?.label || (location.pathname.includes('configuracoes') ? 'Configurações' : 'Overview')}
             </span>
           </div>
 

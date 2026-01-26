@@ -159,7 +159,7 @@ export const Assinaturas: React.FC = () => {
           <input
             type="text"
             placeholder="Buscar por cliente..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-600"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -283,7 +283,7 @@ export const Assinaturas: React.FC = () => {
                 <label className="text-sm font-medium text-gray-700">Selecionar Cliente</label>
                 <select 
                     name="idUser" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-700"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900"
                     value={formData.idUser}
                     onChange={handleInputChange}
                 >
@@ -297,7 +297,7 @@ export const Assinaturas: React.FC = () => {
                 <label className="text-sm font-medium text-gray-700">Selecionar Plano</label>
                 <select 
                     name="idPlano" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-700"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900"
                     value={formData.idPlano}
                     onChange={handleInputChange}
                 >
