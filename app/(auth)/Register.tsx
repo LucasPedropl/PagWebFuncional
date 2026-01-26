@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { userService } from '../../services/userService';
-import { companyService } from '../../services/companyService';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -15,14 +14,18 @@ export const Register: React.FC = () => {
   const type = searchParams.get('type') as 'client' | 'business' | null;
   const isBusiness = type === 'business';
   
-  // Unified state, but we'll map it to different payloads on submit
   const [formData, setFormData] = useState({
+    // User Data
     nome: '',
-    sobreNome: '', // Only for user
-    cpf: '', // used for CPF (user) or CNPJ (business)
+    sobreNome: '',
+    cpf: '',
     email: '',
     password: '',
-    telefone: ''
+    telefone: '',
+    // Company Data (Only if isBusiness)
+    companyNome: '',
+    companyCnpj: '',
+    companyTelefone: ''
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,30 +41,32 @@ export const Register: React.FC = () => {
     setError(null);
 
     try {
-      if (isBusiness) {
-        // Business Registration
-        await companyService.register({
-          nome: formData.nome,
-          cnpj: formData.cpf, // Mapping 'cpf' input to 'cnpj' payload
-          email: formData.email,
-          password: formData.password,
-          telefone: formData.telefone
-        });
-        // Business has no activation token flow currently, redirect to login
-        navigate(`/login?type=business`);
-      } else {
-        // User Registration
-        await userService.register({
-          nome: formData.nome,
-          sobreNome: formData.sobreNome,
-          cpf: formData.cpf,
-          email: formData.email,
-          password: formData.password,
-          telefone: formData.telefone
-        });
-        // User flow requires activation
-        navigate('/activate', { state: { email: formData.email } });
-      }
+      // Step 1: Always register the User first
+      await userService.register({
+        nome: formData.nome,
+        sobreNome: isBusiness ? 'Admin' : formData.sobreNome,
+        cpf: formData.cpf,
+        email: formData.email,
+        password: formData.password,
+        telefone: formData.telefone
+      });
+
+      // Prepare state to pass to Activate screen
+      const navigationState = { 
+        email: formData.email,
+        password: formData.password, // Passed to allow auto-login flow
+        isBusinessRegistration: isBusiness,
+        companyData: isBusiness ? {
+          nome: formData.companyNome,
+          cnpj: formData.companyCnpj,
+          telefone: formData.companyTelefone,
+          email: 'dummy@pagweb.com', // API requirement but unused per prompt
+          password: 'dummyPassword'  // API requirement but unused per prompt
+        } : null
+      };
+
+      navigate('/activate', { state: navigationState });
+
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro ao tentar registrar.');
     } finally {
@@ -72,69 +77,115 @@ export const Register: React.FC = () => {
   return (
     <AuthLayout 
       title={isBusiness ? "Cadastre seu Negócio" : "Crie sua conta"} 
-      subtitle={isBusiness ? "Gerencie pagamentos e assinaturas de forma profissional." : "Preencha os dados abaixo para começar a usar o PagWeb."}
+      subtitle={isBusiness ? "Passo 1: Crie seu usuário administrativo e dados da empresa." : "Preencha os dados abaixo para começar a usar o PagWeb."}
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
-        <div className={isBusiness ? "" : "grid grid-cols-2 gap-4"}>
-          <Input
-            label={isBusiness ? "Nome da Empresa" : "Nome"}
-            name="nome"
-            value={formData.nome}
-            onChange={handleChange}
-            required
-            placeholder={isBusiness ? "Razão Social" : "Seu nome"}
-          />
-          {!isBusiness && (
-            <Input
-              label="Sobrenome"
-              name="sobreNome"
-              value={formData.sobreNome}
-              onChange={handleChange}
-              required
-              placeholder="Sobrenome"
-            />
-          )}
-        </div>
         
-        <Input
-          label={isBusiness ? "CNPJ (Apenas números)" : "CPF"}
-          name="cpf"
-          value={formData.cpf}
-          onChange={handleChange}
-          required
-          placeholder={isBusiness ? "00.000.000/0000-00" : "000.000.000-00"}
-        />
+        {/* User Section */}
+        <div className="space-y-4">
+            <h4 className="text-sm font-bold text-gray-900 uppercase border-b border-gray-100 pb-2">
+                {isBusiness ? "Dados do Administrador" : "Seus Dados"}
+            </h4>
+            
+            <div className={isBusiness ? "" : "grid grid-cols-2 gap-4"}>
+                <Input
+                    label="Nome"
+                    name="nome"
+                    value={formData.nome}
+                    onChange={handleChange}
+                    required
+                    placeholder="Seu nome"
+                />
+                {!isBusiness && (
+                    <Input
+                    label="Sobrenome"
+                    name="sobreNome"
+                    value={formData.sobreNome}
+                    onChange={handleChange}
+                    required
+                    placeholder="Sobrenome"
+                    />
+                )}
+            </div>
 
-        <Input
-          label="Telefone"
-          name="telefone"
-          type="tel"
-          value={formData.telefone}
-          onChange={handleChange}
-          required
-          placeholder="(00) 00000-0000"
-        />
+            <div className="grid grid-cols-2 gap-4">
+                <Input
+                    label="CPF"
+                    name="cpf"
+                    value={formData.cpf}
+                    onChange={handleChange}
+                    required
+                    placeholder="000.000.000-00"
+                />
+                <Input
+                    label="Telefone Pessoal"
+                    name="telefone"
+                    type="tel"
+                    value={formData.telefone}
+                    onChange={handleChange}
+                    required
+                    placeholder="(00) 00000-0000"
+                />
+            </div>
 
-        <Input
-          label="Email"
-          name="email"
-          type="email"
-          value={formData.email}
-          onChange={handleChange}
-          required
-          placeholder={isBusiness ? "email@empresa.com" : "seu@email.com"}
-        />
+            <Input
+                label="Email (Login)"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                placeholder="seu@email.com"
+            />
 
-        <Input
-          label="Senha"
-          name="password"
-          type="password"
-          value={formData.password}
-          onChange={handleChange}
-          required
-          placeholder="******"
-          minLength={6}
-        />
+            <Input
+                label="Senha"
+                name="password"
+                type="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                placeholder="******"
+                minLength={6}
+            />
+        </div>
+
+        {/* Company Section (Business Only) */}
+        {isBusiness && (
+            <div className="space-y-4 pt-4">
+                <h4 className="text-sm font-bold text-gray-900 uppercase border-b border-gray-100 pb-2">
+                    Dados da Empresa
+                </h4>
+                
+                <Input
+                    label="Razão Social / Nome da Empresa"
+                    name="companyNome"
+                    value={formData.companyNome}
+                    onChange={handleChange}
+                    required={isBusiness}
+                    placeholder="Minha Loja LTDA"
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                    <Input
+                        label="CNPJ"
+                        name="companyCnpj"
+                        value={formData.companyCnpj}
+                        onChange={handleChange}
+                        required={isBusiness}
+                        placeholder="00.000.000/0000-00"
+                    />
+                    <Input
+                        label="Telefone Comercial"
+                        name="companyTelefone"
+                        value={formData.companyTelefone}
+                        onChange={handleChange}
+                        required={isBusiness}
+                        placeholder="(00) 00000-0000"
+                    />
+                </div>
+            </div>
+        )}
 
         {error && (
           <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100">
@@ -142,8 +193,8 @@ export const Register: React.FC = () => {
           </div>
         )}
 
-        <Button type="submit" className="w-full" isLoading={isLoading} variant={isBusiness ? 'secondary' : 'primary'}>
-          {isBusiness ? 'Cadastrar Empresa' : 'Criar Conta'}
+        <Button type="submit" className="w-full mt-6" isLoading={isLoading} variant={isBusiness ? 'secondary' : 'primary'}>
+          {isBusiness ? 'Continuar Cadastro' : 'Criar Conta'}
         </Button>
       </form>
 

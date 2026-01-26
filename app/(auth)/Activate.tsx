@@ -1,23 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { userService } from '../../services/userService';
+import { companyService } from '../../services/companyService';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Loader2 } from 'lucide-react';
 
 export const Activate: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   
   const [email, setEmail] = useState('');
   const [token, setToken] = useState('');
 
+  // Data passed from Register screen
+  const { password, isBusinessRegistration, companyData } = location.state || {};
+
   useEffect(() => {
-    // Try to get email from navigation state if available
     if (location.state?.email) {
       setEmail(location.state.email);
     }
@@ -27,37 +30,54 @@ export const Activate: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setStatusMessage(null);
 
     try {
+      // 1. Activate User
+      setStatusMessage("Ativando conta de usuário...");
       await userService.activate({ email, token });
-      setSuccess(true);
-      setTimeout(() => {
-        navigate('/login');
-      }, 3000);
+
+      // If it's a normal user, we are done
+      if (!isBusinessRegistration) {
+         setStatusMessage("Conta ativada! Redirecionando...");
+         setTimeout(() => navigate('/login'), 2000);
+         return;
+      }
+
+      // === Business Registration Flow ===
+      if (isBusinessRegistration && password && companyData) {
+         
+         // 2. Login as Client to get Token
+         setStatusMessage("Autenticando usuário...");
+         const authResponse = await userService.login(email, password);
+         const clientToken = authResponse.token;
+
+         // 3. Create Company
+         setStatusMessage("Registrando empresa...");
+         const companyResponse = await companyService.create(clientToken, companyData);
+         const companyId = companyResponse.idEmpresa;
+
+         // 4. Connect User to Company as Admin
+         setStatusMessage("Vinculando permissões administrativas...");
+         await userService.connectAdmin(clientToken, companyId);
+
+         // 5. Login as Admin
+         setStatusMessage("Acessando painel administrativo...");
+         await companyService.login(email, password);
+
+         // 6. Redirect to Dashboard
+         setStatusMessage("Tudo pronto!");
+         navigate('/business/dashboard');
+      }
+
     } catch (err: any) {
-      setError(err.message || 'Token inválido ou expirado.');
+      console.error(err);
+      setError(err.message || 'Token inválido ou erro durante a configuração da conta.');
+      setStatusMessage(null);
     } finally {
       setIsLoading(false);
     }
   };
-
-  if (success) {
-    return (
-      <AuthLayout title="Conta Ativada!">
-        <div className="flex flex-col items-center justify-center py-6 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-            <CheckCircle2 className="w-8 h-8 text-green-600" />
-          </div>
-          <p className="text-gray-600 mb-6">
-            Sua conta foi ativada com sucesso. Você será redirecionado para o login em instantes.
-          </p>
-          <Button onClick={() => navigate('/login')} className="w-full">
-            Ir para Login agora
-          </Button>
-        </div>
-      </AuthLayout>
-    );
-  }
 
   return (
     <AuthLayout 
@@ -72,6 +92,7 @@ export const Activate: React.FC = () => {
           onChange={(e) => setEmail(e.target.value)}
           required
           placeholder="seu@email.com"
+          disabled={!!location.state?.email}
         />
 
         <Input
@@ -83,6 +104,13 @@ export const Activate: React.FC = () => {
           placeholder="Ex: 123456"
         />
 
+        {statusMessage && (
+            <div className="flex items-center justify-center p-3 bg-blue-50 text-blue-700 text-sm rounded-lg">
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                {statusMessage}
+            </div>
+        )}
+
         {error && (
           <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100">
             {error}
@@ -90,7 +118,7 @@ export const Activate: React.FC = () => {
         )}
 
         <Button type="submit" className="w-full" isLoading={isLoading}>
-          Ativar Conta
+          {isBusinessRegistration ? 'Ativar e Configurar Empresa' : 'Ativar Conta'}
         </Button>
       </form>
 

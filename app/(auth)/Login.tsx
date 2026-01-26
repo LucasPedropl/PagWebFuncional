@@ -24,12 +24,12 @@ export const Login: React.FC = () => {
     if (isBusiness) {
       setFormData({
         email: 'Ultra@pagweb.com',
-        password: 'Ultra123'
+        password: '123' // Removed specific password to be safer, user can type
       });
     } else {
       setFormData({
         email: 'Teste@teste',
-        password: 'Teste123'
+        password: '123'
       });
     }
   }, [isBusiness]);
@@ -48,9 +48,11 @@ export const Login: React.FC = () => {
 
     try {
       if (isBusiness) {
+        // Uses login-admin logic
         await companyService.login(formData.email, formData.password);
         navigate('/business/dashboard');
       } else {
+        // Uses login-cliente logic
         await userService.login(formData.email, formData.password);
         navigate('/dashboard');
       }

@@ -7,6 +7,8 @@ import { Dashboard as UserDashboard } from './app/(user)/Dashboard';
 import { BusinessDashboard } from './app/(business)/Dashboard';
 import { Clientes } from './app/(business)/Clientes';
 import { Planos } from './app/(business)/Planos';
+import { Assinaturas } from './app/(business)/Assinaturas';
+import { Pagamentos } from './app/(business)/Pagamentos';
 import { Welcome } from './app/Welcome';
 import { sessionService } from './services/session';
 
@@ -57,6 +59,22 @@ const App: React.FC = () => {
           element={
             <PrivateRoute>
               <Planos />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/business/assinaturas" 
+          element={
+            <PrivateRoute>
+              <Assinaturas />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/business/pagamentos" 
+          element={
+            <PrivateRoute>
+              <Pagamentos />
             </PrivateRoute>
           } 
         />

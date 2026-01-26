@@ -65,5 +65,21 @@ export const userService = {
 
     sessionService.setSession(data);
     return data;
+  },
+
+  async connectAdmin(token: string, idEmpresa: number): Promise<void> {
+    const response = await fetch(`${BASE_URL}/conecta-admin/${idEmpresa}`, {
+      method: "POST",
+      headers: {
+        "accept": "*/*",
+        "Authorization": `Bearer ${token}`
+      },
+      body: "" // Empty body as per CURL
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || "Falha ao conectar administrador à empresa");
+    }
   }
 };
