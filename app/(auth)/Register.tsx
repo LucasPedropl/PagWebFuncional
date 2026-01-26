@@ -45,8 +45,7 @@ export const Register: React.FC = () => {
           cnpj: formData.cpf, // Mapping 'cpf' input to 'cnpj' payload
           email: formData.email,
           password: formData.password,
-          telefone: formData.telefone,
-          idAdmin: 0
+          telefone: formData.telefone
         });
         // Business has no activation token flow currently, redirect to login
         navigate(`/login?type=business`);

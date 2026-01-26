@@ -39,7 +39,6 @@ export const authService = {
     const payload: LoginPayload = {
       email,
       password,
-      adminLogin: false,
     };
 
     const response = await fetch(`${BASE_URL}/login`, {

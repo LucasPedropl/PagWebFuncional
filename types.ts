@@ -24,7 +24,6 @@ export interface CompanyRegisterPayload {
   email: string;
   password: string;
   telefone: string;
-  idAdmin: number;
 }
 
 export interface ActivatePayload {
@@ -35,7 +34,6 @@ export interface ActivatePayload {
 export interface LoginPayload {
   email: string;
   password: string;
-  adminLogin: boolean;
 }
 
 export interface CompanyLoginPayload {

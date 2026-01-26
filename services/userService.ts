@@ -40,10 +40,9 @@ export const userService = {
     const payload: LoginPayload = {
       email,
       password,
-      adminLogin: false,
     };
 
-    const response = await fetch(`${BASE_URL}/login`, {
+    const response = await fetch(`${BASE_URL}/login-cliente`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -58,6 +57,12 @@ export const userService = {
     }
 
     const data = await response.json();
+    
+    // API response user object might not contain 'tipo', inject it for frontend logic
+    if (data.user && !data.user.tipo) {
+      data.user.tipo = 'Cliente';
+    }
+
     sessionService.setSession(data);
     return data;
   }

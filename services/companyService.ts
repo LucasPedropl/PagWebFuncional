@@ -1,11 +1,12 @@
 import { AuthResponse, CompanyLoginPayload, CompanyRegisterPayload } from "../types";
 import { sessionService } from "./session";
 
-const BASE_URL = "https://lojas.vlks.com.br/api/v1/Empresa";
+const COMPANY_URL = "https://lojas.vlks.com.br/api/v1/Empresa";
+const USER_URL = "https://lojas.vlks.com.br/api/v1/User";
 
 export const companyService = {
   async register(data: CompanyRegisterPayload): Promise<void> {
-    const response = await fetch(BASE_URL, {
+    const response = await fetch(COMPANY_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -26,7 +27,7 @@ export const companyService = {
       password,
     };
 
-    const response = await fetch(`${BASE_URL}/login`, {
+    const response = await fetch(`${USER_URL}/login-admin`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -41,6 +42,12 @@ export const companyService = {
     }
 
     const data = await response.json();
+    
+    // Inject 'tipo' since the API response user object might not contain it
+    if (data.user && !data.user.tipo) {
+      data.user.tipo = 'Empresa';
+    }
+
     sessionService.setSession(data);
     return data;
   }
