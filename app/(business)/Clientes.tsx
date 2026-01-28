@@ -3,26 +3,35 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Filter, Loader2, Send, CheckCircle2, Mail, Unplug, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Filter, Loader2, Send, CheckCircle2, Mail, Unplug, AlertTriangle, User as UserIcon, Calendar, CreditCard } from 'lucide-react';
 import { businessService } from '../../services/businessService';
-import { User } from '../../types';
+import { User, SubscriptionResponse } from '../../types';
 import { useToast } from '../../context/ToastContext';
 
 export const Clientes: React.FC = () => {
   const { addToast } = useToast();
+  
+  // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+
+  // Data States
   const [searchTerm, setSearchTerm] = useState('');
   const [clientes, setClientes] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
+  // Selected Data
+  const [selectedClient, setSelectedClient] = useState<User | null>(null);
+  const [clientSubscriptions, setClientSubscriptions] = useState<SubscriptionResponse[]>([]);
+  const [clientToDelete, setClientToDelete] = useState<{id: number, nome: string} | null>(null);
 
   // Form State
   const [emailToConnect, setEmailToConnect] = useState('');
   const [successEmail, setSuccessEmail] = useState<string | null>(null);
   
-  // State para exclusão
-  const [clientToDelete, setClientToDelete] = useState<{id: number, nome: string} | null>(null);
 
   useEffect(() => {
     fetchClients();
@@ -59,10 +68,7 @@ export const Clientes: React.FC = () => {
       setSuccessEmail(emailToConnect);
       addToast('success', 'Convite Enviado', `Solicitação enviada para ${emailToConnect}`);
     } catch (error: any) {
-      // Se der erro, checamos se é string ou objeto error
       const msg = error.message || "Erro desconhecido";
-      // Se não for sucesso explicito (mas a API é void), assumimos sucesso no front pra UX
-      // (Mantendo lógica original, mas agora o service joga erro limpo)
       if (msg.includes("sucesso") || msg.includes("convidado")) {
            setSuccessEmail(emailToConnect);
            addToast('success', 'Convite Enviado', `Solicitação enviada para ${emailToConnect}`);
@@ -74,7 +80,8 @@ export const Clientes: React.FC = () => {
     }
   };
 
-  const openDeleteModal = (id: number, nome: string) => {
+  const openDeleteModal = (id: number, nome: string, e: React.MouseEvent) => {
+      e.stopPropagation(); // Previne abrir o modal de detalhes
       setClientToDelete({ id, nome });
       setIsDeleteModalOpen(true);
   };
@@ -89,6 +96,7 @@ export const Clientes: React.FC = () => {
         await fetchClients();
         setIsDeleteModalOpen(false);
         setClientToDelete(null);
+        setIsDetailsModalOpen(false); // Fecha detalhes se estiver aberto
     } catch (error: any) {
         addToast('error', 'Erro ao desvincular', error.message || "Erro desconhecido.");
     } finally {
@@ -96,8 +104,39 @@ export const Clientes: React.FC = () => {
     }
   };
 
+  const handleClientClick = async (client: User) => {
+      setSelectedClient(client);
+      setIsDetailsModalOpen(true);
+      setClientSubscriptions([]);
+      setIsLoadingDetails(true);
+
+      // Gambiarra: Fetch all subs and filter
+      if (client.idUser) {
+          try {
+              const allSubs = await businessService.listSubscriptions();
+              
+              const userSubs = allSubs.filter(s => {
+                  // Verifica diversas possibilidades de nome de propriedade para o ID
+                  const subUserId = s.idUser || s.user?.idUser || (s as any).userId || (s as any).UserId;
+                  // Compara como string para evitar problemas de tipo (number vs string)
+                  return String(subUserId) === String(client.idUser);
+              });
+              
+              setClientSubscriptions(userSubs);
+          } catch (error) {
+              console.error(error);
+              addToast('error', 'Erro', 'Falha ao carregar assinaturas do cliente.');
+          }
+      }
+      setIsLoadingDetails(false);
+  };
+
+  const formatDateBR = (isoString: string) => {
+    if (!isoString) return '-';
+    try { return new Date(isoString).toLocaleDateString('pt-BR'); } catch { return isoString; }
+  };
+
   const safeClientes = Array.isArray(clientes) ? clientes : [];
-  
   const filteredClients = safeClientes.filter(c => 
     (c.nome && c.nome.toLowerCase().includes(searchTerm.toLowerCase())) || 
     (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -165,8 +204,12 @@ export const Clientes: React.FC = () => {
                  </tr>
               ) : (
                 filteredClients.map((client) => (
-                  <tr key={client.idUser} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                  <tr 
+                    key={client.idUser} 
+                    className="hover:bg-gray-50 transition-colors cursor-pointer group"
+                    onClick={() => handleClientClick(client)}
+                  >
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900 group-hover:text-slate-900">
                         {client.nome} {client.sobreNome || ''}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 font-mono">
@@ -181,7 +224,7 @@ export const Clientes: React.FC = () => {
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button 
-                            onClick={() => client.idUser && openDeleteModal(client.idUser, client.nome)}
+                            onClick={(e) => client.idUser && openDeleteModal(client.idUser, client.nome, e)}
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                             title="Desvincular Cliente"
                         >
@@ -196,6 +239,97 @@ export const Clientes: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Modal Detalhes do Cliente */}
+      <Modal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        title="Detalhes do Cliente"
+        size="lg"
+        footer={
+           <div className="flex justify-between w-full">
+               <Button 
+                    variant="outline" 
+                    className="text-red-600 hover:bg-red-50 hover:border-red-200 border-gray-200"
+                    onClick={(e) => selectedClient?.idUser && openDeleteModal(selectedClient.idUser, selectedClient.nome, e)}
+                 >
+                    <Unplug className="w-4 h-4 mr-2" />
+                    Desvincular
+                 </Button>
+               <Button variant="outline" onClick={() => setIsDetailsModalOpen(false)}>Fechar</Button>
+           </div>
+        }
+      >
+        <div className="space-y-6">
+            {/* Header com Dados */}
+            <div className="flex flex-col md:flex-row gap-6 items-start border-b border-gray-100 pb-6">
+                 <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <UserIcon className="w-8 h-8 text-slate-500" />
+                 </div>
+                 <div className="flex-1 space-y-3">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-900">{selectedClient?.nome} {selectedClient?.sobreNome}</h2>
+                        <p className="text-gray-500 flex items-center gap-2">
+                            <Mail className="w-4 h-4" /> {selectedClient?.email}
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span className="text-gray-500 block">CPF</span>
+                            <span className="font-medium text-gray-900">{selectedClient?.cpf || '-'}</span>
+                        </div>
+                        <div>
+                            <span className="text-gray-500 block">ID do Usuário</span>
+                            <span className="font-medium text-gray-900">#{selectedClient?.idUser}</span>
+                        </div>
+                    </div>
+                 </div>
+            </div>
+
+            {/* Lista de Assinaturas */}
+            <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <CreditCard className="w-5 h-5" /> Assinaturas Ativas
+                </h3>
+                
+                {isLoadingDetails ? (
+                    <div className="flex justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
+                    </div>
+                ) : clientSubscriptions.length === 0 ? (
+                    <div className="bg-gray-50 rounded-lg p-6 text-center text-gray-500">
+                        Este cliente não possui assinaturas ativas com sua empresa.
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {clientSubscriptions.map((sub) => (
+                            <div key={sub.idAssinatura} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm flex flex-col sm:flex-row justify-between gap-4">
+                                <div>
+                                    <h4 className="font-bold text-gray-900">{sub.nomePlano || "Plano Personalizado"}</h4>
+                                    <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
+                                        <span className="flex items-center">
+                                            <Calendar className="w-3.5 h-3.5 mr-1" />
+                                            {formatDateBR(sub.dataInicial)} - {formatDateBR(sub.dataFinal)}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-end justify-center">
+                                    <span className="text-lg font-bold text-slate-900">
+                                        R$ {sub.valorComDesconto ? sub.valorComDesconto.toFixed(2).replace('.', ',') : '0,00'}
+                                    </span>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                        sub.status === 'Ativo' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                                    }`}>
+                                        {sub.status}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+      </Modal>
 
       {/* Modal Conectar */}
       <Modal

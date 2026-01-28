@@ -3,24 +3,25 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Check, Edit2, Trash2, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Plus, Check, Edit2, Trash2, Loader2, AlertTriangle, ExternalLink, Box } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { PlanResponse } from '../../types';
 import { useToast } from '../../context/ToastContext';
 
 export const Planos: React.FC = () => {
   const { addToast } = useToast();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Modals State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   
   const [plans, setPlans] = useState<PlanResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Edit State
-  const [editingPlanId, setEditingPlanId] = useState<number | null>(null);
-
-  // Delete State
+  // Selected Plan State
+  const [selectedPlan, setSelectedPlan] = useState<PlanResponse | null>(null);
   const [planToDelete, setPlanToDelete] = useState<{id: number, nome: string} | null>(null);
 
   // Form State
@@ -38,7 +39,6 @@ export const Planos: React.FC = () => {
     try {
       setIsLoading(true);
       const data = await businessService.listPlans();
-      // Garante que é um array, mesmo que API retorne null/undefined
       setPlans(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao carregar planos:", error);
@@ -54,16 +54,26 @@ export const Planos: React.FC = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // --- ACTIONS ---
+
   const openNewPlanModal = () => {
-      setEditingPlanId(null);
+      setSelectedPlan(null);
       setFormData({ nome: '', valorMensalidade: '', funcionalidades: '' });
-      setIsModalOpen(true);
+      setIsEditModalOpen(true);
+  };
+
+  const openViewModal = (plan: PlanResponse) => {
+      setSelectedPlan(plan);
+      setIsViewModalOpen(true);
   };
 
   const openEditModal = (plan: PlanResponse, e?: React.MouseEvent) => {
       if(e) e.stopPropagation();
-      setEditingPlanId(plan.idPlano);
-      // Proteção contra funcionalidades null/undefined
+      
+      // Fecha modal de visualização se estiver aberto para abrir o de edição
+      if (isViewModalOpen) setIsViewModalOpen(false);
+
+      setSelectedPlan(plan);
       const funcs = Array.isArray(plan.funcionalidades) ? plan.funcionalidades.join('\n') : '';
       
       setFormData({
@@ -71,11 +81,11 @@ export const Planos: React.FC = () => {
           valorMensalidade: plan.valorMensalidade.toString(),
           funcionalidades: funcs
       });
-      setIsModalOpen(true);
+      setIsEditModalOpen(true);
   };
 
-  const openDeleteModal = (id: number, nome: string, e: React.MouseEvent) => {
-      e.stopPropagation();
+  const openDeleteModal = (id: number, nome: string, e?: React.MouseEvent) => {
+      if(e) e.stopPropagation();
       setPlanToDelete({ id, nome });
       setIsDeleteModalOpen(true);
   };
@@ -89,6 +99,8 @@ export const Planos: React.FC = () => {
           await fetchPlans();
           setIsDeleteModalOpen(false);
           setPlanToDelete(null);
+          // Se estava vendo detalhes, fecha também
+          setIsViewModalOpen(false);
       } catch (error: any) {
           addToast('error', 'Erro ao excluir', error.message || "Tente novamente.");
       } finally {
@@ -110,18 +122,18 @@ export const Planos: React.FC = () => {
         funcionalidades: funcionalidadesArray
       };
 
-      if (editingPlanId) {
-          await businessService.updatePlan(editingPlanId, payload);
+      if (selectedPlan) {
+          await businessService.updatePlan(selectedPlan.idPlano, payload);
           addToast('success', 'Plano Atualizado', 'As alterações foram salvas com sucesso.');
       } else {
           await businessService.createPlan(payload);
           addToast('success', 'Plano Criado', 'Novo plano adicionado ao catálogo.');
       }
 
-      await fetchPlans(); // Recarrega a lista
-      setIsModalOpen(false);
+      await fetchPlans();
+      setIsEditModalOpen(false);
       setFormData({ nome: '', valorMensalidade: '', funcionalidades: '' });
-      setEditingPlanId(null);
+      setSelectedPlan(null);
     } catch (error: any) {
       addToast('error', 'Erro ao salvar', error.message || "Verifique os dados.");
     } finally {
@@ -147,35 +159,36 @@ export const Planos: React.FC = () => {
 
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
-           <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+           <Loader2 className="w-8 h-8 animate-spin text-slate-600" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {plans.map((plan) => {
-             // Lógica para limitar exibição a 3 funcionalidades
              const features = Array.isArray(plan.funcionalidades) ? plan.funcionalidades : [];
-             const visibleFeatures = features.slice(0, 3);
-             const remainingCount = features.length - 3;
+             const visibleFeatures = features.slice(0, 4); // Mostra até 4
+             const remainingCount = features.length - 4;
 
              return (
                 <div 
                     key={plan.idPlano} 
-                    className="relative bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col hover:shadow-md transition-all cursor-pointer group"
-                    onClick={(e) => openEditModal(plan)}
+                    className="relative bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col hover:shadow-md transition-all cursor-pointer group h-[340px]"
+                    onClick={() => openViewModal(plan)}
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <h3 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">{plan.nome}</h3>
+                    <h3 className="font-semibold text-gray-900 group-hover:text-slate-700 transition-colors line-clamp-1" title={plan.nome}>
+                        {plan.nome}
+                    </h3>
                     <div className="flex gap-2">
                       <button 
                         onClick={(e) => openEditModal(plan, e)}
-                        className="text-gray-400 hover:text-indigo-600 transition-colors p-1"
+                        className="text-gray-400 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors p-1"
                         title="Editar Plano"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button 
                         onClick={(e) => openDeleteModal(plan.idPlano, plan.nome, e)}
-                        className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                        className="text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors p-1"
                         title="Excluir Plano"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -191,27 +204,30 @@ export const Planos: React.FC = () => {
                     <span className="text-sm text-gray-400">/mês</span>
                   </div>
 
-                  <ul className="space-y-3 flex-1 mb-6">
-                    {visibleFeatures.map((feature, idx) => (
-                      <li key={idx} className="flex items-start text-sm text-gray-600">
-                        <Check className="w-4 h-4 text-green-500 mr-2 mt-0.5 shrink-0" />
-                        <span className="line-clamp-1">{feature}</span>
-                      </li>
-                    ))}
-                    {remainingCount > 0 && (
-                        <li className="flex items-center text-xs font-medium text-indigo-600 pl-6 pt-1">
-                           + {remainingCount} funcionalidades...
+                  {/* Area de Funcionalidades com altura controlada e overflow hidden visualmente */}
+                  <div className="flex-1 overflow-hidden">
+                    <ul className="space-y-3">
+                        {visibleFeatures.map((feature, idx) => (
+                        <li key={idx} className="flex items-start text-sm text-gray-600">
+                            <Check className="w-4 h-4 text-slate-900 mr-2 mt-0.5 shrink-0" />
+                            <span className="line-clamp-1">{feature}</span>
                         </li>
-                    )}
-                    {visibleFeatures.length === 0 && (
-                        <li className="text-sm text-gray-400 italic pl-6">Sem funcionalidades listadas</li>
-                    )}
-                  </ul>
+                        ))}
+                        {remainingCount > 0 && (
+                            <li className="flex items-center text-xs font-semibold text-slate-900 pl-6 pt-1">
+                            + {remainingCount} funcionalidades...
+                            </li>
+                        )}
+                        {visibleFeatures.length === 0 && (
+                            <li className="text-sm text-gray-400 italic pl-6">Sem funcionalidades listadas</li>
+                        )}
+                    </ul>
+                  </div>
 
                   <Button 
                     variant="outline" 
-                    className="w-full mt-auto group-hover:border-indigo-200 group-hover:text-indigo-700 transition-colors"
-                    onClick={(e) => openEditModal(plan, e)}
+                    className="w-full mt-4 border-gray-200 text-gray-600 group-hover:border-slate-900 group-hover:text-slate-900 transition-colors"
+                    onClick={(e) => { e.stopPropagation(); openViewModal(plan); }}
                   >
                     Ver Detalhes <ExternalLink className="w-3 h-3 ml-2" />
                   </Button>
@@ -222,9 +238,9 @@ export const Planos: React.FC = () => {
           {/* Add New Placeholder Card */}
           <button 
             onClick={openNewPlanModal}
-            className="border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center gap-4 text-gray-400 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all min-h-[300px]"
+            className="border-2 border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center gap-4 text-gray-400 hover:text-slate-900 hover:border-slate-900 hover:bg-slate-50 transition-all h-[340px] group"
           >
-            <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-gray-50 group-hover:bg-slate-200 transition-colors flex items-center justify-center">
               <Plus className="w-6 h-6" />
             </div>
             <span className="font-medium">Adicionar Novo Plano</span>
@@ -232,16 +248,79 @@ export const Planos: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Criar/Editar/Detalhes */}
+      {/* Modal Visualizar Detalhes (Read-Only) */}
       <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={editingPlanId ? "Detalhes do Plano" : "Novo Plano"}
+        isOpen={isViewModalOpen}
+        onClose={() => setIsViewModalOpen(false)}
+        title="Detalhes do Plano"
+        footer={
+          <div className="flex justify-between w-full">
+            <Button 
+                variant="outline" 
+                className="text-red-600 hover:bg-red-50 hover:border-red-200"
+                onClick={() => selectedPlan && openDeleteModal(selectedPlan.idPlano, selectedPlan.nome)}
+            >
+                <Trash2 className="w-4 h-4 mr-2" /> Excluir
+            </Button>
+            <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>Fechar</Button>
+                <Button 
+                    onClick={() => selectedPlan && openEditModal(selectedPlan)} 
+                    className="bg-slate-900 hover:bg-slate-800"
+                >
+                    <Edit2 className="w-4 h-4 mr-2" /> Editar
+                </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-6">
+             <div className="flex items-center justify-between bg-slate-50 p-4 rounded-lg">
+                <div>
+                    <p className="text-sm text-gray-500">Nome do Plano</p>
+                    <h2 className="text-xl font-bold text-gray-900">{selectedPlan?.nome}</h2>
+                </div>
+                <div className="text-right">
+                    <p className="text-sm text-gray-500">Valor Mensal</p>
+                    <p className="text-2xl font-bold text-slate-900">
+                        R$ {selectedPlan?.valorMensalidade.toFixed(2).replace('.', ',')}
+                    </p>
+                </div>
+             </div>
+
+             <div>
+                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                    <Box className="w-4 h-4 mr-2" /> 
+                    Funcionalidades Inclusas
+                </h4>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 max-h-60 overflow-y-auto">
+                    {selectedPlan?.funcionalidades && selectedPlan.funcionalidades.length > 0 ? (
+                        <ul className="space-y-3">
+                            {selectedPlan.funcionalidades.map((f, i) => (
+                                <li key={i} className="flex items-start text-sm text-gray-700">
+                                    <Check className="w-4 h-4 text-green-600 mr-3 mt-0.5 shrink-0" />
+                                    {f}
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-sm text-gray-400 italic">Nenhuma funcionalidade cadastrada.</p>
+                    )}
+                </div>
+             </div>
+        </div>
+      </Modal>
+
+      {/* Modal Criar/Editar (Form) */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title={selectedPlan ? "Editar Plano" : "Novo Plano"}
         footer={
           <>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)} disabled={isSaving}>Cancelar</Button>
             <Button onClick={handleSave} isLoading={isSaving} className="bg-slate-900 hover:bg-slate-800">
-                {editingPlanId ? "Salvar Alterações" : "Criar Plano"}
+                {selectedPlan ? "Salvar Alterações" : "Criar Plano"}
             </Button>
           </>
         }
@@ -279,7 +358,7 @@ export const Planos: React.FC = () => {
               onChange={handleInputChange}
               rows={6}
               placeholder={`Suporte 24h\nAcesso ilimitado\n...`}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all bg-white text-gray-900 placeholder-gray-400 resize-none"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all bg-white text-gray-900 placeholder-gray-400 resize-none"
             />
           </div>
         </div>

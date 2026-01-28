@@ -4,22 +4,40 @@ import { parseApiError } from "../utils/formatters";
 
 const BASE_URL = "https://lojas.vlks.com.br/api/v1";
 
-const getHeaders = () => {
+// Helper privado para requisições autenticadas com verificação de 401
+// Funciona como o identificador de sessão válida
+const authRequest = async (endpoint: string, options: RequestInit = {}) => {
   const { token } = sessionService.getSession();
-  return {
-    "Content-Type": "application/json",
-    "accept": "*/*",
-    "Authorization": `Bearer ${token}`
-  };
+  
+  if (!token) {
+    sessionService.logout();
+    throw new Error("Sessão inválida. Faça login novamente.");
+  }
+
+  const response = await fetch(`${BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "accept": "*/*",
+      "Authorization": `Bearer ${token}`,
+      ...options.headers
+    }
+  });
+
+  // Identificador de sessão expirada ou inválida
+  if (response.status === 401) {
+    sessionService.logout(); // Redireciona para /login
+    throw new Error("Sessão expirada. Por favor, faça login novamente.");
+  }
+
+  return response;
 };
 
 export const businessService = {
   // === PLANOS ===
   async listPlans(): Promise<PlanResponse[]> {
-    const response = await fetch(`${BASE_URL}/Plano/empresa`, {
-      method: 'GET',
-      headers: getHeaders()
-    });
+    const response = await authRequest('/Plano/empresa', { method: 'GET' });
+    
     if (!response.ok) {
         const text = await parseApiError(response);
         throw new Error(text || "Erro ao listar planos");
@@ -28,11 +46,11 @@ export const businessService = {
   },
 
   async createPlan(data: PlanPayload): Promise<PlanResponse> {
-    const response = await fetch(`${BASE_URL}/Plano`, {
+    const response = await authRequest('/Plano', {
       method: 'POST',
-      headers: getHeaders(),
       body: JSON.stringify(data)
     });
+
     if (!response.ok) {
         const text = await parseApiError(response);
         throw new Error(text || "Erro ao criar plano");
@@ -41,11 +59,11 @@ export const businessService = {
   },
 
   async updatePlan(id: number, data: PlanPayload): Promise<void> {
-    const response = await fetch(`${BASE_URL}/Plano/${id}`, {
+    const response = await authRequest(`/Plano/${id}`, {
       method: 'PATCH',
-      headers: getHeaders(),
       body: JSON.stringify(data)
     });
+
     if (!response.ok) {
         const text = await parseApiError(response);
         throw new Error(text || "Erro ao atualizar plano");
@@ -53,10 +71,10 @@ export const businessService = {
   },
 
   async deletePlan(id: number): Promise<void> {
-    const response = await fetch(`${BASE_URL}/Plano/${id}`, {
-      method: 'DELETE',
-      headers: getHeaders()
+    const response = await authRequest(`/Plano/${id}`, {
+      method: 'DELETE'
     });
+
     if (!response.ok) {
         const text = await parseApiError(response);
         throw new Error(text || "Erro ao excluir plano");
@@ -66,23 +84,21 @@ export const businessService = {
   // === CLIENTES ===
   async listClients(): Promise<User[]> {
     try {
-      const response = await fetch(`${BASE_URL}/User/admin/clientes`, {
-         method: 'GET',
-         headers: getHeaders()
+      const response = await authRequest('/User/admin/clientes', {
+         method: 'GET'
       });
       if (!response.ok) return []; 
       return await response.json();
     } catch (e) {
+      // Se for erro de auth, já foi tratado pelo authRequest. 
+      // Se for outro erro, retorna vazio para não quebrar a UI
       return [];
     }
   },
 
   async connectClient(email: string): Promise<void> {
-    // Rota correta conforme CURL: POST /User/admin/conecta-cliente
-    // Body deve ser apenas a string do email (JSON string), não um objeto { email: ... }
-    const response = await fetch(`${BASE_URL}/User/admin/conecta-cliente`, { 
+    const response = await authRequest('/User/admin/conecta-cliente', { 
       method: 'POST',
-      headers: getHeaders(),
       body: JSON.stringify(email)
     });
     
@@ -93,10 +109,10 @@ export const businessService = {
   },
 
   async disconnectClient(id: number): Promise<void> {
-    const response = await fetch(`${BASE_URL}/User/admin/desconecta-cliente/${id}`, {
-      method: 'DELETE',
-      headers: getHeaders()
+    const response = await authRequest(`/User/admin/desconecta-cliente/${id}`, {
+      method: 'DELETE'
     });
+
     if (!response.ok) {
         const text = await parseApiError(response);
         throw new Error(text || "Erro ao desconectar cliente");
@@ -105,20 +121,19 @@ export const businessService = {
 
   // === ASSINATURAS ===
   async listSubscriptions(): Promise<SubscriptionResponse[]> {
-     const response = await fetch(`${BASE_URL}/Assinatura/empresa`, {
-      method: 'GET',
-      headers: getHeaders()
+     const response = await authRequest('/Assinatura/empresa', {
+      method: 'GET'
     });
     if (!response.ok) return [];
     return await response.json();
   },
 
   async createSubscription(data: SubscriptionPayload): Promise<void> {
-    const response = await fetch(`${BASE_URL}/Assinatura`, {
+    const response = await authRequest('/Assinatura', {
       method: 'POST',
-      headers: getHeaders(),
       body: JSON.stringify(data)
     });
+
     if (!response.ok) {
         const text = await parseApiError(response);
         throw new Error(text || "Erro ao criar assinatura");
@@ -126,11 +141,11 @@ export const businessService = {
   },
 
   async updateSubscription(id: number, status: string): Promise<void> {
-    const response = await fetch(`${BASE_URL}/Assinatura/${id}`, {
+    const response = await authRequest(`/Assinatura/${id}`, {
       method: 'PATCH',
-      headers: getHeaders(),
       body: JSON.stringify(status) 
     });
+
     if (!response.ok) {
         const text = await parseApiError(response);
         throw new Error(text || "Erro ao atualizar assinatura");
@@ -138,10 +153,10 @@ export const businessService = {
   },
 
   async deleteSubscription(id: number): Promise<void> {
-    const response = await fetch(`${BASE_URL}/Assinatura/${id}`, {
-      method: 'DELETE',
-      headers: getHeaders()
+    const response = await authRequest(`/Assinatura/${id}`, {
+      method: 'DELETE'
     });
+
     if (!response.ok) {
         const text = await parseApiError(response);
         throw new Error(text || "Erro ao excluir assinatura");
