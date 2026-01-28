@@ -1,11 +1,11 @@
-import { PlanPayload, PlanResponse, User, SubscriptionPayload, SubscriptionResponse } from "../types";
+
+import { PlanPayload, PlanResponse, User, SubscriptionPayload, SubscriptionResponse, Mensalidade } from "../types";
 import { sessionService } from "./session";
 import { parseApiError } from "../utils/formatters";
 
 const BASE_URL = "https://lojas.vlks.com.br/api/v1";
 
 // Helper privado para requisições autenticadas com verificação de 401
-// Funciona como o identificador de sessão válida
 const authRequest = async (endpoint: string, options: RequestInit = {}) => {
   const { token } = sessionService.getSession();
   
@@ -26,7 +26,7 @@ const authRequest = async (endpoint: string, options: RequestInit = {}) => {
 
   // Identificador de sessão expirada ou inválida
   if (response.status === 401) {
-    sessionService.logout(); // Redireciona para /login
+    sessionService.logout();
     throw new Error("Sessão expirada. Por favor, faça login novamente.");
   }
 
@@ -90,8 +90,6 @@ export const businessService = {
       if (!response.ok) return []; 
       return await response.json();
     } catch (e) {
-      // Se for erro de auth, já foi tratado pelo authRequest. 
-      // Se for outro erro, retorna vazio para não quebrar a UI
       return [];
     }
   },
@@ -161,5 +159,15 @@ export const businessService = {
         const text = await parseApiError(response);
         throw new Error(text || "Erro ao excluir assinatura");
     }
+  },
+
+  // === MENSALIDADES / COBRANÇAS ===
+  async listMensalidades(): Promise<Mensalidade[]> {
+    const response = await authRequest('/Mensalidade/empresa', {
+      method: 'GET'
+    });
+    
+    if (!response.ok) return [];
+    return await response.json();
   }
 };

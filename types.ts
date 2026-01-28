@@ -1,3 +1,4 @@
+
 export interface User {
   idUser?: number;
   nome: string;
@@ -93,6 +94,16 @@ export interface SubscriptionResponse {
   observacao?: string;
   desconto?: number;
   user?: User;
+}
+
+export interface Mensalidade {
+  idMensalidade: number;
+  nomeCliente: string;
+  emailCliente: string;
+  vencimento: string; // Formato DD/MM/YYYY
+  metodo: string;
+  valor: number;
+  status: string;
 }
 
 export interface ApiError {
