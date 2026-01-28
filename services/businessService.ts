@@ -1,5 +1,6 @@
 import { PlanPayload, PlanResponse, User, SubscriptionPayload, SubscriptionResponse } from "../types";
 import { sessionService } from "./session";
+import { parseApiError } from "../utils/formatters";
 
 const BASE_URL = "https://lojas.vlks.com.br/api/v1";
 
@@ -15,11 +16,14 @@ const getHeaders = () => {
 export const businessService = {
   // === PLANOS ===
   async listPlans(): Promise<PlanResponse[]> {
-    const response = await fetch(`${BASE_URL}/Plano`, {
+    const response = await fetch(`${BASE_URL}/Plano/empresa`, {
       method: 'GET',
       headers: getHeaders()
     });
-    if (!response.ok) throw new Error("Erro ao listar planos");
+    if (!response.ok) {
+        const text = await parseApiError(response);
+        throw new Error(text || "Erro ao listar planos");
+    }
     return await response.json();
   },
 
@@ -29,7 +33,10 @@ export const businessService = {
       headers: getHeaders(),
       body: JSON.stringify(data)
     });
-    if (!response.ok) throw new Error("Erro ao criar plano");
+    if (!response.ok) {
+        const text = await parseApiError(response);
+        throw new Error(text || "Erro ao criar plano");
+    }
     return await response.json();
   },
 
@@ -39,7 +46,10 @@ export const businessService = {
       headers: getHeaders(),
       body: JSON.stringify(data)
     });
-    if (!response.ok) throw new Error("Erro ao atualizar plano");
+    if (!response.ok) {
+        const text = await parseApiError(response);
+        throw new Error(text || "Erro ao atualizar plano");
+    }
   },
 
   async deletePlan(id: number): Promise<void> {
@@ -47,19 +57,19 @@ export const businessService = {
       method: 'DELETE',
       headers: getHeaders()
     });
-    if (!response.ok) throw new Error("Erro ao excluir plano");
+    if (!response.ok) {
+        const text = await parseApiError(response);
+        throw new Error(text || "Erro ao excluir plano");
+    }
   },
 
   // === CLIENTES ===
   async listClients(): Promise<User[]> {
-    // Endpoint hipotético baseado no contexto, pois não foi fornecido na documentação parcial
-    // Assumindo GET /Cliente retorna lista de usuários vinculados
     try {
-      const response = await fetch(`${BASE_URL}/Cliente`, {
+      const response = await fetch(`${BASE_URL}/User/admin/clientes`, {
          method: 'GET',
          headers: getHeaders()
       });
-      // Fallback para array vazio se endpoint não existir ou der 404
       if (!response.ok) return []; 
       return await response.json();
     } catch (e) {
@@ -68,25 +78,32 @@ export const businessService = {
   },
 
   async connectClient(email: string): Promise<void> {
-     // Endpoint hipotético de convite
-     // Assumindo POST /Cliente/convidar ou similar para vincular por email
      const response = await fetch(`${BASE_URL}/Cliente/convidar`, { 
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ email })
     });
     
-    // Se a API retornar erro, lançamos para o front tratar
     if (!response.ok) {
-        // Ignoramos erro de parsing se não for JSON
-        const text = await response.text().catch(() => "Erro ao conectar");
+        const text = await parseApiError(response);
         throw new Error(text || "Erro ao conectar cliente");
+    }
+  },
+
+  async disconnectClient(id: number): Promise<void> {
+    const response = await fetch(`${BASE_URL}/User/admin/desconecta-cliente/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    if (!response.ok) {
+        const text = await parseApiError(response);
+        throw new Error(text || "Erro ao desconectar cliente");
     }
   },
 
   // === ASSINATURAS ===
   async listSubscriptions(): Promise<SubscriptionResponse[]> {
-     const response = await fetch(`${BASE_URL}/Assinatura`, {
+     const response = await fetch(`${BASE_URL}/Assinatura/empresa`, {
       method: 'GET',
       headers: getHeaders()
     });
@@ -100,6 +117,32 @@ export const businessService = {
       headers: getHeaders(),
       body: JSON.stringify(data)
     });
-    if (!response.ok) throw new Error("Erro ao criar assinatura");
+    if (!response.ok) {
+        const text = await parseApiError(response);
+        throw new Error(text || "Erro ao criar assinatura");
+    }
+  },
+
+  async updateSubscription(id: number, status: string): Promise<void> {
+    const response = await fetch(`${BASE_URL}/Assinatura/${id}`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify(status) 
+    });
+    if (!response.ok) {
+        const text = await parseApiError(response);
+        throw new Error(text || "Erro ao atualizar assinatura");
+    }
+  },
+
+  async deleteSubscription(id: number): Promise<void> {
+    const response = await fetch(`${BASE_URL}/Assinatura/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    if (!response.ok) {
+        const text = await parseApiError(response);
+        throw new Error(text || "Erro ao excluir assinatura");
+    }
   }
 };

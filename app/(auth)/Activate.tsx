@@ -123,7 +123,7 @@ export const Activate: React.FC = () => {
       </form>
 
       <div className="mt-6 text-center">
-        <Link to="/login" className="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+        <Link to="/login" className="text-sm font-medium text-slate-600 hover:text-slate-800 underline">
           Voltar para Login
         </Link>
       </div>

@@ -1,5 +1,6 @@
 import { ActivatePayload, AuthResponse, LoginPayload, RegisterPayload } from "../types";
 import { sessionService } from "./session";
+import { parseApiError } from "../utils/formatters";
 
 const BASE_URL = "https://lojas.vlks.com.br/api/v1/User";
 
@@ -15,8 +16,8 @@ export const userService = {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || "Falha ao registrar usuário");
+      const errorMessage = await parseApiError(response);
+      throw new Error(errorMessage || "Falha ao registrar usuário");
     }
   },
 
@@ -31,8 +32,8 @@ export const userService = {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || "Falha ao ativar conta");
+      const errorMessage = await parseApiError(response);
+      throw new Error(errorMessage || "Falha ao ativar conta");
     }
   },
 
@@ -52,8 +53,8 @@ export const userService = {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || "Falha ao realizar login");
+      const errorMessage = await parseApiError(response);
+      throw new Error(errorMessage || "Falha ao realizar login");
     }
 
     const data = await response.json();
@@ -78,8 +79,8 @@ export const userService = {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || "Falha ao conectar administrador à empresa");
+      const errorMessage = await parseApiError(response);
+      throw new Error(errorMessage || "Falha ao conectar administrador à empresa");
     }
   }
 };

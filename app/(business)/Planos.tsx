@@ -3,18 +3,23 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Check, Edit2, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Check, Edit2, Trash2, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { PlanResponse } from '../../types';
 
 export const Planos: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  
   const [plans, setPlans] = useState<PlanResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
   // Edit State
   const [editingPlanId, setEditingPlanId] = useState<number | null>(null);
+
+  // Delete State
+  const [planToDelete, setPlanToDelete] = useState<{id: number, nome: string} | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -52,7 +57,8 @@ export const Planos: React.FC = () => {
       setIsModalOpen(true);
   };
 
-  const openEditModal = (plan: PlanResponse) => {
+  const openEditModal = (plan: PlanResponse, e?: React.MouseEvent) => {
+      if(e) e.stopPropagation();
       setEditingPlanId(plan.idPlano);
       // Proteção contra funcionalidades null/undefined
       const funcs = Array.isArray(plan.funcionalidades) ? plan.funcionalidades.join('\n') : '';
@@ -65,17 +71,24 @@ export const Planos: React.FC = () => {
       setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
-      if (!window.confirm("Tem certeza que deseja excluir este plano? Esta ação não pode ser desfeita.")) {
-          return;
-      }
+  const openDeleteModal = (id: number, nome: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setPlanToDelete({ id, nome });
+      setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+      if (!planToDelete) return;
       try {
-          setIsLoading(true);
-          await businessService.deletePlan(id);
+          setIsSaving(true);
+          await businessService.deletePlan(planToDelete.id);
           await fetchPlans();
-      } catch (error) {
-          alert("Erro ao excluir plano.");
-          setIsLoading(false); 
+          setIsDeleteModalOpen(false);
+          setPlanToDelete(null);
+      } catch (error: any) {
+          alert(error.message || "Erro ao excluir plano. Tente novamente.");
+      } finally {
+          setIsSaving(false); 
       }
   };
 
@@ -103,9 +116,8 @@ export const Planos: React.FC = () => {
       setIsModalOpen(false);
       setFormData({ nome: '', valorMensalidade: '', funcionalidades: '' });
       setEditingPlanId(null);
-    } catch (error) {
-      alert("Erro ao salvar plano. Verifique os dados.");
-      console.error(error);
+    } catch (error: any) {
+      alert(error.message || "Erro ao salvar plano. Verifique os dados.");
     } finally {
       setIsSaving(false);
     }
@@ -133,56 +145,73 @@ export const Planos: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {plans.map((plan) => (
-            <div key={plan.idPlano} className="relative bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col hover:shadow-md transition-shadow">
-              
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="font-semibold text-gray-900">{plan.nome}</h3>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => openEditModal(plan)}
-                    className="text-gray-400 hover:text-indigo-600 transition-colors p-1"
-                    title="Editar Plano"
+          {plans.map((plan) => {
+             // Lógica para limitar exibição a 3 funcionalidades
+             const features = Array.isArray(plan.funcionalidades) ? plan.funcionalidades : [];
+             const visibleFeatures = features.slice(0, 3);
+             const remainingCount = features.length - 3;
+
+             return (
+                <div 
+                    key={plan.idPlano} 
+                    className="relative bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col hover:shadow-md transition-all cursor-pointer group"
+                    onClick={(e) => openEditModal(plan)}
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">{plan.nome}</h3>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={(e) => openEditModal(plan, e)}
+                        className="text-gray-400 hover:text-indigo-600 transition-colors p-1"
+                        title="Editar Plano"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={(e) => openDeleteModal(plan.idPlano, plan.nome, e)}
+                        className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                        title="Excluir Plano"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <span className="text-sm text-gray-500 font-medium">R$</span>
+                    <span className="text-3xl font-bold text-gray-900 mx-1">
+                      {plan.valorMensalidade.toFixed(2).replace('.', ',')}
+                    </span>
+                    <span className="text-sm text-gray-400">/mês</span>
+                  </div>
+
+                  <ul className="space-y-3 flex-1 mb-6">
+                    {visibleFeatures.map((feature, idx) => (
+                      <li key={idx} className="flex items-start text-sm text-gray-600">
+                        <Check className="w-4 h-4 text-green-500 mr-2 mt-0.5 shrink-0" />
+                        <span className="line-clamp-1">{feature}</span>
+                      </li>
+                    ))}
+                    {remainingCount > 0 && (
+                        <li className="flex items-center text-xs font-medium text-indigo-600 pl-6 pt-1">
+                           + {remainingCount} funcionalidades...
+                        </li>
+                    )}
+                    {visibleFeatures.length === 0 && (
+                        <li className="text-sm text-gray-400 italic pl-6">Sem funcionalidades listadas</li>
+                    )}
+                  </ul>
+
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-auto group-hover:border-indigo-200 group-hover:text-indigo-700 transition-colors"
+                    onClick={(e) => openEditModal(plan, e)}
                   >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(plan.idPlano)}
-                    className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                    title="Excluir Plano"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    Ver Detalhes <ExternalLink className="w-3 h-3 ml-2" />
+                  </Button>
                 </div>
-              </div>
-
-              <div className="mb-6">
-                <span className="text-sm text-gray-500 font-medium">R$</span>
-                <span className="text-3xl font-bold text-gray-900 mx-1">
-                  {plan.valorMensalidade.toFixed(2).replace('.', ',')}
-                </span>
-                <span className="text-sm text-gray-400">/mês</span>
-              </div>
-
-              <ul className="space-y-3 flex-1 mb-6">
-                {/* Proteção: verifica se funcionalidades existe antes de mapear */}
-                {Array.isArray(plan.funcionalidades) && plan.funcionalidades.map((feature, idx) => (
-                  <li key={idx} className="flex items-start text-sm text-gray-600">
-                    <Check className="w-4 h-4 text-green-500 mr-2 mt-0.5 shrink-0" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-
-              <Button 
-                variant="outline" 
-                className="w-full mt-auto"
-                onClick={() => openEditModal(plan)}
-              >
-                Editar Detalhes
-              </Button>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Add New Placeholder Card */}
           <button 
@@ -197,17 +226,17 @@ export const Planos: React.FC = () => {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal Criar/Editar/Detalhes */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingPlanId ? "Editar Plano" : "Novo Plano"}
+        title={editingPlanId ? "Detalhes do Plano" : "Novo Plano"}
         footer={
           <>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancelar</Button>
             <Button onClick={handleSave} isLoading={isSaving} className="bg-slate-900 hover:bg-slate-800">
                 {editingPlanId ? "Salvar Alterações" : "Criar Plano"}
             </Button>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancelar</Button>
           </>
         }
       >
@@ -242,12 +271,43 @@ export const Planos: React.FC = () => {
               name="funcionalidades"
               value={formData.funcionalidades}
               onChange={handleInputChange}
-              rows={4}
+              rows={6}
               placeholder={`Suporte 24h\nAcesso ilimitado\n...`}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all bg-white text-gray-900 placeholder-gray-400 resize-none"
             />
           </div>
         </div>
+      </Modal>
+
+      {/* Modal Confirmar Exclusão */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Excluir Plano"
+        size="md"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)} disabled={isSaving}>Cancelar</Button>
+            <Button 
+                onClick={confirmDelete} 
+                isLoading={isSaving} 
+                className="bg-red-600 hover:bg-red-700 text-white"
+            >
+                Confirmar Exclusão
+            </Button>
+          </>
+        }
+      >
+         <div className="flex flex-col items-center text-center p-4">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Atenção!</h3>
+            <p className="text-sm text-gray-500">
+                Você está prestes a excluir o plano <strong>{planToDelete?.nome}</strong> permanentemente. 
+                Assinaturas ativas neste plano podem ser afetadas.
+            </p>
+         </div>
       </Modal>
     </BusinessLayout>
   );

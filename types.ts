@@ -71,8 +71,8 @@ export interface SubscriptionPayload {
   idUser: number;
   idPlano: number;
   periodo: number; // em meses
-  dataInicio: string; // ISO String
-  dataFim: string; // ISO String
+  dataInicial: string; // ISO String
+  dataFinal: string; // ISO String
   desconto: number;
   observacao: string;
 }

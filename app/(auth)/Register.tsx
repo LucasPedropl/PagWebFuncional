@@ -4,6 +4,7 @@ import { userService } from '../../services/userService';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import { formatCNPJ, formatCPF, formatPhone } from '../../utils/formatters';
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
@@ -29,9 +30,17 @@ export const Register: React.FC = () => {
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    const name = e.target.name;
+
+    // Apply Masks
+    if (name === 'cpf') value = formatCPF(value);
+    if (name === 'companyCnpj') value = formatCNPJ(value);
+    if (name === 'telefone' || name === 'companyTelefone') value = formatPhone(value);
+
     setFormData(prev => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [name]: value
     }));
   };
 
@@ -41,14 +50,21 @@ export const Register: React.FC = () => {
     setError(null);
 
     try {
+      // Clean masks before sending if necessary, but API might accept formatted
+      // Assuming API needs clean data:
+      const cleanCPF = formData.cpf.replace(/\D/g, '');
+      const cleanPhone = formData.telefone.replace(/\D/g, '');
+      const cleanCNPJ = formData.companyCnpj.replace(/\D/g, '');
+      const cleanCompPhone = formData.companyTelefone.replace(/\D/g, '');
+
       // Step 1: Always register the User first
       await userService.register({
         nome: formData.nome,
         sobreNome: isBusiness ? 'Admin' : formData.sobreNome,
-        cpf: formData.cpf,
+        cpf: cleanCPF, // sending clean
         email: formData.email,
         password: formData.password,
-        telefone: formData.telefone
+        telefone: cleanPhone // sending clean
       });
 
       // Prepare state to pass to Activate screen
@@ -58,8 +74,8 @@ export const Register: React.FC = () => {
         isBusinessRegistration: isBusiness,
         companyData: isBusiness ? {
           nome: formData.companyNome,
-          cnpj: formData.companyCnpj,
-          telefone: formData.companyTelefone,
+          cnpj: cleanCNPJ, // sending clean
+          telefone: cleanCompPhone, // sending clean
           email: 'dummy@pagweb.com', // API requirement but unused per prompt
           password: 'dummyPassword'  // API requirement but unused per prompt
         } : null
@@ -116,6 +132,7 @@ export const Register: React.FC = () => {
                     onChange={handleChange}
                     required
                     placeholder="000.000.000-00"
+                    maxLength={14}
                 />
                 <Input
                     label="Telefone Pessoal"
@@ -125,6 +142,7 @@ export const Register: React.FC = () => {
                     onChange={handleChange}
                     required
                     placeholder="(00) 00000-0000"
+                    maxLength={15}
                 />
             </div>
 
@@ -174,6 +192,7 @@ export const Register: React.FC = () => {
                         onChange={handleChange}
                         required={isBusiness}
                         placeholder="00.000.000/0000-00"
+                        maxLength={18}
                     />
                     <Input
                         label="Telefone Comercial"
@@ -182,6 +201,7 @@ export const Register: React.FC = () => {
                         onChange={handleChange}
                         required={isBusiness}
                         placeholder="(00) 00000-0000"
+                        maxLength={15}
                     />
                 </div>
             </div>
@@ -201,7 +221,7 @@ export const Register: React.FC = () => {
       <div className="mt-6 text-center space-y-2">
         <p className="text-sm text-gray-600">
           Já tem uma conta?{' '}
-          <Link to={`/login${type ? `?type=${type}` : ''}`} className="font-medium text-indigo-600 hover:text-indigo-500">
+          <Link to={`/login${type ? `?type=${type}` : ''}`} className="font-medium text-slate-700 hover:text-slate-900 underline">
             Fazer login
           </Link>
         </p>

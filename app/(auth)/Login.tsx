@@ -76,7 +76,7 @@ export const Login: React.FC = () => {
             placeholder="******"
           />
           <div className="text-right">
-            <Link to="#" className="text-xs text-indigo-600 hover:text-indigo-500">
+            <Link to="#" className="text-xs text-slate-600 hover:text-slate-800">
               Esqueceu a senha?
             </Link>
           </div>
@@ -96,7 +96,7 @@ export const Login: React.FC = () => {
       <div className="mt-6 text-center space-y-2">
         <p className="text-sm text-gray-600">
           Não tem uma conta?{' '}
-          <Link to={`/register${type ? `?type=${type}` : ''}`} className="font-medium text-indigo-600 hover:text-indigo-500">
+          <Link to={`/register${type ? `?type=${type}` : ''}`} className="font-medium text-slate-700 hover:text-slate-900 underline">
             Cadastre-se
           </Link>
         </p>

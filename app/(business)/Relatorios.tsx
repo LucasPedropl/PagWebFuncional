@@ -15,7 +15,7 @@ export const Relatorios: React.FC = () => {
         </div>
         <div className="flex gap-3">
             <select 
-                className="bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5"
+                className="bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-slate-900 focus:border-slate-900 block p-2.5"
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
             >
@@ -39,8 +39,8 @@ export const Relatorios: React.FC = () => {
                     <p className="text-sm font-medium text-gray-500">MRR (Receita Recorrente)</p>
                     <h3 className="text-2xl font-bold text-gray-900 mt-2">R$ 42.500,00</h3>
                 </div>
-                <div className="p-2 bg-indigo-50 rounded-lg">
-                    <DollarSign className="w-5 h-5 text-indigo-600" />
+                <div className="p-2 bg-slate-50 rounded-lg">
+                    <DollarSign className="w-5 h-5 text-slate-900" />
                 </div>
             </div>
             <div className="mt-4 flex items-center text-sm">
@@ -98,7 +98,7 @@ export const Relatorios: React.FC = () => {
                 {[40, 55, 45, 60, 75, 65, 85, 90, 80, 95, 100, 110].map((h, i) => (
                     <div key={i} className="flex-1 flex flex-col items-center group">
                         <div 
-                            className="w-full bg-indigo-100 rounded-t-sm group-hover:bg-indigo-600 transition-colors relative" 
+                            className="w-full bg-slate-100 rounded-t-sm group-hover:bg-slate-800 transition-colors relative" 
                             style={{ height: `${h}%` }}
                         >
                             <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity">
@@ -120,13 +120,13 @@ export const Relatorios: React.FC = () => {
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center">
-                        <span className="w-3 h-3 bg-indigo-600 rounded-full mr-3"></span>
+                        <span className="w-3 h-3 bg-slate-900 rounded-full mr-3"></span>
                         <span className="text-gray-700 font-medium">Plano Enterprise</span>
                     </div>
                     <span className="text-gray-900 font-bold">45%</span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-2">
-                    <div className="bg-indigo-600 h-2 rounded-full" style={{ width: '45%' }}></div>
+                    <div className="bg-slate-900 h-2 rounded-full" style={{ width: '45%' }}></div>
                 </div>
 
                 <div className="flex items-center justify-between">

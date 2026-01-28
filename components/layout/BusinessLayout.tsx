@@ -12,7 +12,8 @@ import {
   Wallet,
   ChevronLeft,
   ChevronRight,
-  LogOut
+  LogOut,
+  Menu as MenuIcon
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 
@@ -24,13 +25,11 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   
-  // Inicializa o estado lendo do localStorage, ou usa false como padrão
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const savedState = localStorage.getItem('pagweb_sidebar_collapsed');
     return savedState ? JSON.parse(savedState) : false;
   });
 
-  // Salva no localStorage sempre que o estado mudar
   useEffect(() => {
     localStorage.setItem('pagweb_sidebar_collapsed', JSON.stringify(isCollapsed));
   }, [isCollapsed]);
@@ -49,24 +48,33 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
   ];
 
+  // Menu items for Mobile Footer (5 items max usually)
+  const mobileMenuItems = [
+    { icon: LayoutGrid, label: 'Início', path: '/business/dashboard' },
+    { icon: Users, label: 'Clientes', path: '/business/clientes' },
+    { icon: CreditCard, label: 'Assin.', path: '/business/assinaturas' },
+    { icon: DollarSign, label: 'Cobr.', path: '/business/pagamentos' },
+    { icon: MenuIcon, label: 'Menu', path: '/business/menu' },
+  ];
+
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-900">
-      {/* Sidebar */}
+      {/* Sidebar - HIDDEN ON MOBILE (md:flex) */}
       <aside 
-        className={`bg-white border-r border-gray-200 flex flex-col fixed inset-y-0 z-50 transition-all duration-300 ease-in-out ${
+        className={`hidden md:flex bg-white border-r border-gray-200 flex-col fixed inset-y-0 z-50 transition-all duration-300 ease-in-out ${
           isCollapsed ? 'w-20' : 'w-64'
         }`}
       >
-        {/* Toggle Button - Posicionado exatamente na interseção (top-24 = altura do header do logo) */}
+        {/* Toggle Button */}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className={`absolute -right-3 top-24 -translate-y-1/2 bg-white border border-gray-200 rounded-full p-1.5 shadow-sm text-gray-500 hover:text-indigo-600 hover:border-indigo-300 transition-colors z-50 flex items-center justify-center`}
+          className={`absolute -right-3 top-24 -translate-y-1/2 bg-white border border-gray-200 rounded-full p-1.5 shadow-sm text-gray-500 hover:text-slate-900 hover:border-slate-300 transition-colors z-50 flex items-center justify-center`}
           title={isCollapsed ? "Expandir menu" : "Recolher menu"}
         >
           {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
 
-        {/* Logo Section - Altura aumentada para h-24 (96px) para ser maior que o header do site */}
+        {/* Logo Section */}
         <div className={`h-24 flex items-center border-b border-gray-100 transition-all duration-300 ${
             isCollapsed ? 'justify-center px-0' : 'px-6'
         }`}>
@@ -83,7 +91,6 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
         </div>
 
         {/* Navigation */}
-        {/* IMPORTANTE: overflow-visible quando colapsado para permitir que o tooltip saia da caixa */}
         <nav className={`flex-1 py-6 space-y-2 ${isCollapsed ? 'overflow-visible' : 'overflow-y-auto overflow-x-hidden'}`}>
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
@@ -104,7 +111,6 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
                     } ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'}`} 
                   />
                   
-                  {/* Fonte alterada para font-normal (400) */}
                   <span className={`font-normal text-base whitespace-nowrap transition-all duration-300 ${
                     isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100 block'
                   }`}>
@@ -112,11 +118,9 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
                   </span>
                 </Link>
 
-                {/* Tooltip for collapsed state - Moved outside Link to avoid overflow issues if possible, but mainly relying on nav overflow-visible */}
                 {isCollapsed && (
                     <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-2 bg-slate-800 text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-[60] shadow-lg font-medium transition-opacity">
                       {item.label}
-                      {/* Seta do tooltip */}
                       <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 border-4 border-transparent border-r-slate-800"></div>
                     </div>
                 )}
@@ -137,33 +141,28 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
                 size={20} 
                 className={`min-w-[20px] ${isCollapsed ? '' : 'mr-3'} text-slate-400 group-hover:text-slate-600`} 
             />
-            {/* Fonte alterada para font-normal (400) */}
             <span className={`text-base font-normal whitespace-nowrap transition-all duration-300 ${
                 isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100 block'
             }`}>
                 Configurações
             </span>
           </Link>
-           {isCollapsed && (
-                <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-3 py-2 bg-slate-800 text-white text-sm rounded-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-[60] shadow-lg font-medium transition-opacity">
-                  Configurações
-                  <div className="absolute left-0 top-1/2 -translate-x-1 -translate-y-1/2 border-4 border-transparent border-r-slate-800"></div>
-                </div>
-            )}
         </div>
       </aside>
 
-      {/* Main Content Wrapper */}
+      {/* Main Content Wrapper - Adjusted margins for mobile */}
       <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${
-        isCollapsed ? 'ml-20' : 'ml-64'
-      }`}>
-        {/* Top Header - Mantido h-20, menor que a área do logo (h-24) */}
-        <header className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-8 sticky top-0 z-40">
+        isCollapsed ? 'md:ml-20' : 'md:ml-64'
+      } w-full`}>
+        {/* Top Header */}
+        <header className="h-16 md:h-20 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-40">
           <div className="flex items-center text-sm text-gray-500">
-            <span className="hover:text-gray-900 cursor-pointer transition-colors">Dashboards</span>
-            <span className="mx-2 text-gray-300">/</span>
-            <span className="text-gray-900 font-medium">
-               {menuItems.find(i => i.path === location.pathname)?.label || (location.pathname.includes('configuracoes') ? 'Configurações' : 'Overview')}
+            <span className="hidden md:inline hover:text-gray-900 cursor-pointer transition-colors">Dashboards</span>
+            <span className="hidden md:inline mx-2 text-gray-300">/</span>
+            <span className="text-gray-900 font-medium text-lg md:text-sm">
+               {menuItems.find(i => i.path === location.pathname)?.label || 
+                (location.pathname.includes('configuracoes') ? 'Configurações' : 
+                 location.pathname.includes('menu') ? 'Menu' : 'Overview')}
             </span>
           </div>
 
@@ -172,8 +171,8 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
               <Bell className="w-5 h-5" />
               <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
             </button>
-            <div className="flex items-center gap-3 pl-6 border-l border-gray-100 h-8">
-              <div className="text-right hidden sm:block">
+            <div className="hidden md:flex items-center gap-3 pl-6 border-l border-gray-100 h-8">
+              <div className="text-right">
                 <p className="text-sm font-semibold text-gray-900">Admin</p>
                 <p className="text-xs text-gray-500">ERP System</p>
               </div>
@@ -188,13 +187,38 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
                   <LogOut size={18} />
               </button>
             </div>
+            {/* Mobile Logout (Simple) */}
+            <div className="md:hidden">
+                 <button onClick={handleLogout} className="text-gray-500 hover:text-red-600">
+                    <LogOut size={20} />
+                 </button>
+            </div>
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-8">
+        {/* Page Content - Add padding bottom on mobile for footer menu */}
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-8 pb-24 md:pb-8">
           {children}
         </main>
+
+        {/* Mobile Bottom Navigation Footer */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-between items-center px-4 py-2 z-50 shadow-lg">
+            {mobileMenuItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                    <Link 
+                        key={item.path} 
+                        to={item.path}
+                        className={`flex flex-col items-center justify-center w-full py-1 gap-1 ${
+                            isActive ? 'text-slate-900 font-medium' : 'text-gray-400'
+                        }`}
+                    >
+                        <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                        <span className="text-[10px]">{item.label}</span>
+                    </Link>
+                )
+            })}
+        </div>
       </div>
     </div>
   );

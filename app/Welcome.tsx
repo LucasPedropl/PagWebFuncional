@@ -18,8 +18,8 @@ export const Welcome: React.FC = () => {
       <div className="grid md:grid-cols-2 gap-8 max-w-4xl w-full">
         {/* Card Cliente */}
         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all flex flex-col items-center text-center group cursor-pointer" onClick={() => navigate('/login?type=client')}>
-          <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mb-6 group-hover:bg-indigo-200 transition-colors">
-            <User className="w-10 h-10 text-indigo-600" />
+          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6 group-hover:bg-gray-200 transition-colors">
+            <User className="w-10 h-10 text-slate-700" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Sou Cliente</h2>
           <p className="text-gray-500 mb-8">
@@ -27,7 +27,7 @@ export const Welcome: React.FC = () => {
           </p>
           <Button 
             variant="outline"
-            className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800 hover:border-indigo-300 shadow-none"
+            className="w-full border-gray-200 text-slate-700 hover:bg-gray-50 hover:text-slate-900 hover:border-slate-300 shadow-none"
           >
             Acessar como Cliente <ArrowRight className="w-4 h-4 ml-2" />
           </Button>

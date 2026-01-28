@@ -3,12 +3,15 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Filter, MoreVertical, Calendar, Loader2 } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { PlanResponse, SubscriptionResponse, User } from '../../types';
 
 export const Assinaturas: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState('');
   
   // Data State
@@ -17,6 +20,11 @@ export const Assinaturas: React.FC = () => {
   const [plans, setPlans] = useState<PlanResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Edit/Delete State
+  const [selectedSubscription, setSelectedSubscription] = useState<SubscriptionResponse | null>(null);
+  const [subToDelete, setSubToDelete] = useState<number | null>(null);
+  const [newStatus, setNewStatus] = useState('Ativo');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -89,8 +97,8 @@ export const Assinaturas: React.FC = () => {
             idUser: parseInt(formData.idUser),
             idPlano: parseInt(formData.idPlano),
             periodo: parseInt(formData.periodo),
-            dataInicio: startIso,
-            dataFim: endIso,
+            dataInicial: startIso,
+            dataFinal: endIso,
             desconto: parseFloat(formData.desconto),
             observacao: formData.observacao
         });
@@ -108,9 +116,49 @@ export const Assinaturas: React.FC = () => {
             observacao: ''
         });
 
-    } catch (error) {
-        alert("Erro ao criar assinatura. Verifique os dados.");
-        console.error(error);
+    } catch (error: any) {
+        alert(error.message || "Erro ao criar assinatura. Verifique os dados.");
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
+  const openDeleteModal = (id: number) => {
+    setSubToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!subToDelete) return;
+    try {
+        setIsSaving(true);
+        await businessService.deleteSubscription(subToDelete);
+        await fetchData();
+        setIsDeleteModalOpen(false);
+        setSubToDelete(null);
+    } catch (error: any) {
+        alert(error.message || "Erro ao excluir assinatura.");
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
+  const openStatusModal = (sub: SubscriptionResponse) => {
+    setSelectedSubscription(sub);
+    setNewStatus(sub.status || 'Ativo');
+    setIsStatusModalOpen(true);
+  };
+
+  const handleUpdateStatus = async () => {
+    if (!selectedSubscription) return;
+    try {
+        setIsSaving(true);
+        await businessService.updateSubscription(selectedSubscription.idAssinatura, newStatus);
+        await fetchData();
+        setIsStatusModalOpen(false);
+        setSelectedSubscription(null);
+    } catch (error: any) {
+        alert(error.message || "Erro ao atualizar status.");
     } finally {
         setIsSaving(false);
     }
@@ -235,18 +283,34 @@ export const Assinaturas: React.FC = () => {
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                 sub.status === 'Ativo' 
                                 ? 'bg-green-100 text-green-800' 
+                                : sub.status === 'Cancelado'
+                                ? 'bg-red-100 text-red-800'
                                 : 'bg-gray-100 text-gray-800'
                             }`}>
                                 <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                                    sub.status === 'Ativo' ? 'bg-green-600' : 'bg-gray-600'
+                                    sub.status === 'Ativo' ? 'bg-green-600' : 
+                                    sub.status === 'Cancelado' ? 'bg-red-600' : 'bg-gray-600'
                                 }`}></span>
                                 {sub.status || 'Ativo'}
                             </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                            <MoreVertical className="w-4 h-4" />
-                            </button>
+                            <div className="flex justify-end gap-2">
+                                <button 
+                                    onClick={() => openStatusModal(sub)}
+                                    className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                                    title="Alterar Status"
+                                >
+                                    <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button 
+                                    onClick={() => openDeleteModal(sub.idAssinatura)}
+                                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                    title="Excluir Assinatura"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
                         </td>
                         </tr>
                     )
@@ -265,6 +329,7 @@ export const Assinaturas: React.FC = () => {
         size="lg"
         footer={
           <>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancelar</Button>
             <Button 
                 className="bg-slate-900 hover:bg-slate-800" 
                 onClick={handleSave}
@@ -272,7 +337,6 @@ export const Assinaturas: React.FC = () => {
             >
                 Criar Assinatura
             </Button>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancelar</Button>
           </>
         }
       >
@@ -381,6 +445,87 @@ export const Assinaturas: React.FC = () => {
 
         </div>
       </Modal>
+
+      {/* Modal Alterar Status */}
+      <Modal
+        isOpen={isStatusModalOpen}
+        onClose={() => setIsStatusModalOpen(false)}
+        title="Alterar Status da Assinatura"
+        size="md"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsStatusModalOpen(false)} disabled={isSaving}>Cancelar</Button>
+            <Button 
+                onClick={handleUpdateStatus}
+                isLoading={isSaving}
+                className="bg-slate-900 hover:bg-slate-800"
+            >
+                Salvar Status
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-6">
+            <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600">
+                <p>Alterando status para o cliente: <strong>{selectedSubscription?.nomeCliente}</strong></p>
+                <p>Plano atual: <strong>{selectedSubscription?.nomePlano}</strong></p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-gray-700">Novo Status</label>
+                <div className="grid grid-cols-2 gap-3">
+                    {['Ativo', 'Cancelado', 'Pendente', 'Suspenso'].map(status => (
+                        <button
+                            key={status}
+                            onClick={() => setNewStatus(status)}
+                            className={`flex items-center justify-center p-3 rounded-lg border transition-all ${
+                                newStatus === status
+                                ? 'border-indigo-600 bg-indigo-50 text-indigo-700 font-medium'
+                                : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                            }`}
+                        >
+                            {status === 'Ativo' && <CheckCircle2 className="w-4 h-4 mr-2" />}
+                            {status === 'Cancelado' && <XCircle className="w-4 h-4 mr-2" />}
+                            {status === 'Pendente' && <AlertCircle className="w-4 h-4 mr-2" />}
+                            {status === 'Suspenso' && <AlertCircle className="w-4 h-4 mr-2" />}
+                            {status}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+      </Modal>
+
+      {/* Modal Confirmar Exclusão */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Excluir Assinatura"
+        size="md"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)} disabled={isSaving}>Cancelar</Button>
+            <Button 
+                onClick={confirmDelete} 
+                isLoading={isSaving} 
+                className="bg-red-600 hover:bg-red-700 text-white"
+            >
+                Confirmar Exclusão
+            </Button>
+          </>
+        }
+      >
+         <div className="flex flex-col items-center text-center p-4">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Tem certeza?</h3>
+            <p className="text-sm text-gray-500">
+                Esta ação removerá permanentemente a assinatura. O histórico de pagamentos pode ser mantido, mas o vínculo do plano será encerrado.
+            </p>
+         </div>
+      </Modal>
+
     </BusinessLayout>
   );
 };

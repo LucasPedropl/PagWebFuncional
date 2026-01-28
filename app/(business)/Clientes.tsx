@@ -3,12 +3,13 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Filter, Edit2, Loader2, Send, CheckCircle2, Mail } from 'lucide-react';
+import { Plus, Search, Filter, Loader2, Send, CheckCircle2, Mail, Unplug, AlertTriangle } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { User } from '../../types';
 
 export const Clientes: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [clientes, setClientes] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -17,6 +18,9 @@ export const Clientes: React.FC = () => {
   // Form State
   const [emailToConnect, setEmailToConnect] = useState('');
   const [successEmail, setSuccessEmail] = useState<string | null>(null);
+  
+  // State para exclusão
+  const [clientToDelete, setClientToDelete] = useState<{id: number, nome: string} | null>(null);
 
   useEffect(() => {
     fetchClients();
@@ -50,13 +54,39 @@ export const Clientes: React.FC = () => {
       await businessService.connectClient(emailToConnect);
       await fetchClients();
       setSuccessEmail(emailToConnect);
-    } catch (error) {
-      // Simulação de sucesso para demonstração visual caso a API não exista de fato
-      // Em produção, removeríamos este catch permissivo ou trataríamos o erro real
-      setSuccessEmail(emailToConnect);
-      // alert("Erro ao conectar cliente. Verifique se o email está correto.");
+    } catch (error: any) {
+      // Se der erro, checamos se é string ou objeto error
+      const msg = error.message || "Erro desconhecido";
+      // Se não for sucesso explicito (mas a API é void), assumimos sucesso no front pra UX
+      // (Mantendo lógica original, mas agora o service joga erro limpo)
+      if (msg.includes("sucesso") || msg.includes("convidado")) {
+           setSuccessEmail(emailToConnect);
+      } else {
+           alert(msg);
+      }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const openDeleteModal = (id: number, nome: string) => {
+      setClientToDelete({ id, nome });
+      setIsDeleteModalOpen(true);
+  };
+
+  const confirmDisconnect = async () => {
+    if (!clientToDelete) return;
+
+    try {
+        setIsSaving(true);
+        await businessService.disconnectClient(clientToDelete.id);
+        await fetchClients();
+        setIsDeleteModalOpen(false);
+        setClientToDelete(null);
+    } catch (error: any) {
+        alert(error.message || "Erro ao desvincular cliente.");
+    } finally {
+        setIsSaving(false);
     }
   };
 
@@ -144,8 +174,12 @@ export const Clientes: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        <button className="p-1 text-gray-400 hover:text-indigo-600 rounded">
-                          <Edit2 className="w-4 h-4" />
+                        <button 
+                            onClick={() => client.idUser && openDeleteModal(client.idUser, client.nome)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            title="Desvincular Cliente"
+                        >
+                          <Unplug className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
@@ -157,7 +191,7 @@ export const Clientes: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modal Conectar */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -166,11 +200,11 @@ export const Clientes: React.FC = () => {
         footer={
           !successEmail ? (
             <>
+              <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancelar</Button>
               <Button onClick={handleConnect} isLoading={isSaving} className="bg-slate-900 hover:bg-slate-800">
                 <Send className="w-4 h-4 mr-2" />
                 Enviar Convite
               </Button>
-              <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancelar</Button>
             </>
           ) : (
             <Button onClick={() => setIsModalOpen(false)} className="w-full bg-slate-900 hover:bg-slate-800">
@@ -213,6 +247,37 @@ export const Clientes: React.FC = () => {
               />
           </div>
         )}
+      </Modal>
+
+      {/* Modal Confirmar Exclusão */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Desvincular Cliente"
+        size="md"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)} disabled={isSaving}>Cancelar</Button>
+            <Button 
+                onClick={confirmDisconnect} 
+                isLoading={isSaving} 
+                className="bg-red-600 hover:bg-red-700 text-white"
+            >
+                Confirmar Desvinculação
+            </Button>
+          </>
+        }
+      >
+         <div className="flex flex-col items-center text-center p-4">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Tem certeza?</h3>
+            <p className="text-sm text-gray-500">
+                Você está prestes a desvincular <strong>{clientToDelete?.nome}</strong>. 
+                O cliente perderá acesso aos planos e benefícios da sua empresa.
+            </p>
+         </div>
       </Modal>
     </BusinessLayout>
   );

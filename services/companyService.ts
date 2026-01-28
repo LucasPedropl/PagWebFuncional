@@ -1,5 +1,6 @@
 import { AuthResponse, CompanyCreationPayload, CompanyLoginPayload, CompanyResponse } from "../types";
 import { sessionService } from "./session";
+import { parseApiError } from "../utils/formatters";
 
 const COMPANY_URL = "https://lojas.vlks.com.br/api/v1/Empresa";
 const USER_URL = "https://lojas.vlks.com.br/api/v1/User";
@@ -18,8 +19,8 @@ export const companyService = {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || "Falha ao criar empresa");
+      const errorMessage = await parseApiError(response);
+      throw new Error(errorMessage || "Falha ao criar empresa");
     }
 
     return await response.json();
@@ -41,8 +42,8 @@ export const companyService = {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || "Falha ao realizar login administrativo");
+      const errorMessage = await parseApiError(response);
+      throw new Error(errorMessage || "Falha ao realizar login administrativo");
     }
 
     const data = await response.json();
