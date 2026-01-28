@@ -21,9 +21,40 @@ import { MenuMobile } from './app/(business)/MenuMobile';
 import { Welcome } from './app/Welcome';
 import { sessionService } from './services/session';
 
-const PrivateRoute = ({ children }: { children?: React.ReactNode }) => {
-  const isAuthenticated = sessionService.isAuthenticated();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+// --- Guards de Rota (Proteção por Tipo de Usuário) ---
+
+// Protege rotas de CLIENTE
+const ClientRoute = ({ children }: { children: React.ReactNode }) => {
+  const session = sessionService.getSession();
+  
+  // 1. Não logado -> Login Cliente
+  if (!session.token) {
+    return <Navigate to="/login?type=client" replace />;
+  }
+
+  // 2. Logado como Empresa tentando acessar área de Cliente -> Manda para área Empresa
+  if (session.user?.tipo === 'Empresa') {
+    return <Navigate to="/business/dashboard" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// Protege rotas de EMPRESA (ADMIN)
+const BusinessRoute = ({ children }: { children: React.ReactNode }) => {
+  const session = sessionService.getSession();
+
+  // 1. Não logado -> Login Business
+  if (!session.token) {
+    return <Navigate to="/login?type=business" replace />;
+  }
+
+  // 2. Logado como Cliente tentando acessar área Admin -> Manda para área Cliente
+  if (session.user?.tipo !== 'Empresa') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return <>{children}</>;
 };
 
 const App: React.FC = () => {
@@ -37,119 +68,119 @@ const App: React.FC = () => {
           <Route path="/register" element={<Register />} />
           <Route path="/activate" element={<Activate />} />
           
-          {/* User Routes */}
+          {/* Rotas de Usuário (Cliente) */}
           <Route 
             path="/dashboard" 
             element={
-              <PrivateRoute>
+              <ClientRoute>
                 <UserDashboard />
-              </PrivateRoute>
+              </ClientRoute>
             } 
           />
           <Route 
             path="/empresas" 
             element={
-              <PrivateRoute>
+              <ClientRoute>
                 <UserEmpresas />
-              </PrivateRoute>
+              </ClientRoute>
             } 
           />
           <Route 
             path="/assinaturas" 
             element={
-              <PrivateRoute>
+              <ClientRoute>
                 <UserAssinaturas />
-              </PrivateRoute>
+              </ClientRoute>
             } 
           />
           <Route 
             path="/pagamentos" 
             element={
-              <PrivateRoute>
+              <ClientRoute>
                 <UserPagamentos />
-              </PrivateRoute>
+              </ClientRoute>
             } 
           />
           <Route 
             path="/configuracoes" 
             element={
-              <PrivateRoute>
+              <ClientRoute>
                 <UserConfiguracoes />
-              </PrivateRoute>
+              </ClientRoute>
             } 
           />
           <Route 
             path="/menu" 
             element={
-              <PrivateRoute>
+              <ClientRoute>
                 <UserMenuMobile />
-              </PrivateRoute>
+              </ClientRoute>
             } 
           />
 
-          {/* Business Routes */}
+          {/* Rotas de Estabelecimento (Business) */}
           <Route 
             path="/business/dashboard" 
             element={
-              <PrivateRoute>
+              <BusinessRoute>
                 <BusinessDashboard />
-              </PrivateRoute>
+              </BusinessRoute>
             } 
           />
           <Route 
             path="/business/clientes" 
             element={
-              <PrivateRoute>
+              <BusinessRoute>
                 <Clientes />
-              </PrivateRoute>
+              </BusinessRoute>
             } 
           />
           <Route 
             path="/business/planos" 
             element={
-              <PrivateRoute>
+              <BusinessRoute>
                 <Planos />
-              </PrivateRoute>
+              </BusinessRoute>
             } 
           />
           <Route 
             path="/business/assinaturas" 
             element={
-              <PrivateRoute>
+              <BusinessRoute>
                 <Assinaturas />
-              </PrivateRoute>
+              </BusinessRoute>
             } 
           />
           <Route 
             path="/business/pagamentos" 
             element={
-              <PrivateRoute>
+              <BusinessRoute>
                 <Pagamentos />
-              </PrivateRoute>
+              </BusinessRoute>
             } 
           />
           <Route 
             path="/business/relatorios" 
             element={
-              <PrivateRoute>
+              <BusinessRoute>
                 <Relatorios />
-              </PrivateRoute>
+              </BusinessRoute>
             } 
           />
           <Route 
             path="/business/configuracoes" 
             element={
-              <PrivateRoute>
+              <BusinessRoute>
                 <Configuracoes />
-              </PrivateRoute>
+              </BusinessRoute>
             } 
           />
           <Route 
             path="/business/menu" 
             element={
-              <PrivateRoute>
+              <BusinessRoute>
                 <MenuMobile />
-              </PrivateRoute>
+              </BusinessRoute>
             } 
           />
           

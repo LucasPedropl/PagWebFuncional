@@ -16,13 +16,27 @@ export const sessionService = {
   },
 
   logout() {
+    // Verifica onde o usuário está antes de limpar os dados
+    const currentHash = window.location.hash;
+    const isBusinessRoute = currentHash.includes('/business');
+
     localStorage.removeItem("pagweb_token");
     localStorage.removeItem("pagweb_user");
-    // Redireciona especificamente para a tela de login conforme solicitado
-    window.location.hash = "#/login";
+    
+    // Redirecionamento contextual
+    if (isBusinessRoute) {
+        window.location.hash = "#/login?type=business";
+    } else {
+        window.location.hash = "#/login?type=client";
+    }
   },
 
   isAuthenticated() {
     return !!localStorage.getItem("pagweb_token");
+  },
+
+  getUserType() {
+    const { user } = this.getSession();
+    return user?.tipo; // 'Cliente' ou 'Empresa'
   }
 };
