@@ -16,8 +16,8 @@ export const Login: React.FC = () => {
   const isBusiness = type === 'business';
 
   const [formData, setFormData] = useState({
-    email: isBusiness ? 'pedrolucasmota2005.pl@gmail.com' : '',
-    password: isBusiness ? '123456' : ''
+    email: isBusiness ? 'pedrolucasmota2005.pl@gmail.com' : 'faxif16087@gamening.com',
+    password: isBusiness ? '123456' : '123456'
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -4,6 +4,11 @@ import { Login } from './app/(auth)/Login';
 import { Register } from './app/(auth)/Register';
 import { Activate } from './app/(auth)/Activate';
 import { Dashboard as UserDashboard } from './app/(user)/Dashboard';
+import { Empresas as UserEmpresas } from './app/(user)/Empresas';
+import { Assinaturas as UserAssinaturas } from './app/(user)/Assinaturas';
+import { Pagamentos as UserPagamentos } from './app/(user)/Pagamentos';
+import { Configuracoes as UserConfiguracoes } from './app/(user)/Configuracoes';
+import { MenuMobile as UserMenuMobile } from './app/(user)/MenuMobile';
 import { BusinessDashboard } from './app/(business)/Dashboard';
 import { Clientes } from './app/(business)/Clientes';
 import { Planos } from './app/(business)/Planos';
@@ -36,6 +41,46 @@ const App: React.FC = () => {
           element={
             <PrivateRoute>
               <UserDashboard />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/empresas" 
+          element={
+            <PrivateRoute>
+              <UserEmpresas />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/assinaturas" 
+          element={
+            <PrivateRoute>
+              <UserAssinaturas />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/pagamentos" 
+          element={
+            <PrivateRoute>
+              <UserPagamentos />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/configuracoes" 
+          element={
+            <PrivateRoute>
+              <UserConfiguracoes />
+            </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/menu" 
+          element={
+            <PrivateRoute>
+              <UserMenuMobile />
             </PrivateRoute>
           } 
         />

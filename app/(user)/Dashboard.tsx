@@ -1,120 +1,86 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { UserLayout } from '../../components/layout/UserLayout';
 import { sessionService } from '../../services/session';
 import { Button } from '../../components/ui/Button';
-import { User, LogOut, LayoutDashboard, CreditCard, Settings } from 'lucide-react';
-import { User as UserType } from '../../types';
+import { Store, CreditCard, Receipt, ArrowRight } from 'lucide-react';
+import { User } from '../../types';
+import { useNavigate } from 'react-router-dom';
 
 export const Dashboard: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
-  const [user, setUser] = useState<UserType | null>(null);
 
   useEffect(() => {
-    if (!sessionService.isAuthenticated()) {
-      navigate('/login');
-      return;
-    }
     const session = sessionService.getSession();
-    setUser(session.user);
-  }, [navigate]);
-
-  const handleLogout = () => {
-    sessionService.logout();
-    navigate('/login');
-  };
+    if (session && session.user) {
+      setUser(session.user);
+    }
+  }, []);
 
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-             <div className="bg-slate-900 p-2 rounded-lg">
-                <LayoutDashboard className="w-5 h-5 text-white" />
-             </div>
-             <span className="font-bold text-xl text-gray-900">PagWeb</span>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex flex-col items-end">
-                <span className="text-sm font-medium text-gray-900">{user.nome}</span>
-                <span className="text-xs text-gray-500">{user.email}</span>
-            </div>
-            <div className="h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center text-slate-700 font-bold border border-gray-200">
-                {user.nome.charAt(0).toUpperCase()}
-            </div>
-            <button 
-                onClick={handleLogout}
-                className="ml-2 p-2 text-gray-400 hover:text-red-600 transition-colors"
-                title="Sair"
-            >
-                <LogOut className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </header>
+    <UserLayout>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Olá, {user.nome}!</h1>
+        <p className="text-gray-500 mt-1">Bem-vindo ao seu painel pessoal.</p>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">Visão Geral</h1>
-            <p className="text-gray-600">Bem-vindo ao seu painel de controle, {user.nome}.</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Stat Card 1 */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-gray-500 text-sm font-medium">Assinaturas Ativas</h3>
-                    <div className="bg-green-100 p-2 rounded-lg">
-                        <CreditCard className="w-5 h-5 text-green-600" />
-                    </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-gray-500 text-sm font-medium">Assinaturas Ativas</h3>
+                <div className="bg-green-100 p-2 rounded-lg">
+                    <CreditCard className="w-5 h-5 text-green-600" />
                 </div>
-                <div className="text-2xl font-bold text-gray-900">0</div>
-                <p className="text-xs text-gray-500 mt-1">Nenhuma assinatura encontrada</p>
             </div>
+            <div className="text-2xl font-bold text-gray-900">0</div>
+            <Button variant="outline" className="w-full mt-4 text-xs h-8" onClick={() => navigate('/assinaturas')}>
+                Ver Detalhes
+            </Button>
+         </div>
 
-            {/* Stat Card 2 */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-gray-500 text-sm font-medium">Perfil</h3>
-                    <div className="bg-blue-100 p-2 rounded-lg">
-                        <User className="w-5 h-5 text-blue-600" />
-                    </div>
+         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-gray-500 text-sm font-medium">Empresas Conectadas</h3>
+                <div className="bg-slate-100 p-2 rounded-lg">
+                    <Store className="w-5 h-5 text-slate-900" />
                 </div>
-                <div className="text-2xl font-bold text-gray-900">{user.tipo}</div>
-                <p className="text-xs text-gray-500 mt-1">Status da conta: Ativo</p>
             </div>
+            <div className="text-2xl font-bold text-gray-900">0</div>
+            <Button variant="outline" className="w-full mt-4 text-xs h-8" onClick={() => navigate('/empresas')}>
+                Ver Empresas
+            </Button>
+         </div>
 
-            {/* Stat Card 3 */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-gray-500 text-sm font-medium">Configurações</h3>
-                    <div className="bg-gray-100 p-2 rounded-lg">
-                        <Settings className="w-5 h-5 text-gray-600" />
-                    </div>
+         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-gray-500 text-sm font-medium">Faturas Pendentes</h3>
+                <div className="bg-orange-100 p-2 rounded-lg">
+                    <Receipt className="w-5 h-5 text-orange-600" />
                 </div>
-                <div className="text-sm text-gray-600">
-                    Gerencie seus dados e preferências.
-                </div>
-                <Button variant="outline" className="mt-4 w-full text-sm py-2">
-                    Acessar Configurações
-                </Button>
             </div>
+            <div className="text-2xl font-bold text-gray-900">R$ 0,00</div>
+             <Button variant="outline" className="w-full mt-4 text-xs h-8" onClick={() => navigate('/pagamentos')}>
+                Histórico
+            </Button>
+         </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
+        <div className="max-w-md mx-auto">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Store className="w-8 h-8 text-slate-300" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Conectar a uma Empresa</h3>
+            <p className="text-gray-500 mb-6 text-sm">
+                Para ver seus planos e faturas, você precisa ser convidado por um estabelecimento ou escanear o QR Code da loja.
+            </p>
+            <Button className="bg-slate-900 hover:bg-slate-800">
+                Ler QR Code ou Buscar Loja <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
         </div>
-
-        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center">
-            <div className="max-w-md mx-auto">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Comece Agora</h3>
-                <p className="text-gray-500 mb-6">Você ainda não possui assinaturas em estabelecimentos parceiros.</p>
-                <Button>
-                    Buscar Estabelecimentos
-                </Button>
-            </div>
-        </div>
-      </main>
-    </div>
+      </div>
+    </UserLayout>
   );
 };

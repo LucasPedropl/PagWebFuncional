@@ -37,10 +37,19 @@ export const Activate: React.FC = () => {
       setStatusMessage("Ativando conta de usuário...");
       await userService.activate({ email, token });
 
-      // If it's a normal user, we are done
+      // If it's a normal user (Cliente)
       if (!isBusinessRegistration) {
-         setStatusMessage("Conta ativada! Redirecionando...");
-         setTimeout(() => navigate('/login'), 2000);
+         if (password) {
+             // Auto-login se a senha estiver disponível (fluxo vindo do cadastro)
+             setStatusMessage("Autenticando...");
+             await userService.login(email, password);
+             setStatusMessage("Redirecionando...");
+             navigate('/dashboard');
+         } else {
+             // Fluxo manual ou sem senha no state
+             setStatusMessage("Conta ativada! Redirecionando para login...");
+             setTimeout(() => navigate('/login'), 2000);
+         }
          return;
       }
 
