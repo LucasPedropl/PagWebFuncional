@@ -11,33 +11,33 @@ export interface ToastProps {
 }
 
 const ToastItem: React.FC<ToastProps> = ({ id, type, title, message, duration = 5000, onClose }) => {
-  const [progress, setProgress] = useState(100);
+  const [progress, setProgress] = useState(0); // Começa em 0
   const [isClosing, setIsClosing] = useState(false);
 
   useEffect(() => {
-    // Start progress bar animation
     const startTime = Date.now();
-    const endTime = startTime + duration;
-
+    
     const interval = setInterval(() => {
       const now = Date.now();
-      const remaining = Math.max(0, endTime - now);
-      const percentage = (remaining / duration) * 100;
+      const elapsed = now - startTime;
+      
+      // Calcula porcentagem baseada no tempo decorrido (encher a barra)
+      const percentage = Math.min(100, (elapsed / duration) * 100);
       
       setProgress(percentage);
 
-      if (remaining <= 0) {
+      if (elapsed >= duration) {
         clearInterval(interval);
         handleClose();
       }
-    }, 10); // Update frequently for smooth animation
+    }, 16); // ~60fps
 
     return () => clearInterval(interval);
   }, [duration]);
 
   const handleClose = () => {
     setIsClosing(true);
-    setTimeout(() => onClose(id), 300); // Wait for exit animation
+    setTimeout(() => onClose(id), 300);
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -74,8 +74,9 @@ const ToastItem: React.FC<ToastProps> = ({ id, type, title, message, duration = 
         </button>
       </div>
 
-      {/* Progress Bar */}
-      <div className="absolute bottom-0 left-0 h-1 bg-gray-100 w-full">
+      {/* Progress Bar Background */}
+      <div className="absolute bottom-0 left-0 h-1.5 bg-gray-100 w-full">
+        {/* Progress Bar Fill */}
         <div 
           className={`h-full transition-all ease-linear ${type === 'success' ? 'bg-green-500' : 'bg-red-500'}`}
           style={{ width: `${progress}%` }}
@@ -92,10 +93,12 @@ interface ToastContainerProps {
 
 export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, removeToast }) => {
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
-      {toasts.map((toast) => (
-        <ToastItem key={toast.id} {...toast} onClose={removeToast} />
-      ))}
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end pointer-events-none">
+      <div className="pointer-events-auto">
+        {toasts.map((toast) => (
+          <ToastItem key={toast.id} {...toast} onClose={removeToast} />
+        ))}
+      </div>
     </div>
   );
 };

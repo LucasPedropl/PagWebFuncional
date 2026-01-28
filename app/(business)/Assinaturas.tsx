@@ -48,27 +48,37 @@ export const Assinaturas: React.FC = () => {
 
   // Calcula data fim e valida data inicio
   useEffect(() => {
-    if (!formData.dataInicio || !formData.periodo) return;
+    // Se não tiver periodo, não faz nada
+    if (!formData.periodo) return;
 
-    // Fix RangeError: Validate date before using it
-    const start = new Date(formData.dataInicio);
-    
-    // Check if date is valid
-    if (isNaN(start.getTime())) {
+    // Se não tiver data ou ela for inválida (ex: usuario limpou o campo)
+    if (!formData.dataInicio) {
+        setFormData(prev => ({ ...prev, dataFim: '' }));
+        setDateWarning(null);
+        return;
+    }
+
+    // 1. Parsing Seguro da Data (YYYY-MM-DD para Data Local)
+    // Usar new Date('yyyy-mm-dd') cria UTC, o que pode dar erro de dia dependendo do fuso.
+    // Usar split garante criação no fuso local (00:00:00).
+    const [year, month, day] = formData.dataInicio.split('-').map(Number);
+    const checkDate = new Date(year, month - 1, day);
+
+    // Validação de Data Inválida (ex: 30 de Fevereiro)
+    if (isNaN(checkDate.getTime()) || checkDate.getMonth() !== month - 1) {
         setDateWarning({ type: 'warning', message: 'Data inválida.' });
         setFormData(prev => ({ ...prev, dataFim: '' }));
         return;
     }
 
-    // Logic for warnings
+    // 2. Comparações
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const checkDate = new Date(start);
-    checkDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0); // Zerar hora para comparar apenas dias
 
     const diffTime = checkDate.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
+    // Lógica de Aviso
     if (diffDays < 0) {
         setDateWarning({ 
             type: 'info', 
@@ -80,15 +90,17 @@ export const Assinaturas: React.FC = () => {
             message: 'Atenção: A data selecionada é superior a 31 dias. Verifique se é a data correta para o início da cobrança.' 
         });
     } else {
+        // Se a data for hoje ou futura próxima (<= 31 dias), remove qualquer aviso
         setDateWarning(null);
     }
 
-    // Calculate End Date
+    // 3. Calcular Data Fim (Baseado na Data Inicio Validada)
     const months = parseInt(formData.periodo);
     if (!isNaN(months)) {
-        const end = new Date(start);
+        const end = new Date(checkDate); // Clone da data inicio validada
         end.setMonth(end.getMonth() + months);
-        // Validar se o calculo resultou numa data valida
+        
+        // Verifica se a data final é válida
         if (!isNaN(end.getTime())) {
             setFormData(prev => ({ ...prev, dataFim: end.toISOString().split('T')[0] }));
         }
@@ -135,8 +147,18 @@ export const Assinaturas: React.FC = () => {
     try {
         setIsSaving(true);
         
-        const startIso = new Date(formData.dataInicio).toISOString();
-        const endIso = formData.dataFim ? new Date(formData.dataFim).toISOString() : startIso;
+        // Para envio, convertemos para ISO
+        // Re-parsing manual para garantir
+        const [year, month, day] = formData.dataInicio.split('-').map(Number);
+        const startDateObj = new Date(year, month - 1, day);
+        const startIso = startDateObj.toISOString();
+
+        // Data fim já calculada ou fallback para inicio
+        let endIso = startIso;
+        if(formData.dataFim) {
+             const [endYear, endMonth, endDay] = formData.dataFim.split('-').map(Number);
+             endIso = new Date(endYear, endMonth - 1, endDay).toISOString();
+        }
 
         await businessService.createSubscription({
             idUser: parseInt(formData.idUser),
@@ -153,7 +175,7 @@ export const Assinaturas: React.FC = () => {
         // 1. Fecha o modal imediatamente após o sucesso
         setIsModalOpen(false);
 
-        // 2. Limpa o form
+        // 2. Limpa o form e o warning
         setFormData({
             idUser: '',
             idPlano: '',
@@ -163,7 +185,7 @@ export const Assinaturas: React.FC = () => {
             desconto: '0',
             observacao: ''
         });
-        setDateWarning(null);
+        setDateWarning(null); // Garante que o warning suma
 
         // 3. Atualiza a lista em background
         await fetchData(); 
