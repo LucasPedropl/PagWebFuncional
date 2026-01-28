@@ -6,8 +6,10 @@ import { Modal } from '../../components/ui/Modal';
 import { Plus, Check, Edit2, Trash2, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { PlanResponse } from '../../types';
+import { useToast } from '../../context/ToastContext';
 
 export const Planos: React.FC = () => {
+  const { addToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   
@@ -40,6 +42,7 @@ export const Planos: React.FC = () => {
       setPlans(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao carregar planos:", error);
+      addToast('error', 'Erro', 'Não foi possível carregar a lista de planos.');
       setPlans([]);
     } finally {
       setIsLoading(false);
@@ -82,11 +85,12 @@ export const Planos: React.FC = () => {
       try {
           setIsSaving(true);
           await businessService.deletePlan(planToDelete.id);
+          addToast('success', 'Plano Excluído', `O plano "${planToDelete.nome}" foi removido.`);
           await fetchPlans();
           setIsDeleteModalOpen(false);
           setPlanToDelete(null);
       } catch (error: any) {
-          alert(error.message || "Erro ao excluir plano. Tente novamente.");
+          addToast('error', 'Erro ao excluir', error.message || "Tente novamente.");
       } finally {
           setIsSaving(false); 
       }
@@ -108,8 +112,10 @@ export const Planos: React.FC = () => {
 
       if (editingPlanId) {
           await businessService.updatePlan(editingPlanId, payload);
+          addToast('success', 'Plano Atualizado', 'As alterações foram salvas com sucesso.');
       } else {
           await businessService.createPlan(payload);
+          addToast('success', 'Plano Criado', 'Novo plano adicionado ao catálogo.');
       }
 
       await fetchPlans(); // Recarrega a lista
@@ -117,7 +123,7 @@ export const Planos: React.FC = () => {
       setFormData({ nome: '', valorMensalidade: '', funcionalidades: '' });
       setEditingPlanId(null);
     } catch (error: any) {
-      alert(error.message || "Erro ao salvar plano. Verifique os dados.");
+      addToast('error', 'Erro ao salvar', error.message || "Verifique os dados.");
     } finally {
       setIsSaving(false);
     }

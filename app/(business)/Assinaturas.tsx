@@ -6,8 +6,10 @@ import { Modal } from '../../components/ui/Modal';
 import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { PlanResponse, SubscriptionResponse, User } from '../../types';
+import { useToast } from '../../context/ToastContext';
 
 export const Assinaturas: React.FC = () => {
+  const { addToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -37,18 +39,57 @@ export const Assinaturas: React.FC = () => {
     observacao: ''
   });
 
+  // Aviso de Data (Warning visual)
+  const [dateWarning, setDateWarning] = useState<{ type: 'info' | 'warning', message: string } | null>(null);
+
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Calcula data fim automaticamente quando periodo ou dataInicio mudam
+  // Calcula data fim e valida data inicio
   useEffect(() => {
-    if (formData.dataInicio && formData.periodo) {
-        const start = new Date(formData.dataInicio);
-        const months = parseInt(formData.periodo);
-        if (!isNaN(start.getTime()) && !isNaN(months)) {
-            const end = new Date(start);
-            end.setMonth(end.getMonth() + months);
+    if (!formData.dataInicio || !formData.periodo) return;
+
+    // Fix RangeError: Validate date before using it
+    const start = new Date(formData.dataInicio);
+    
+    // Check if date is valid
+    if (isNaN(start.getTime())) {
+        setDateWarning({ type: 'warning', message: 'Data inválida.' });
+        setFormData(prev => ({ ...prev, dataFim: '' }));
+        return;
+    }
+
+    // Logic for warnings
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(start);
+    checkDate.setHours(0, 0, 0, 0);
+
+    const diffTime = checkDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+        setDateWarning({ 
+            type: 'info', 
+            message: 'Atenção: Data no passado. O sistema considerará o primeiro pagamento como já realizado/concluído.' 
+        });
+    } else if (diffDays > 31) {
+        setDateWarning({ 
+            type: 'warning', 
+            message: 'Atenção: A data selecionada é superior a 31 dias. Verifique se é a data correta para o início da cobrança.' 
+        });
+    } else {
+        setDateWarning(null);
+    }
+
+    // Calculate End Date
+    const months = parseInt(formData.periodo);
+    if (!isNaN(months)) {
+        const end = new Date(start);
+        end.setMonth(end.getMonth() + months);
+        // Validar se o calculo resultou numa data valida
+        if (!isNaN(end.getTime())) {
             setFormData(prev => ({ ...prev, dataFim: end.toISOString().split('T')[0] }));
         }
     }
@@ -69,7 +110,7 @@ export const Assinaturas: React.FC = () => {
         setPlans(Array.isArray(plansData) ? plansData : []);
     } catch (error) {
         console.error("Erro ao carregar dados", error);
-        // Fallback
+        addToast('error', 'Erro ao carregar dados', 'Não foi possível buscar as informações do servidor.');
     } finally {
         setIsLoading(false);
     }
@@ -82,16 +123,20 @@ export const Assinaturas: React.FC = () => {
 
   const handleSave = async () => {
     if (!formData.idUser || !formData.idPlano) {
-        alert("Selecione um cliente e um plano.");
+        addToast('error', 'Campos Obrigatórios', 'Selecione um cliente e um plano.');
+        return;
+    }
+
+    if (!formData.dataInicio) {
+        addToast('error', 'Data Obrigatória', 'Informe a data do primeiro pagamento.');
         return;
     }
 
     try {
         setIsSaving(true);
         
-        // Format ISO Strings for API (YYYY-MM-DDTHH:mm:ss.sssZ)
         const startIso = new Date(formData.dataInicio).toISOString();
-        const endIso = new Date(formData.dataFim).toISOString();
+        const endIso = formData.dataFim ? new Date(formData.dataFim).toISOString() : startIso;
 
         await businessService.createSubscription({
             idUser: parseInt(formData.idUser),
@@ -99,13 +144,16 @@ export const Assinaturas: React.FC = () => {
             periodo: parseInt(formData.periodo),
             dataInicial: startIso,
             dataFinal: endIso,
-            desconto: parseFloat(formData.desconto),
+            desconto: parseFloat(formData.desconto || '0'),
             observacao: formData.observacao
         });
 
-        await fetchData(); // Recarrega lista
+        addToast('success', 'Sucesso!', 'Assinatura criada com sucesso.');
+
+        // 1. Fecha o modal imediatamente após o sucesso
         setIsModalOpen(false);
-        // Reset form
+
+        // 2. Limpa o form
         setFormData({
             idUser: '',
             idPlano: '',
@@ -115,9 +163,13 @@ export const Assinaturas: React.FC = () => {
             desconto: '0',
             observacao: ''
         });
+        setDateWarning(null);
+
+        // 3. Atualiza a lista em background
+        await fetchData(); 
 
     } catch (error: any) {
-        alert(error.message || "Erro ao criar assinatura. Verifique os dados.");
+        addToast('error', 'Erro ao criar', error.message || "Verifique os dados e tente novamente.");
     } finally {
         setIsSaving(false);
     }
@@ -133,11 +185,12 @@ export const Assinaturas: React.FC = () => {
     try {
         setIsSaving(true);
         await businessService.deleteSubscription(subToDelete);
+        addToast('success', 'Removido', 'Assinatura excluída com sucesso.');
         await fetchData();
         setIsDeleteModalOpen(false);
         setSubToDelete(null);
     } catch (error: any) {
-        alert(error.message || "Erro ao excluir assinatura.");
+        addToast('error', 'Erro ao excluir', error.message);
     } finally {
         setIsSaving(false);
     }
@@ -154,11 +207,12 @@ export const Assinaturas: React.FC = () => {
     try {
         setIsSaving(true);
         await businessService.updateSubscription(selectedSubscription.idAssinatura, newStatus);
+        addToast('success', 'Atualizado', `Status alterado para ${newStatus}.`);
         await fetchData();
         setIsStatusModalOpen(false);
         setSelectedSubscription(null);
     } catch (error: any) {
-        alert(error.message || "Erro ao atualizar status.");
+        addToast('error', 'Erro ao atualizar', error.message);
     } finally {
         setIsSaving(false);
     }
@@ -387,19 +441,30 @@ export const Assinaturas: React.FC = () => {
           {/* Datas */}
           <div className="grid grid-cols-2 gap-4">
              <div className="flex flex-col gap-1.5 relative">
-                <label className="text-sm font-medium text-gray-700">Data Início</label>
+                <label className="text-sm font-medium text-gray-700">Primeiro Pagamento</label>
                 <div className="relative">
                     <input
                         type="date"
                         name="dataInicio"
                         value={formData.dataInicio}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900"
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 ${
+                            dateWarning?.type === 'warning' ? 'border-amber-500 focus:ring-amber-200' : 'border-gray-300'
+                        }`}
                     />
                 </div>
+                {/* Date Warnings */}
+                {dateWarning && (
+                    <div className={`text-xs p-2 rounded flex items-start gap-1.5 ${
+                        dateWarning.type === 'info' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
+                    }`}>
+                        <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                        <span>{dateWarning.message}</span>
+                    </div>
+                )}
              </div>
              <div className="flex flex-col gap-1.5 relative">
-                <label className="text-sm font-medium text-gray-700">Data Final</label>
+                <label className="text-sm font-medium text-gray-700">Último Pagamento</label>
                 <div className="relative">
                     <input
                         type="date"

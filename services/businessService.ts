@@ -78,10 +78,12 @@ export const businessService = {
   },
 
   async connectClient(email: string): Promise<void> {
-     const response = await fetch(`${BASE_URL}/Cliente/convidar`, { 
+    // Rota correta conforme CURL: POST /User/admin/conecta-cliente
+    // Body deve ser apenas a string do email (JSON string), não um objeto { email: ... }
+    const response = await fetch(`${BASE_URL}/User/admin/conecta-cliente`, { 
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ email })
+      body: JSON.stringify(email)
     });
     
     if (!response.ok) {

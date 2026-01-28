@@ -6,8 +6,10 @@ import { Modal } from '../../components/ui/Modal';
 import { Plus, Search, Filter, Loader2, Send, CheckCircle2, Mail, Unplug, AlertTriangle } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { User } from '../../types';
+import { useToast } from '../../context/ToastContext';
 
 export const Clientes: React.FC = () => {
+  const { addToast } = useToast();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,6 +43,7 @@ export const Clientes: React.FC = () => {
       setClientes(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Erro ao listar clientes", error);
+      addToast('error', 'Erro', 'Não foi possível listar os clientes.');
       setClientes([]);
     } finally {
       setIsLoading(false);
@@ -54,6 +57,7 @@ export const Clientes: React.FC = () => {
       await businessService.connectClient(emailToConnect);
       await fetchClients();
       setSuccessEmail(emailToConnect);
+      addToast('success', 'Convite Enviado', `Solicitação enviada para ${emailToConnect}`);
     } catch (error: any) {
       // Se der erro, checamos se é string ou objeto error
       const msg = error.message || "Erro desconhecido";
@@ -61,8 +65,9 @@ export const Clientes: React.FC = () => {
       // (Mantendo lógica original, mas agora o service joga erro limpo)
       if (msg.includes("sucesso") || msg.includes("convidado")) {
            setSuccessEmail(emailToConnect);
+           addToast('success', 'Convite Enviado', `Solicitação enviada para ${emailToConnect}`);
       } else {
-           alert(msg);
+           addToast('error', 'Erro ao conectar', msg);
       }
     } finally {
       setIsSaving(false);
@@ -80,11 +85,12 @@ export const Clientes: React.FC = () => {
     try {
         setIsSaving(true);
         await businessService.disconnectClient(clientToDelete.id);
+        addToast('success', 'Desvinculado', `${clientToDelete.nome} foi desvinculado com sucesso.`);
         await fetchClients();
         setIsDeleteModalOpen(false);
         setClientToDelete(null);
     } catch (error: any) {
-        alert(error.message || "Erro ao desvincular cliente.");
+        addToast('error', 'Erro ao desvincular', error.message || "Erro desconhecido.");
     } finally {
         setIsSaving(false);
     }
