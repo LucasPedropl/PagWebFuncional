@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Save, Lock, Bell, Store, Globe } from 'lucide-react';
+import { Save, Lock, Bell, Store, LogOut } from 'lucide-react';
+import { sessionService } from '../../services/session';
+import { useNavigate } from 'react-router-dom';
 
 export const Configuracoes: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'geral' | 'notificacoes' | 'seguranca'>('geral');
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSave = () => {
     setIsLoading(true);
@@ -15,6 +18,11 @@ export const Configuracoes: React.FC = () => {
         setIsLoading(false);
         alert('Configurações salvas com sucesso!');
     }, 1000);
+  };
+
+  const handleLogout = () => {
+    sessionService.logout();
+    navigate('/');
   };
 
   return (
@@ -61,6 +69,16 @@ export const Configuracoes: React.FC = () => {
                     <Lock className="w-4 h-4 mr-3" />
                     Segurança
                 </button>
+                
+                <div className="pt-4 mt-4 border-t border-gray-100">
+                     <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                        <LogOut className="w-4 h-4 mr-3" />
+                        Sair da Conta
+                    </button>
+                </div>
             </nav>
         </div>
 

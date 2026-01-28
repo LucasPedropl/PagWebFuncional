@@ -11,8 +11,10 @@ import {
   Bell,
   Wallet,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  LogOut
 } from 'lucide-react';
+import { sessionService } from '../../services/session';
 
 interface BusinessLayoutProps {
   children: React.ReactNode;
@@ -33,6 +35,11 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     localStorage.setItem('pagweb_sidebar_collapsed', JSON.stringify(isCollapsed));
   }, [isCollapsed]);
 
+  const handleLogout = () => {
+    sessionService.logout();
+    navigate('/');
+  };
+
   const menuItems = [
     { icon: LayoutGrid, label: 'Overview', path: '/business/dashboard' },
     { icon: Users, label: 'Clientes', path: '/business/clientes' },
@@ -40,7 +47,6 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Gestão de Cobranças', path: '/business/pagamentos' },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
-    // Histórico e Suporte removidos conforme solicitado
   ];
 
   return (
@@ -174,6 +180,13 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
               <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-bold border border-gray-200 shadow-sm">
                 A
               </div>
+              <button 
+                onClick={handleLogout}
+                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors ml-1"
+                title="Sair do sistema"
+              >
+                  <LogOut size={18} />
+              </button>
             </div>
           </div>
         </header>

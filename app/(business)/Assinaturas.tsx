@@ -56,11 +56,12 @@ export const Assinaturas: React.FC = () => {
             businessService.listPlans()
         ]);
         
-        setSubscriptions(subsData);
-        setClients(clientsData);
-        setPlans(plansData);
+        setSubscriptions(Array.isArray(subsData) ? subsData : []);
+        setClients(Array.isArray(clientsData) ? clientsData : []);
+        setPlans(Array.isArray(plansData) ? plansData : []);
     } catch (error) {
         console.error("Erro ao carregar dados", error);
+        // Fallback
     } finally {
         setIsLoading(false);
     }
@@ -108,33 +109,29 @@ export const Assinaturas: React.FC = () => {
         });
 
     } catch (error) {
-        alert("Erro ao criar assinatura.");
+        alert("Erro ao criar assinatura. Verifique os dados.");
         console.error(error);
     } finally {
         setIsSaving(false);
     }
   };
 
-  // Helper para enriquecer os dados da tabela (já que a API lista assinaturas, assumimos que precisamos cruzar IDs ou que ela retorna objetos aninhados)
-  // Baseado na resposta da API, vamos assumir que precisamos encontrar os nomes nos arrays carregados se a API não retornar os objetos completos.
-  const getClientName = (sub: SubscriptionResponse) => {
-      // Tenta pegar do objeto user aninhado se existir, senão procura na lista de clientes
-      if (sub.user?.nome) return sub.user.nome;
-      const c = clients.find(c => c.idUser === sub.idUser);
-      return c ? c.nome : `Cliente #${sub.idUser}`;
+  const formatDateBR = (isoString: string) => {
+    if (!isoString) return '-';
+    try {
+      return new Date(isoString).toLocaleDateString('pt-BR');
+    } catch (e) {
+      return isoString;
+    }
   };
 
-  const getPlanName = (sub: SubscriptionResponse) => {
-    if (sub.plano?.nome) return sub.plano.nome;
-    const p = plans.find(p => p.idPlano === sub.idPlano);
-    return p ? p.nome : `Plano #${sub.idPlano}`;
-  };
-  
-  const getPlanPrice = (sub: SubscriptionResponse) => {
-     if (sub.plano?.valorMensalidade) return sub.plano.valorMensalidade;
-     const p = plans.find(p => p.idPlano === sub.idPlano);
-     return p ? p.valorMensalidade : 0;
-  }
+  // Filtragem local
+  const filteredSubs = subscriptions.filter(sub => {
+    const searchLower = searchTerm.toLowerCase();
+    const clienteName = sub.nomeCliente || '';
+    const planoName = sub.nomePlano || '';
+    return clienteName.toLowerCase().includes(searchLower) || planoName.toLowerCase().includes(searchLower);
+  });
 
   return (
     <BusinessLayout>
@@ -158,7 +155,7 @@ export const Assinaturas: React.FC = () => {
           <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Buscar por cliente..."
+            placeholder="Buscar por cliente ou plano..."
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -194,26 +191,26 @@ export const Assinaturas: React.FC = () => {
                         </div>
                     </td>
                   </tr>
-              ) : subscriptions.length === 0 ? (
+              ) : filteredSubs.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Nenhuma assinatura encontrada.</td>
                   </tr>
               ) : (
-                subscriptions.map((sub) => {
-                    const price = getPlanPrice(sub);
-                    const finalPrice = price - (price * (sub.desconto / 100));
-                    
+                filteredSubs.map((sub) => {
                     return (
                         <tr key={sub.idAssinatura || Math.random()} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4">
                             <div className="flex flex-col">
-                                <span className="text-sm font-medium text-gray-900">{getClientName(sub)}</span>
+                                <span className="text-sm font-medium text-gray-900">
+                                    {sub.nomeCliente || 'Cliente Desconhecido'}
+                                </span>
                             </div>
                         </td>
                         <td className="px-6 py-4">
                             <div className="flex flex-col">
-                                <span className="text-sm font-medium text-gray-900">{getPlanName(sub)}</span>
-                                <span className="text-xs text-gray-500">Base: R$ {price.toFixed(2)}</span>
+                                <span className="text-sm font-medium text-gray-900">
+                                    {sub.nomePlano || 'Plano Personalizado'}
+                                </span>
                             </div>
                         </td>
                         <td className="px-6 py-4">
@@ -223,24 +220,27 @@ export const Assinaturas: React.FC = () => {
                                     {sub.periodo} meses
                                 </div>
                                 <span className="text-[11px] text-gray-400 mt-0.5">
-                                    {new Date(sub.dataInicio).toLocaleDateString()} → {new Date(sub.dataFim).toLocaleDateString()}
+                                    {formatDateBR(sub.dataInicial)} → {formatDateBR(sub.dataFinal)}
                                 </span>
                             </div>
                         </td>
                         <td className="px-6 py-4">
                             <div className="flex flex-col">
-                                <span className="text-sm font-bold text-gray-900">R$ {finalPrice.toFixed(2)}</span>
-                                {sub.desconto > 0 && (
-                                    <span className="text-xs font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded w-fit mt-1">
-                                        {sub.desconto}% OFF
-                                    </span>
-                                )}
+                                <span className="text-sm font-bold text-gray-900">
+                                    R$ {sub.valorComDesconto ? sub.valorComDesconto.toFixed(2).replace('.', ',') : '0,00'}
+                                </span>
                             </div>
                         </td>
                         <td className="px-6 py-4">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800`}>
-                                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 bg-green-600`}></span>
-                                Ativa
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                sub.status === 'Ativo' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                                    sub.status === 'Ativo' ? 'bg-green-600' : 'bg-gray-600'
+                                }`}></span>
+                                {sub.status || 'Ativo'}
                             </span>
                         </td>
                         <td className="px-6 py-4 text-right">

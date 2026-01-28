@@ -52,7 +52,7 @@ export interface CompanyLoginPayload {
   password: string;
 }
 
-// Novos Tipos para Business Service
+// Interfaces de Negócio (Planos e Assinaturas)
 
 export interface PlanPayload {
   nome: string;
@@ -79,17 +79,20 @@ export interface SubscriptionPayload {
 
 export interface SubscriptionResponse {
   idAssinatura: number;
-  idUser: number;
+  nomeCliente: string;
+  nomePlano: string;
   idPlano: number;
   periodo: number;
-  dataInicio: string;
-  dataFim: string;
-  desconto: number;
-  observacao: string;
-  user?: User;      // Assumindo que a API retorna ou faremos o match manual
-  plano?: PlanResponse; // Assumindo que a API retorna ou faremos o match manual
-  valorFinal?: number; // Calculado no front se nao vier
-  status?: string; // Calculado no front
+  dataInicial: string;
+  dataFinal: string;
+  valorComDesconto: number;
+  status: string;
+  
+  // Campos opcionais/legados para compatibilidade
+  idUser?: number;
+  observacao?: string;
+  desconto?: number;
+  user?: User;
 }
 
 export interface ApiError {

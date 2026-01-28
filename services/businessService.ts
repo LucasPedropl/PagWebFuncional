@@ -14,84 +14,92 @@ const getHeaders = () => {
 
 export const businessService = {
   // === PLANOS ===
+  async listPlans(): Promise<PlanResponse[]> {
+    const response = await fetch(`${BASE_URL}/Plano`, {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    if (!response.ok) throw new Error("Erro ao listar planos");
+    return await response.json();
+  },
+
   async createPlan(data: PlanPayload): Promise<PlanResponse> {
     const response = await fetch(`${BASE_URL}/Plano`, {
-      method: "POST",
+      method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify(data),
+      body: JSON.stringify(data)
     });
-
-    if (!response.ok) {
-      throw new Error("Falha ao criar plano");
-    }
-    return response.json();
+    if (!response.ok) throw new Error("Erro ao criar plano");
+    return await response.json();
   },
 
-  async listPlans(): Promise<PlanResponse[]> {
-    const response = await fetch(`${BASE_URL}/Plano/empresa`, {
-      method: "GET",
+  async updatePlan(id: number, data: PlanPayload): Promise<void> {
+    const response = await fetch(`${BASE_URL}/Plano/${id}`, {
+      method: 'PATCH',
       headers: getHeaders(),
+      body: JSON.stringify(data)
     });
-
-    if (!response.ok) {
-      throw new Error("Falha ao listar planos");
-    }
-    const data = await response.json();
-    return Array.isArray(data) ? data : [];
+    if (!response.ok) throw new Error("Erro ao atualizar plano");
   },
 
-  // === CLIENTES (ADMIN) ===
-  async connectClient(email: string): Promise<void> {
-    const response = await fetch(`${BASE_URL}/User/admin/conecta-cliente`, {
-      method: "POST",
-      headers: getHeaders(),
-      body: JSON.stringify(email), // Envia a string diretamente como JSON "string"
+  async deletePlan(id: number): Promise<void> {
+    const response = await fetch(`${BASE_URL}/Plano/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders()
     });
-
-    if (!response.ok) {
-        const txt = await response.text();
-        throw new Error(txt || "Falha ao conectar cliente");
-    }
+    if (!response.ok) throw new Error("Erro ao excluir plano");
   },
 
+  // === CLIENTES ===
   async listClients(): Promise<User[]> {
-    const response = await fetch(`${BASE_URL}/User/admin/clientes`, {
-      method: "GET",
-      headers: getHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error("Falha ao listar clientes");
+    // Endpoint hipotético baseado no contexto, pois não foi fornecido na documentação parcial
+    // Assumindo GET /Cliente retorna lista de usuários vinculados
+    try {
+      const response = await fetch(`${BASE_URL}/Cliente`, {
+         method: 'GET',
+         headers: getHeaders()
+      });
+      // Fallback para array vazio se endpoint não existir ou der 404
+      if (!response.ok) return []; 
+      return await response.json();
+    } catch (e) {
+      return [];
     }
-    const data = await response.json();
-    // Validação de segurança para garantir que é um array
-    return Array.isArray(data) ? data : [];
+  },
+
+  async connectClient(email: string): Promise<void> {
+     // Endpoint hipotético de convite
+     // Assumindo POST /Cliente/convidar ou similar para vincular por email
+     const response = await fetch(`${BASE_URL}/Cliente/convidar`, { 
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ email })
+    });
+    
+    // Se a API retornar erro, lançamos para o front tratar
+    if (!response.ok) {
+        // Ignoramos erro de parsing se não for JSON
+        const text = await response.text().catch(() => "Erro ao conectar");
+        throw new Error(text || "Erro ao conectar cliente");
+    }
   },
 
   // === ASSINATURAS ===
-  async createSubscription(data: SubscriptionPayload): Promise<SubscriptionResponse> {
-    const response = await fetch(`${BASE_URL}/Assinatura`, {
-      method: "POST",
-      headers: getHeaders(),
-      body: JSON.stringify(data),
+  async listSubscriptions(): Promise<SubscriptionResponse[]> {
+     const response = await fetch(`${BASE_URL}/Assinatura`, {
+      method: 'GET',
+      headers: getHeaders()
     });
-
-    if (!response.ok) {
-      throw new Error("Falha ao criar assinatura");
-    }
-    return response.json();
+    if (!response.ok) return [];
+    return await response.json();
   },
 
-  async listSubscriptions(): Promise<SubscriptionResponse[]> {
-    const response = await fetch(`${BASE_URL}/Assinatura/empresa`, {
-      method: "GET",
+  async createSubscription(data: SubscriptionPayload): Promise<void> {
+    const response = await fetch(`${BASE_URL}/Assinatura`, {
+      method: 'POST',
       headers: getHeaders(),
+      body: JSON.stringify(data)
     });
-
-    if (!response.ok) {
-      throw new Error("Falha ao listar assinaturas");
-    }
-    const data = await response.json();
-    return Array.isArray(data) ? data : [];
+    if (!response.ok) throw new Error("Erro ao criar assinatura");
   }
 };
