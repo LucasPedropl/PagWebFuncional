@@ -2,8 +2,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
-import { DollarSign, Users, TrendingUp, AlertCircle, PieChart, Loader2, ArrowRightLeft } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, AlertCircle, PieChart, Loader2, ArrowRightLeft, RefreshCcw } from 'lucide-react';
 import { dashboardService } from '../../services/dashboardService';
+import { Button } from '../../components/ui/Button';
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color, isNegative = false, onClick, className }: any) => (
   <div 
@@ -31,6 +32,7 @@ export const BusinessDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<any>(null);
+  const [error, setError] = useState<boolean>(false);
   
   // State para o toggle do Faturamento
   const [revenueView, setRevenueView] = useState<'month' | 'year'>('month');
@@ -40,11 +42,14 @@ export const BusinessDashboard: React.FC = () => {
   }, []);
 
   const loadDashboard = async () => {
+    setIsLoading(true);
+    setError(false);
     try {
         const dashboardData = await dashboardService.getDashboardData();
         setData(dashboardData);
     } catch (error) {
         console.error("Erro ao carregar dashboard", error);
+        setError(true);
     } finally {
         setIsLoading(false);
     }
@@ -62,6 +67,24 @@ export const BusinessDashboard: React.FC = () => {
               </div>
           </BusinessLayout>
       )
+  }
+
+  if (error || !data) {
+    return (
+        <BusinessLayout>
+            <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
+                <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
+                <h2 className="text-lg font-bold text-gray-900 mb-2">Não foi possível carregar os dados</h2>
+                <p className="text-gray-500 max-w-sm mb-6">
+                    Isso pode acontecer se for seu primeiro acesso ou se houver um problema de conexão.
+                </p>
+                <Button onClick={loadDashboard}>
+                    <RefreshCcw className="w-4 h-4 mr-2" />
+                    Tentar Novamente
+                </Button>
+            </div>
+        </BusinessLayout>
+    );
   }
 
   // --- Helpers para Gráficos ---

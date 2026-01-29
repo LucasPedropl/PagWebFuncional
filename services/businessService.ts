@@ -39,10 +39,17 @@ export const businessService = {
     const response = await authRequest('/Plano/empresa', { method: 'GET' });
     
     if (!response.ok) {
+        // Se der erro 404 ou outro, retornamos array vazio para não quebrar a UI em contas novas
+        if (response.status === 404) return [];
         const text = await parseApiError(response);
         throw new Error(text || "Erro ao listar planos");
     }
-    return await response.json();
+    try {
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
   },
 
   async createPlan(data: PlanPayload): Promise<PlanResponse> {
@@ -88,7 +95,8 @@ export const businessService = {
          method: 'GET'
       });
       if (!response.ok) return []; 
-      return await response.json();
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
     } catch (e) {
       return [];
     }
@@ -123,7 +131,12 @@ export const businessService = {
       method: 'GET'
     });
     if (!response.ok) return [];
-    return await response.json();
+    try {
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
   },
 
   async createSubscription(data: SubscriptionPayload): Promise<void> {
@@ -168,6 +181,11 @@ export const businessService = {
     });
     
     if (!response.ok) return [];
-    return await response.json();
+    try {
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
   }
 };

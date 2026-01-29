@@ -14,11 +14,16 @@ const parseDateBR = (dateStr: string): Date | null => {
 export const dashboardService = {
     
     async getDashboardData() {
-        const [mensalidades, clientes, assinaturas] = await Promise.all([
+        const [rawMensalidades, rawClientes, rawAssinaturas] = await Promise.all([
             businessService.listMensalidades(),
             businessService.listClients(),
             businessService.listSubscriptions()
         ]);
+
+        // Programação Defensiva: Garante que sejam arrays mesmo que o service falhe
+        const mensalidades = Array.isArray(rawMensalidades) ? rawMensalidades : [];
+        const clientes = Array.isArray(rawClientes) ? rawClientes : [];
+        const assinaturas = Array.isArray(rawAssinaturas) ? rawAssinaturas : [];
 
         const today = new Date();
         const currentMonth = today.getMonth();

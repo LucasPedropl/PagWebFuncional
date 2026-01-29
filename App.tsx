@@ -24,7 +24,7 @@ import { sessionService } from './services/session';
 // --- Guards de Rota (Proteção por Tipo de Usuário) ---
 
 // Protege rotas de CLIENTE
-const ClientRoute = ({ children }: { children: React.ReactNode }) => {
+const ClientRoute = ({ children }: { children?: React.ReactNode }) => {
   const session = sessionService.getSession();
   
   // 1. Não logado -> Login Cliente
@@ -41,7 +41,7 @@ const ClientRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 // Protege rotas de EMPRESA (ADMIN)
-const BusinessRoute = ({ children }: { children: React.ReactNode }) => {
+const BusinessRoute = ({ children }: { children?: React.ReactNode }) => {
   const session = sessionService.getSession();
 
   // 1. Não logado -> Login Business
