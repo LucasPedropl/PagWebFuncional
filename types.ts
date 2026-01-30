@@ -26,8 +26,6 @@ export interface RegisterPayload {
 export interface CompanyCreationPayload {
   nome: string;
   cnpj: string;
-  email: string;
-  password: string;
   telefone: string;
 }
 

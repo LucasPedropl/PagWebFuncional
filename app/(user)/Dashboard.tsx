@@ -76,7 +76,7 @@ export const Dashboard: React.FC = () => {
             <p className="text-gray-500 mb-6 text-sm">
                 Para ver seus planos e faturas, você precisa ser convidado por um estabelecimento ou escanear o QR Code da loja.
             </p>
-            <Button className="bg-slate-900 hover:bg-slate-800">
+            <Button className="bg-slate-900 hover:bg-slate-800 mx-auto">
                 Ler QR Code ou Buscar Loja <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
         </div>

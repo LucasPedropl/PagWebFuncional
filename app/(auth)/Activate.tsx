@@ -62,19 +62,15 @@ export const Activate: React.FC = () => {
          const clientToken = authResponse.token;
 
          // 3. Create Company
+         // A criação da empresa agora vincula automaticamente o usuário logado como dono
          setStatusMessage("Registrando empresa...");
-         const companyResponse = await companyService.create(clientToken, companyData);
-         const companyId = companyResponse.idEmpresa;
+         await companyService.create(clientToken, companyData);
 
-         // 4. Connect User to Company as Admin
-         setStatusMessage("Vinculando permissões administrativas...");
-         await userService.connectAdmin(clientToken, companyId);
-
-         // 5. Login as Admin
+         // 4. Login as Admin
          setStatusMessage("Acessando painel administrativo...");
          await companyService.login(email, password);
 
-         // 6. Redirect to Dashboard
+         // 5. Redirect to Dashboard
          setStatusMessage("Tudo pronto!");
          navigate('/business/dashboard');
       }

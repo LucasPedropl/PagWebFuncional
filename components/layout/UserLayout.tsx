@@ -42,7 +42,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: Store, label: 'Minhas Empresas', path: '/empresas' },
     { icon: CreditCard, label: 'Assinaturas', path: '/assinaturas' },
     { icon: Receipt, label: 'Pagamentos', path: '/pagamentos' },
-    { icon: Settings, label: 'Configurações', path: '/configuracoes' },
+    // Configurações removido daqui para ir para o rodapé
   ];
 
   // Mobile Footer Items
@@ -120,20 +120,21 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
           })}
         </nav>
 
-        <div className="p-3 border-t border-gray-100">
-           <button
-             onClick={handleLogout}
-             className={`w-full flex items-center py-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors relative ${
+        {/* Footer Sidebar - Agora com Configurações */}
+        <div className="p-3 border-t border-gray-100 space-y-1 relative group">
+          <Link
+             to="/configuracoes"
+             className={`flex items-center py-3 rounded-lg text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors relative ${
                isCollapsed ? 'justify-center px-0' : 'px-4'
-             }`}
+             } ${location.pathname === '/configuracoes' ? 'bg-slate-50 text-slate-900 font-medium' : ''}`}
            >
-             <LogOut size={20} className={`min-w-[20px] ${isCollapsed ? '' : 'mr-3'}`} />
+             <Settings size={20} className={`min-w-[20px] ${isCollapsed ? '' : 'mr-3'}`} />
              <span className={`text-base font-normal whitespace-nowrap transition-all duration-300 ${
                 isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100 block'
              }`}>
-                Sair
+                Configurações
              </span>
-           </button>
+           </Link>
         </div>
       </aside>
 
@@ -145,7 +146,8 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
         <header className="h-16 md:h-20 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-8 sticky top-0 z-40">
           <div className="flex items-center text-sm text-gray-500">
             <span className="text-gray-900 font-medium text-lg md:text-sm">
-               {menuItems.find(i => i.path === location.pathname)?.label || 'PagWeb'}
+               {menuItems.find(i => i.path === location.pathname)?.label || 
+               (location.pathname === '/configuracoes' ? 'Configurações' : 'PagWeb')}
             </span>
           </div>
 
@@ -155,6 +157,19 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
             </button>
             <div className="hidden md:flex items-center gap-3 pl-6 border-l border-gray-100 h-8">
                <span className="text-sm font-semibold text-gray-900">Minha Conta</span>
+               <button 
+                onClick={handleLogout}
+                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors ml-1"
+                title="Sair do sistema"
+              >
+                  <LogOut size={18} />
+              </button>
+            </div>
+            {/* Mobile Logout (Simple) */}
+            <div className="md:hidden">
+                 <button onClick={handleLogout} className="text-gray-500 hover:text-red-600">
+                    <LogOut size={20} />
+                 </button>
             </div>
           </div>
         </header>

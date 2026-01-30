@@ -75,9 +75,7 @@ export const Register: React.FC = () => {
         companyData: isBusiness ? {
           nome: formData.companyNome,
           cnpj: cleanCNPJ, // sending clean
-          telefone: cleanCompPhone, // sending clean
-          email: 'dummy@pagweb.com', // API requirement but unused per prompt
-          password: 'dummyPassword'  // API requirement but unused per prompt
+          telefone: cleanCompPhone // sending clean
         } : null
       };
 
