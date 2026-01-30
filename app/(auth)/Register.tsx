@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { userService } from '../../services/userService';
@@ -95,6 +96,7 @@ export const Register: React.FC = () => {
       const cleanCompPhone = formData.companyTelefone.replace(/\D/g, '');
 
       // Step 1: Register User
+      // Passa o ID da empresa se existir (convite)
       await userService.register({
         nome: formData.nome,
         sobreNome: isBusiness ? 'Admin' : formData.sobreNome,
@@ -102,15 +104,21 @@ export const Register: React.FC = () => {
         email: formData.email,
         password: formData.password,
         telefone: cleanPhone
-      });
+      }, inviteCompanyId || undefined);
 
-      // Prepare state to pass to Activate screen
+      // CASO ESPECIAL: Convite por Link (Id da empresa presente)
+      // O backend já vincula e ativa o usuário, então fazemos login automático
+      if (inviteCompanyId) {
+          await userService.login(formData.email, formData.password);
+          navigate('/dashboard');
+          return;
+      }
+
+      // CASO PADRÃO: Redireciona para tela de ativação manual
       const navigationState = { 
         email: formData.email,
         password: formData.password, 
         isBusinessRegistration: isBusiness,
-        // Passa o ID do convite para a próxima tela
-        inviteCompanyId: inviteCompanyId, 
         companyData: isBusiness ? {
           nome: formData.companyNome,
           cnpj: cleanCNPJ,

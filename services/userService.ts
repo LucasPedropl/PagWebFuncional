@@ -1,3 +1,4 @@
+
 import { ActivatePayload, AuthResponse, LoginPayload, RegisterPayload } from "../types";
 import { sessionService } from "./session";
 import { parseApiError } from "../utils/formatters";
@@ -5,8 +6,13 @@ import { parseApiError } from "../utils/formatters";
 const BASE_URL = "https://lojas.vlks.com.br/api/v1/User";
 
 export const userService = {
-  async register(data: RegisterPayload): Promise<void> {
-    const response = await fetch(`${BASE_URL}/register`, {
+  async register(data: RegisterPayload, companyId?: number): Promise<void> {
+    // Se houver companyId, adiciona como query param na URL
+    const url = companyId 
+      ? `${BASE_URL}/register?idEmpresa=${companyId}` 
+      : `${BASE_URL}/register`;
+
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
