@@ -89,11 +89,20 @@ export const BusinessDashboard: React.FC = () => {
 
   // --- Helpers para Gráficos ---
   
-  // Gráfico de Linha (Tendência)
+  // Gráfico de Linha (Tendência) - Responsivo
   const maxTrendValue = data?.trendData.reduce((max: number, item: any) => Math.max(max, item.value), 0) || 1;
-  const getTrendY = (val: number) => 150 - ((val / maxTrendValue) * 120); // 150 height, 120 usable
+  
+  // Coordenadas lógicas (0 a 100)
+  const getTrendY = (val: number) => {
+      // Mapeia valor para 0-100 invertido (0 no topo, 100 na base)
+      // Deixamos 5% de margem no topo para a bolinha não cortar
+      if (maxTrendValue === 0) return 100;
+      return 100 - ((val / maxTrendValue) * 95);
+  };
+
   const trendPoints = data?.trendData.map((d: any, i: number) => {
-     const x = (i / (data.trendData.length - 1)) * 600;
+     // X distribuído uniformemente de 0 a 100
+     const x = (i / (data.trendData.length - 1)) * 100;
      const y = getTrendY(d.value);
      return `${x},${y}`;
   }).join(' ');
@@ -171,63 +180,81 @@ export const BusinessDashboard: React.FC = () => {
             <p className="text-xs text-gray-400">Baseado nas mensalidades geradas no sistema.</p>
           </div>
           
-          <div className="h-64 flex items-end justify-between gap-2 pt-4 relative group">
-             {/* Y Axis Labels */}
-             <div className="absolute inset-0 flex flex-col justify-between text-xs text-gray-400 pointer-events-none h-[80%]">
+          <div className="h-64 relative w-full">
+             {/* Y Axis Labels (Absolute Left) */}
+             <div className="absolute left-0 top-0 bottom-6 w-10 flex flex-col justify-between text-xs text-gray-400 z-10 bg-white/50">
                 <span>R$ {maxTrendValue.toFixed(0)}</span>
                 <span>R$ {(maxTrendValue / 2).toFixed(0)}</span>
                 <span>R$ 0</span>
              </div>
              
-             {/* Chart SVG */}
-             <svg className="absolute inset-0 w-full h-full pl-10 pb-6 overflow-visible" preserveAspectRatio="none">
-                 {/* Grid Lines */}
-                 <line x1="0" y1="30" x2="100%" y2="30" stroke="#f1f5f9" strokeDasharray="4" />
-                 <line x1="0" y1="90" x2="100%" y2="90" stroke="#f1f5f9" strokeDasharray="4" />
-                 <line x1="0" y1="150" x2="100%" y2="150" stroke="#f1f5f9" />
+             {/* Chart Area Container (Absolute with offset for labels) */}
+             <div className="absolute left-10 right-0 top-0 bottom-6">
+                 
+                 {/* Camada 1: SVG (Linhas e Preenchimento) - Estica (preserveAspectRatio="none") */}
+                 <svg 
+                    className="w-full h-full overflow-visible" 
+                    viewBox="0 0 100 100" 
+                    preserveAspectRatio="none"
+                 >
+                     {/* Grid Lines */}
+                     <line x1="0" y1="5" x2="100" y2="5" stroke="#f1f5f9" strokeDasharray="2" vectorEffect="non-scaling-stroke" />
+                     <line x1="0" y1="50" x2="100" y2="50" stroke="#f1f5f9" strokeDasharray="2" vectorEffect="non-scaling-stroke" />
+                     <line x1="0" y1="100" x2="100" y2="100" stroke="#f1f5f9" vectorEffect="non-scaling-stroke" />
 
-                 <path 
-                    d={`M${trendPoints}`} 
-                    fill="none" 
-                    stroke="#0f172a" 
-                    strokeWidth="3" 
-                    vectorEffect="non-scaling-stroke"
-                    className="drop-shadow-md"
-                 />
-                 
-                 {/* Area fill */}
-                 <path 
-                    d={`M0,150 L${trendPoints.split(' ')[0]} ${trendPoints.substring(trendPoints.indexOf(' '))} L600,150 Z`} 
-                    fill="url(#gradient)" 
-                    opacity="0.1"
-                 />
-                 
-                 {/* Dots and Tooltips */}
+                     {/* Area Fill */}
+                     <path 
+                        d={`M0,100 L${trendPoints.split(' ')[0]} ${trendPoints.substring(trendPoints.indexOf(' '))} L100,100 Z`} 
+                        fill="url(#gradient)" 
+                        opacity="0.1"
+                        vectorEffect="non-scaling-stroke"
+                     />
+
+                     {/* The Line */}
+                     <path 
+                        d={`M${trendPoints}`} 
+                        fill="none" 
+                        stroke="#0f172a" 
+                        strokeWidth="3" 
+                        vectorEffect="non-scaling-stroke"
+                        className="drop-shadow-sm"
+                     />
+                     
+                     <defs>
+                       <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                         <stop offset="0%" stopColor="#0f172a" />
+                         <stop offset="100%" stopColor="white" />
+                       </linearGradient>
+                     </defs>
+                 </svg>
+
+                 {/* Camada 2: Pontos HTML (Não distorcem com o SVG) */}
                  {data.trendData.map((d: any, i: number) => {
-                     const x = (i / (data.trendData.length - 1)) * 100 + '%';
+                     const x = (i / (data.trendData.length - 1)) * 100;
                      const y = getTrendY(d.value);
                      return (
-                         <g key={i}>
-                            <circle cx={x} cy={y} r="4" fill="white" stroke="#0f172a" strokeWidth="2" className="hover:r-6 transition-all cursor-pointer">
-                                <title>R$ {d.value.toFixed(2)}</title>
-                            </circle>
-                            {/* Hover Value Overlay via CSS Group */}
-                         </g>
+                        <div 
+                            key={i}
+                            className="absolute w-3 h-3 bg-white border-2 border-slate-900 rounded-full cursor-pointer hover:scale-125 transition-transform shadow-sm z-10"
+                            style={{ 
+                                left: `${x}%`, 
+                                top: `${y}%`,
+                                transform: 'translate(-50%, -50%)' // Centraliza o ponto na coordenada
+                            }}
+                            title={`R$ ${d.value.toFixed(2)}`}
+                        />
                      )
                  })}
+             </div>
 
-                 <defs>
-                   <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                     <stop offset="0%" stopColor="#0f172a" />
-                     <stop offset="100%" stopColor="white" />
-                   </linearGradient>
-                 </defs>
-             </svg>
-
-            {/* X Axis Labels */}
-             <div className="absolute bottom-0 left-10 right-0 flex justify-between text-xs text-gray-500 font-medium">
+            {/* X Axis Labels (Absolute Bottom) */}
+             <div className="absolute left-10 right-0 bottom-0 flex justify-between text-xs text-gray-500 font-medium">
                 {data.trendData.map((d: any, i: number) => (
-                    <span key={i}>{d.label}</span>
+                    <div key={i} style={{ width: `${100 / data.trendData.length}%`, textAlign: 'center' }}>
+                         <span className={`${i === 0 ? 'float-left' : i === data.trendData.length - 1 ? 'float-right' : ''}`}>
+                             {d.label}
+                         </span>
+                    </div>
                 ))}
              </div>
           </div>
