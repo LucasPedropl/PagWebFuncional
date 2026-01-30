@@ -18,7 +18,8 @@ export const Activate: React.FC = () => {
   const [token, setToken] = useState('');
 
   // Data passed from Register screen
-  const { password, isBusinessRegistration, companyData } = location.state || {};
+  // inviteCompanyId: ID da empresa que convidou o usuário (se houver)
+  const { password, isBusinessRegistration, companyData, inviteCompanyId } = location.state || {};
 
   useEffect(() => {
     if (location.state?.email) {
@@ -37,16 +38,28 @@ export const Activate: React.FC = () => {
       setStatusMessage("Ativando conta de usuário...");
       await userService.activate({ email, token });
 
-      // If it's a normal user (Cliente)
+      // === Client Registration Flow ===
       if (!isBusinessRegistration) {
          if (password) {
-             // Auto-login se a senha estiver disponível (fluxo vindo do cadastro)
+             // Auto-login se a senha estiver disponível
              setStatusMessage("Autenticando...");
              await userService.login(email, password);
+
+             // Se houver um ID de convite, fazemos a vinculação
+             if (inviteCompanyId) {
+                try {
+                    setStatusMessage("Vinculando à empresa...");
+                    await userService.linkToCompany(inviteCompanyId);
+                } catch (linkError) {
+                    console.warn("Erro ao vincular automaticamente:", linkError);
+                    // Não bloqueamos o fluxo se falhar o vínculo, mas logamos
+                }
+             }
+
              setStatusMessage("Redirecionando...");
              navigate('/dashboard');
          } else {
-             // Fluxo manual ou sem senha no state
+             // Fluxo manual
              setStatusMessage("Conta ativada! Redirecionando para login...");
              setTimeout(() => navigate('/login'), 2000);
          }
@@ -62,7 +75,6 @@ export const Activate: React.FC = () => {
          const clientToken = authResponse.token;
 
          // 3. Create Company
-         // A criação da empresa agora vincula automaticamente o usuário logado como dono
          setStatusMessage("Registrando empresa...");
          await companyService.create(clientToken, companyData);
 
@@ -123,7 +135,7 @@ export const Activate: React.FC = () => {
         )}
 
         <Button type="submit" className="w-full" isLoading={isLoading}>
-          {isBusinessRegistration ? 'Ativar e Configurar Empresa' : 'Ativar Conta'}
+          {isBusinessRegistration ? 'Ativar e Configurar Empresa' : (inviteCompanyId ? 'Ativar e Vincular' : 'Ativar Conta')}
         </Button>
       </form>
 

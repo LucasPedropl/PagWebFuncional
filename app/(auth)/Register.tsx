@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { userService } from '../../services/userService';
 import { AuthLayout } from '../../components/layout/AuthLayout';
@@ -15,6 +15,10 @@ export const Register: React.FC = () => {
   const type = searchParams.get('type') as 'client' | 'business' | null;
   const isBusiness = type === 'business';
   
+  // Estado para armazenar ID da empresa caso venha por convite
+  const [inviteCompanyId, setInviteCompanyId] = useState<number | null>(null);
+  const [isEmailLocked, setIsEmailLocked] = useState(false);
+  
   const [formData, setFormData] = useState({
     // User Data
     nome: '',
@@ -28,6 +32,39 @@ export const Register: React.FC = () => {
     companyCnpj: '',
     companyTelefone: ''
   });
+
+  // Effect para processar a URL de convite (incluindo formato com duplo ?)
+  useEffect(() => {
+    // Tenta pegar via searchParams padrão
+    let emailFromUrl = searchParams.get('email');
+    let idFromUrl = searchParams.get('Id');
+
+    // Se falhar (devido ao formato ?type=client?Id=4), fazemos parse manual da string completa
+    if (!emailFromUrl || !idFromUrl) {
+        const href = window.location.href;
+        
+        // Regex para encontrar email=...
+        const emailMatch = href.match(/[?&]email=([^&]+)/);
+        if (emailMatch) {
+            emailFromUrl = decodeURIComponent(emailMatch[1]);
+        }
+
+        // Regex para encontrar Id=...
+        const idMatch = href.match(/[?&]Id=(\d+)/);
+        if (idMatch) {
+            idFromUrl = idMatch[1];
+        }
+    }
+
+    if (emailFromUrl) {
+        setFormData(prev => ({ ...prev, email: emailFromUrl as string }));
+        setIsEmailLocked(true);
+    }
+
+    if (idFromUrl) {
+        setInviteCompanyId(parseInt(idFromUrl));
+    }
+  }, [searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
@@ -50,32 +87,32 @@ export const Register: React.FC = () => {
     setError(null);
 
     try {
-      // Clean masks before sending if necessary, but API might accept formatted
-      // Assuming API needs clean data:
       const cleanCPF = formData.cpf.replace(/\D/g, '');
       const cleanPhone = formData.telefone.replace(/\D/g, '');
       const cleanCNPJ = formData.companyCnpj.replace(/\D/g, '');
       const cleanCompPhone = formData.companyTelefone.replace(/\D/g, '');
 
-      // Step 1: Always register the User first
+      // Step 1: Register User
       await userService.register({
         nome: formData.nome,
         sobreNome: isBusiness ? 'Admin' : formData.sobreNome,
-        cpf: cleanCPF, // sending clean
+        cpf: cleanCPF,
         email: formData.email,
         password: formData.password,
-        telefone: cleanPhone // sending clean
+        telefone: cleanPhone
       });
 
       // Prepare state to pass to Activate screen
       const navigationState = { 
         email: formData.email,
-        password: formData.password, // Passed to allow auto-login flow
+        password: formData.password, 
         isBusinessRegistration: isBusiness,
+        // Passa o ID do convite para a próxima tela
+        inviteCompanyId: inviteCompanyId, 
         companyData: isBusiness ? {
           nome: formData.companyNome,
-          cnpj: cleanCNPJ, // sending clean
-          telefone: cleanCompPhone // sending clean
+          cnpj: cleanCNPJ,
+          telefone: cleanCompPhone
         } : null
       };
 
@@ -91,7 +128,7 @@ export const Register: React.FC = () => {
   return (
     <AuthLayout 
       title={isBusiness ? "Cadastre seu Negócio" : "Crie sua conta"} 
-      subtitle={isBusiness ? "Passo 1: Crie seu usuário administrativo e dados da empresa." : "Preencha os dados abaixo para começar a usar o PagWeb."}
+      subtitle={inviteCompanyId ? "Complete seu cadastro para se vincular à empresa." : (isBusiness ? "Passo 1: Crie seu usuário administrativo." : "Preencha os dados abaixo para começar.")}
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         
@@ -152,6 +189,8 @@ export const Register: React.FC = () => {
                 onChange={handleChange}
                 required
                 placeholder="seu@email.com"
+                disabled={isEmailLocked} // Bloqueia se vier do convite
+                className={isEmailLocked ? 'bg-gray-50 text-gray-500' : ''}
             />
 
             <Input

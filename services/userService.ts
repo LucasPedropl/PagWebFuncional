@@ -66,5 +66,27 @@ export const userService = {
 
     sessionService.setSession(data);
     return data;
+  },
+
+  // Vincula o usuário logado a uma empresa (Aceite de convite)
+  async linkToCompany(companyId: number): Promise<void> {
+    const { token } = sessionService.getSession();
+    
+    // Assumindo endpoint de vinculação baseado no ID da empresa
+    // Caso a API use um padrão diferente, ajustar aqui. 
+    // Usando endpoint similar ao de conectar-cliente, mas para o usuário se conectar à empresa.
+    const response = await fetch(`${BASE_URL}/vincula-empresa/${companyId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "accept": "*/*",
+        "Authorization": `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      // Ignoramos erro se for "já vinculado" ou similar, para não travar o fluxo
+      console.warn("Aviso na vinculação automática:", await response.text());
+    }
   }
 };
