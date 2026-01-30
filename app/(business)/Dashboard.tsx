@@ -157,6 +157,7 @@ export const BusinessDashboard: React.FC = () => {
           subtitle="Receita Recorrente Mensal"
           icon={TrendingUp} 
           color="bg-green-50 text-green-600"
+          onClick={() => navigate('/business/relatorios')}
         />
 
         {/* Card 4: Inadimplência */}
