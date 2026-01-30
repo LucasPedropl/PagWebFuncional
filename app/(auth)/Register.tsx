@@ -12,7 +12,9 @@ export const Register: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const type = searchParams.get('type') as 'client' | 'business' | null;
+  // Limpa o parâmetro type caso venha sujo da URL (ex: client?Id=4)
+  const rawType = searchParams.get('type');
+  const type = rawType?.split('?')[0] as 'client' | 'business' | null;
   const isBusiness = type === 'business';
   
   // Estado para armazenar ID da empresa caso venha por convite
@@ -181,7 +183,8 @@ export const Register: React.FC = () => {
                     required
                     placeholder="(00) 00000-0000"
                     maxLength={15}
-                    autoComplete="tel-national"
+                    // 'off' ou um valor aleatório ajuda a evitar autofill do navegador
+                    autoComplete="off"
                 />
             </div>
 

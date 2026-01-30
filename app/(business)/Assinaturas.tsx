@@ -164,8 +164,8 @@ export const Assinaturas: React.FC = () => {
             idUser: parseInt(formData.idUser),
             idPlano: parseInt(formData.idPlano),
             periodo: parseInt(formData.periodo),
-            dataInicial: startIso,
-            dataFinal: endIso,
+            dataInicio: startIso,
+            dataFim: endIso,
             desconto: parseFloat(formData.desconto || '0'),
             observacao: formData.observacao
         });
