@@ -1,21 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Save, User, Lock, LogOut } from 'lucide-react';
+import { Save, User as UserIcon, Lock, LogOut } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { useNavigate } from 'react-router-dom';
+import { formatCPF, formatPhone } from '../../utils/formatters';
 
 export const Configuracoes: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'perfil' | 'seguranca'>('perfil');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSave = () => {
+  // Form States
+  const [profileData, setProfileData] = useState({
+      nome: '',
+      sobreNome: '',
+      cpf: '',
+      telefone: '',
+      email: ''
+  });
+
+  const [passwordData, setPasswordData] = useState({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+  });
+
+  useEffect(() => {
+      const { user } = sessionService.getSession();
+      if (user) {
+          setProfileData({
+              nome: user.nome || '',
+              sobreNome: user.sobreNome || '',
+              cpf: user.cpf || '',
+              telefone: user.telefone || '',
+              email: user.email || ''
+          });
+      }
+  }, []);
+
+  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      let { name, value } = e.target;
+      if (name === 'telefone') value = formatPhone(value);
+      
+      setProfileData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = e.target;
+      setPasswordData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveProfile = async () => {
     setIsLoading(true);
+    // Simulação de salvamento (Aqui você conectaria com businessService.updateUser se existisse)
     setTimeout(() => {
         setIsLoading(false);
-        alert('Dados atualizados!');
+        // Atualiza sessão local simulada
+        const { user } = sessionService.getSession();
+        if (user) {
+            const updatedUser = { ...user, ...profileData };
+            localStorage.setItem("pagweb_user", JSON.stringify(updatedUser));
+        }
+        alert('Dados atualizados com sucesso!');
+    }, 1000);
+  };
+
+  const handleSavePassword = async () => {
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+          alert("As novas senhas não coincidem.");
+          return;
+      }
+      setIsLoading(true);
+      setTimeout(() => {
+        setIsLoading(false);
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        alert('Senha atualizada!');
     }, 1000);
   };
 
@@ -42,7 +103,7 @@ export const Configuracoes: React.FC = () => {
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                 >
-                    <User className="w-4 h-4 mr-3" />
+                    <UserIcon className="w-4 h-4 mr-3" />
                     Meu Perfil
                 </button>
                 <button
@@ -74,14 +135,42 @@ export const Configuracoes: React.FC = () => {
                     <div className="space-y-6 animate-fadeIn">
                         <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-4">Dados Pessoais</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Input label="Nome" defaultValue="Pedro" />
-                            <Input label="Sobrenome" defaultValue="Mota" />
-                            <Input label="CPF" defaultValue="000.000.000-00" disabled className="bg-gray-50" />
-                            <Input label="Telefone" defaultValue="(11) 99999-9999" />
+                            <Input 
+                                label="Nome" 
+                                name="nome"
+                                value={profileData.nome}
+                                onChange={handleProfileChange}
+                            />
+                            <Input 
+                                label="Sobrenome" 
+                                name="sobreNome"
+                                value={profileData.sobreNome}
+                                onChange={handleProfileChange}
+                            />
+                            <Input 
+                                label="CPF" 
+                                name="cpf"
+                                value={profileData.cpf}
+                                disabled 
+                                className="bg-gray-50 text-gray-500 cursor-not-allowed" 
+                            />
+                            <Input 
+                                label="Telefone" 
+                                name="telefone"
+                                value={profileData.telefone}
+                                onChange={handleProfileChange}
+                                maxLength={15}
+                            />
                         </div>
-                        <Input label="E-mail" defaultValue="cliente@email.com" disabled className="bg-gray-50" />
+                        <Input 
+                            label="E-mail" 
+                            name="email"
+                            value={profileData.email}
+                            disabled 
+                            className="bg-gray-50 text-gray-500 cursor-not-allowed" 
+                        />
                         <div className="pt-4">
-                            <Button onClick={handleSave} isLoading={isLoading}>
+                            <Button onClick={handleSaveProfile} isLoading={isLoading}>
                                 <Save className="w-4 h-4 mr-2" />
                                 Salvar Alterações
                             </Button>
@@ -93,12 +182,30 @@ export const Configuracoes: React.FC = () => {
                     <div className="space-y-6 animate-fadeIn">
                         <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-4">Alterar Senha</h2>
                         <div className="space-y-4 max-w-md">
-                            <Input label="Senha Atual" type="password" />
-                            <Input label="Nova Senha" type="password" />
-                            <Input label="Confirmar Nova Senha" type="password" />
+                            <Input 
+                                label="Senha Atual" 
+                                type="password" 
+                                name="currentPassword"
+                                value={passwordData.currentPassword}
+                                onChange={handlePasswordChange}
+                            />
+                            <Input 
+                                label="Nova Senha" 
+                                type="password" 
+                                name="newPassword"
+                                value={passwordData.newPassword}
+                                onChange={handlePasswordChange}
+                            />
+                            <Input 
+                                label="Confirmar Nova Senha" 
+                                type="password" 
+                                name="confirmPassword"
+                                value={passwordData.confirmPassword}
+                                onChange={handlePasswordChange}
+                            />
                         </div>
                         <div className="pt-4">
-                            <Button onClick={handleSave} isLoading={isLoading} variant="secondary">
+                            <Button onClick={handleSavePassword} isLoading={isLoading} variant="secondary">
                                 Atualizar Senha
                             </Button>
                         </div>

@@ -7,6 +7,7 @@ export interface User {
   cpf?: string;
   sobreNome?: string;
   status?: string;
+  telefone?: string; // Campo adicionado
 }
 
 export interface AuthResponse {

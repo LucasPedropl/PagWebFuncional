@@ -130,7 +130,7 @@ export const Register: React.FC = () => {
       title={isBusiness ? "Cadastre seu Negócio" : "Crie sua conta"} 
       subtitle={inviteCompanyId ? "Complete seu cadastro para se vincular à empresa." : (isBusiness ? "Passo 1: Crie seu usuário administrativo." : "Preencha os dados abaixo para começar.")}
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
+      <form className="space-y-4" onSubmit={handleSubmit} autoComplete="off">
         
         {/* User Section */}
         <div className="space-y-4">
@@ -146,6 +146,7 @@ export const Register: React.FC = () => {
                     onChange={handleChange}
                     required
                     placeholder="Seu nome"
+                    autoComplete="given-name"
                 />
                 {!isBusiness && (
                     <Input
@@ -155,6 +156,7 @@ export const Register: React.FC = () => {
                     onChange={handleChange}
                     required
                     placeholder="Sobrenome"
+                    autoComplete="family-name"
                     />
                 )}
             </div>
@@ -168,6 +170,7 @@ export const Register: React.FC = () => {
                     required
                     placeholder="000.000.000-00"
                     maxLength={14}
+                    autoComplete="off"
                 />
                 <Input
                     label="Telefone Pessoal"
@@ -178,6 +181,7 @@ export const Register: React.FC = () => {
                     required
                     placeholder="(00) 00000-0000"
                     maxLength={15}
+                    autoComplete="tel-national"
                 />
             </div>
 
@@ -191,6 +195,7 @@ export const Register: React.FC = () => {
                 placeholder="seu@email.com"
                 disabled={isEmailLocked} // Bloqueia se vier do convite
                 className={isEmailLocked ? 'bg-gray-50 text-gray-500' : ''}
+                autoComplete="email"
             />
 
             <Input
@@ -202,6 +207,7 @@ export const Register: React.FC = () => {
                 required
                 placeholder="******"
                 minLength={6}
+                autoComplete="new-password"
             />
         </div>
 
@@ -219,6 +225,7 @@ export const Register: React.FC = () => {
                     onChange={handleChange}
                     required={isBusiness}
                     placeholder="Minha Loja LTDA"
+                    autoComplete="organization"
                 />
 
                 <div className="grid grid-cols-2 gap-4">
@@ -230,6 +237,7 @@ export const Register: React.FC = () => {
                         required={isBusiness}
                         placeholder="00.000.000/0000-00"
                         maxLength={18}
+                        autoComplete="off"
                     />
                     <Input
                         label="Telefone Comercial"
@@ -239,6 +247,7 @@ export const Register: React.FC = () => {
                         required={isBusiness}
                         placeholder="(00) 00000-0000"
                         maxLength={15}
+                        autoComplete="tel"
                     />
                 </div>
             </div>
