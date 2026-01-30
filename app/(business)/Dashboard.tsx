@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
-import { DollarSign, Users, TrendingUp, AlertCircle, PieChart, Loader2, ArrowRightLeft, RefreshCcw } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, AlertCircle, PieChart, Loader2, ArrowRightLeft, RefreshCcw, BarChart3, Wallet, Calendar } from 'lucide-react';
 import { dashboardService } from '../../services/dashboardService';
 import { Button } from '../../components/ui/Button';
 
@@ -28,13 +28,25 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color, isNegative = fals
   </div>
 );
 
+// Card Menor para métricas secundárias
+const MiniStatCard = ({ title, value, icon: Icon }: any) => (
+    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+        <div>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{title}</p>
+            <p className="text-lg font-bold text-slate-900 mt-0.5">{value}</p>
+        </div>
+        <div className="bg-gray-50 p-2 rounded-lg">
+            <Icon className="w-4 h-4 text-gray-500" />
+        </div>
+    </div>
+);
+
 export const BusinessDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState<boolean>(false);
   
-  // State para o toggle do Faturamento
   const [revenueView, setRevenueView] = useState<'month' | 'year'>('month');
 
   useEffect(() => {
@@ -59,6 +71,14 @@ export const BusinessDashboard: React.FC = () => {
     setRevenueView(prev => prev === 'month' ? 'year' : 'month');
   };
 
+  const formatDate = (isoString: string) => {
+      try {
+          return new Date(isoString).toLocaleDateString('pt-BR');
+      } catch {
+          return isoString;
+      }
+  };
+
   if (isLoading) {
       return (
           <BusinessLayout>
@@ -75,9 +95,6 @@ export const BusinessDashboard: React.FC = () => {
             <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
                 <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
                 <h2 className="text-lg font-bold text-gray-900 mb-2">Não foi possível carregar os dados</h2>
-                <p className="text-gray-500 max-w-sm mb-6">
-                    Isso pode acontecer se for seu primeiro acesso ou se houver um problema de conexão.
-                </p>
                 <Button onClick={loadDashboard}>
                     <RefreshCcw className="w-4 h-4 mr-2" />
                     Tentar Novamente
@@ -88,32 +105,25 @@ export const BusinessDashboard: React.FC = () => {
   }
 
   // --- Helpers para Gráficos ---
-  
-  // Gráfico de Linha (Tendência) - Responsivo
   const maxTrendValue = data?.trendData.reduce((max: number, item: any) => Math.max(max, item.value), 0) || 1;
   
-  // Coordenadas lógicas (0 a 100)
   const getTrendY = (val: number) => {
-      // Mapeia valor para 0-100 invertido (0 no topo, 100 na base)
-      // Deixamos 5% de margem no topo para a bolinha não cortar
       if (maxTrendValue === 0) return 100;
       return 100 - ((val / maxTrendValue) * 95);
   };
 
   const trendPoints = data?.trendData.map((d: any, i: number) => {
-     // X distribuído uniformemente de 0 a 100
      const x = (i / (data.trendData.length - 1)) * 100;
      const y = getTrendY(d.value);
      return `${x},${y}`;
   }).join(' ');
 
-  // Gráfico de Pizza (Cores)
   const pieColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
   const conicGradient = data?.pieData.reduce((acc: string, item: any, index: number, arr: any[]) => {
      const prevPerc = arr.slice(0, index).reduce((p, c) => p + c.percentage, 0);
      const currentPerc = prevPerc + item.percentage;
      return `${acc}, ${pieColors[index % pieColors.length]} ${prevPerc}% ${currentPerc}%`;
-  }, '').substring(2); // Remove first comma
+  }, '').substring(2);
 
   return (
     <BusinessLayout>
@@ -122,10 +132,8 @@ export const BusinessDashboard: React.FC = () => {
         <p className="text-gray-500 mt-1">Bem-vindo de volta! Aqui está o resumo do seu negócio.</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        
-        {/* Card 1: Faturamento (Alternável) */}
+      {/* Main Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <StatCard 
           title={revenueView === 'month' ? "Faturamento (Mês)" : "Faturamento (Ano)"}
           value={`R$ ${revenueView === 'month' ? data.receitaMes.toFixed(2) : data.receitaAno.toFixed(2)}`}
@@ -140,7 +148,6 @@ export const BusinessDashboard: React.FC = () => {
           className="relative overflow-hidden"
         />
 
-        {/* Card 2: Clientes Ativos */}
         <StatCard 
           title="Clientes Ativos" 
           value={data.totalClientes} 
@@ -150,7 +157,6 @@ export const BusinessDashboard: React.FC = () => {
           onClick={() => navigate('/business/clientes')}
         />
 
-        {/* Card 3: MRR (Substituiu Taxa de Conversão) */}
         <StatCard 
           title="MRR Estimado" 
           value={`R$ ${data.mrr.toFixed(2)}`}
@@ -160,7 +166,6 @@ export const BusinessDashboard: React.FC = () => {
           onClick={() => navigate('/business/relatorios')}
         />
 
-        {/* Card 4: Inadimplência */}
         <StatCard 
           title="Mensalidades Atrasadas" 
           value={data.atrasadosCount} 
@@ -172,46 +177,60 @@ export const BusinessDashboard: React.FC = () => {
         />
       </div>
 
+      {/* Secondary Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <MiniStatCard 
+            title="Ticket Médio (ARPU)" 
+            value={`R$ ${data.arpu.toFixed(2)}`}
+            icon={BarChart3}
+          />
+          <MiniStatCard 
+            title="LTV Estimado" 
+            value={`R$ ${data.ltv.toFixed(2)}`}
+            icon={Wallet}
+          />
+          <MiniStatCard 
+            title="Taxa de Adimplência" 
+            value={`${data.taxaAdimplencia.toFixed(1)}%`}
+            icon={PieChart}
+          />
+      </div>
+
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Chart: Tendência Futura */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2 flex flex-col">
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900">Previsão de Faturamento (Próx. 6 meses)</h3>
             <p className="text-xs text-gray-400">Baseado nas mensalidades geradas no sistema.</p>
           </div>
           
-          <div className="h-64 relative w-full">
-             {/* Y Axis Labels (Absolute Left) */}
+          <div className="h-64 relative w-full flex-1 min-h-[250px]">
+             {/* Y Axis Labels */}
              <div className="absolute left-0 top-0 bottom-6 w-10 flex flex-col justify-between text-xs text-gray-400 z-10 bg-white/50">
                 <span>R$ {maxTrendValue.toFixed(0)}</span>
                 <span>R$ {(maxTrendValue / 2).toFixed(0)}</span>
                 <span>R$ 0</span>
              </div>
              
-             {/* Chart Area Container (Absolute with offset for labels) */}
+             {/* Chart Area */}
              <div className="absolute left-10 right-0 top-0 bottom-6">
-                 
-                 {/* Camada 1: SVG (Linhas e Preenchimento) - Estica (preserveAspectRatio="none") */}
+                 {/* Camada 1: SVG - Estica (preserveAspectRatio="none") */}
                  <svg 
                     className="w-full h-full overflow-visible" 
                     viewBox="0 0 100 100" 
                     preserveAspectRatio="none"
                  >
-                     {/* Grid Lines */}
                      <line x1="0" y1="5" x2="100" y2="5" stroke="#f1f5f9" strokeDasharray="2" vectorEffect="non-scaling-stroke" />
                      <line x1="0" y1="50" x2="100" y2="50" stroke="#f1f5f9" strokeDasharray="2" vectorEffect="non-scaling-stroke" />
                      <line x1="0" y1="100" x2="100" y2="100" stroke="#f1f5f9" vectorEffect="non-scaling-stroke" />
 
-                     {/* Area Fill */}
                      <path 
                         d={`M0,100 L${trendPoints.split(' ')[0]} ${trendPoints.substring(trendPoints.indexOf(' '))} L100,100 Z`} 
                         fill="url(#gradient)" 
                         opacity="0.1"
                         vectorEffect="non-scaling-stroke"
                      />
-
-                     {/* The Line */}
                      <path 
                         d={`M${trendPoints}`} 
                         fill="none" 
@@ -220,7 +239,6 @@ export const BusinessDashboard: React.FC = () => {
                         vectorEffect="non-scaling-stroke"
                         className="drop-shadow-sm"
                      />
-                     
                      <defs>
                        <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
                          <stop offset="0%" stopColor="#0f172a" />
@@ -229,7 +247,7 @@ export const BusinessDashboard: React.FC = () => {
                      </defs>
                  </svg>
 
-                 {/* Camada 2: Pontos HTML (Não distorcem com o SVG) */}
+                 {/* Camada 2: Pontos HTML (Não distorcem) */}
                  {data.trendData.map((d: any, i: number) => {
                      const x = (i / (data.trendData.length - 1)) * 100;
                      const y = getTrendY(d.value);
@@ -240,7 +258,7 @@ export const BusinessDashboard: React.FC = () => {
                             style={{ 
                                 left: `${x}%`, 
                                 top: `${y}%`,
-                                transform: 'translate(-50%, -50%)' // Centraliza o ponto na coordenada
+                                transform: 'translate(-50%, -50%)'
                             }}
                             title={`R$ ${d.value.toFixed(2)}`}
                         />
@@ -248,7 +266,7 @@ export const BusinessDashboard: React.FC = () => {
                  })}
              </div>
 
-            {/* X Axis Labels (Absolute Bottom) */}
+             {/* X Axis Labels */}
              <div className="absolute left-10 right-0 bottom-0 flex justify-between text-xs text-gray-500 font-medium">
                 {data.trendData.map((d: any, i: number) => (
                     <div key={i} style={{ width: `${100 / data.trendData.length}%`, textAlign: 'center' }}>
@@ -261,44 +279,76 @@ export const BusinessDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Pie Chart: Preferência de Planos */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Planos Preferidos</h3>
-            <p className="text-xs text-gray-400">Distribuição da base de assinantes.</p>
-          </div>
-          
-          <div className="flex flex-col items-center justify-center h-48">
-             {data.pieData.length > 0 ? (
-                 <div className="w-40 h-40 rounded-full relative shadow-inner" style={{
-                     background: `conic-gradient(${conicGradient ? conicGradient : '#e2e8f0 0% 100%'})`
-                 }}>
-                     <div className="absolute inset-8 bg-white rounded-full flex items-center justify-center shadow-sm">
-                        <span className="text-xs font-bold text-gray-400">TOTAL</span>
-                     </div>
-                 </div>
-             ) : (
-                 <div className="w-40 h-40 rounded-full border-4 border-gray-100 flex items-center justify-center text-gray-300 text-xs">
-                     Sem dados
-                 </div>
-             )}
-          </div>
+        {/* Right Column: Pie Chart & Renewals */}
+        <div className="flex flex-col gap-6">
+            
+            {/* Pie Chart: Preferência de Planos */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex-1">
+                <div className="mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Planos</h3>
+                    <p className="text-xs text-gray-400">Distribuição da base.</p>
+                </div>
+                
+                <div className="flex flex-col items-center justify-center h-40">
+                    {data.pieData.length > 0 ? (
+                        <div className="w-32 h-32 rounded-full relative shadow-inner" style={{
+                            background: `conic-gradient(${conicGradient ? conicGradient : '#e2e8f0 0% 100%'})`
+                        }}>
+                            <div className="absolute inset-6 bg-white rounded-full flex items-center justify-center shadow-sm">
+                                <span className="text-[10px] font-bold text-gray-400">TOTAL</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="w-32 h-32 rounded-full border-4 border-gray-100 flex items-center justify-center text-gray-300 text-xs">
+                            Sem dados
+                        </div>
+                    )}
+                </div>
 
-          <div className="mt-6 space-y-3 max-h-40 overflow-y-auto">
-             {data.pieData.map((item: any, index: number) => (
-                 <div key={index} className="flex justify-between items-center text-sm">
-                     <div className="flex items-center gap-2">
-                         <span 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: pieColors[index % pieColors.length] }}
-                         ></span>
-                         <span className="text-gray-600 truncate max-w-[120px]" title={item.name}>{item.name}</span>
-                     </div>
-                     <span className="font-medium text-gray-900">{item.percentage}%</span>
-                 </div>
-             ))}
-             {data.pieData.length === 0 && <p className="text-center text-gray-400 text-sm">Nenhuma assinatura ativa.</p>}
-          </div>
+                <div className="mt-4 space-y-2 max-h-32 overflow-y-auto custom-scrollbar">
+                    {data.pieData.map((item: any, index: number) => (
+                        <div key={index} className="flex justify-between items-center text-xs">
+                            <div className="flex items-center gap-2">
+                                <span 
+                                    className="w-2.5 h-2.5 rounded-full" 
+                                    style={{ backgroundColor: pieColors[index % pieColors.length] }}
+                                ></span>
+                                <span className="text-gray-600 truncate max-w-[100px]" title={item.name}>{item.name}</span>
+                            </div>
+                            <span className="font-medium text-gray-900">{item.percentage}%</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Upcoming Renewals List */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex-1">
+                <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                        <Calendar className="w-4 h-4" /> 
+                        Expiram em breve
+                    </h3>
+                </div>
+                
+                <div className="space-y-3">
+                    {data.proximasRenovacoes.length === 0 ? (
+                        <p className="text-xs text-gray-400 text-center py-4">Nenhuma renovação nos próximos 30 dias.</p>
+                    ) : (
+                        data.proximasRenovacoes.map((sub: any) => (
+                            <div key={sub.idAssinatura} className="flex items-center justify-between border-b border-gray-50 pb-2 last:border-0 last:pb-0">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-800 truncate max-w-[120px]">{sub.nomeCliente}</p>
+                                    <p className="text-xs text-gray-400">{sub.nomePlano}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs font-bold text-slate-700">{formatDate(sub.dataFinal)}</p>
+                                    <p className="text-[10px] text-orange-500 font-medium">Renovar</p>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
         </div>
       </div>
     </BusinessLayout>
