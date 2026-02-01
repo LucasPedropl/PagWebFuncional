@@ -1,19 +1,28 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle, UserPlus, ChevronsUpDown, Check, Send, Mail } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { PlanResponse, SubscriptionResponse, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
 
 export const Assinaturas: React.FC = () => {
   const { addToast } = useToast();
+  
+  // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  
+  // Connect Client Modal State
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+  const [emailToConnect, setEmailToConnect] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
 
+  // Search/Filter Main Table
   const [searchTerm, setSearchTerm] = useState('');
   
   // Data State
@@ -39,12 +48,30 @@ export const Assinaturas: React.FC = () => {
     observacao: ''
   });
 
+  // Client Combobox State
+  const [clientSearch, setClientSearch] = useState('');
+  const [isClientListOpen, setIsClientListOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   // Aviso de Data (Warning visual)
   const [dateWarning, setDateWarning] = useState<{ type: 'info' | 'warning', message: string } | null>(null);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Click outside handler for dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsClientListOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dropdownRef]);
 
   // Calcula data fim e valida data inicio
   useEffect(() => {
@@ -59,8 +86,6 @@ export const Assinaturas: React.FC = () => {
     }
 
     // 1. Parsing Seguro da Data (YYYY-MM-DD para Data Local)
-    // Usar new Date('yyyy-mm-dd') cria UTC, o que pode dar erro de dia dependendo do fuso.
-    // Usar split garante criação no fuso local (00:00:00).
     const [year, month, day] = formData.dataInicio.split('-').map(Number);
     const checkDate = new Date(year, month - 1, day);
 
@@ -133,6 +158,59 @@ export const Assinaturas: React.FC = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // --- LOGICA DE CLIENTE ---
+
+  const filteredClientsForDropdown = clients.filter(c => 
+     c.nome.toLowerCase().includes(clientSearch.toLowerCase()) || 
+     c.email.toLowerCase().includes(clientSearch.toLowerCase())
+  );
+
+  const handleSelectClient = (client: User) => {
+      setFormData(prev => ({ ...prev, idUser: String(client.idUser) }));
+      setClientSearch(client.nome);
+      setIsClientListOpen(false);
+  };
+
+  const handleOpenConnectModal = () => {
+      setIsClientListOpen(false); // Fecha o dropdown
+      setIsConnectModalOpen(true); // Abre o modal de convite
+  };
+
+  const handleConnectClient = async () => {
+      if (!emailToConnect) return;
+      try {
+        setIsConnecting(true);
+        await businessService.connectClient(emailToConnect);
+        
+        addToast('success', 'Convite Enviado', `Cliente convidado com sucesso.`);
+        
+        // Atualiza a lista de clientes para que o novo apareça
+        const newClients = await businessService.listClients();
+        setClients(newClients);
+        
+        // Limpa e fecha
+        setEmailToConnect('');
+        setIsConnectModalOpen(false);
+
+      } catch (error: any) {
+        const msg = error.message || "Erro desconhecido";
+        // Tratamento se a API retornar sucesso no texto do erro (acontece as vezes)
+        if (msg.includes("sucesso") || msg.includes("convidado")) {
+             addToast('success', 'Convite Enviado', `Cliente convidado com sucesso.`);
+             const newClients = await businessService.listClients();
+             setClients(newClients);
+             setEmailToConnect('');
+             setIsConnectModalOpen(false);
+        } else {
+             addToast('error', 'Erro ao conectar', msg);
+        }
+      } finally {
+        setIsConnecting(false);
+      }
+  };
+
+  // --- FIM LOGICA DE CLIENTE ---
+
   const handleSave = async () => {
     if (!formData.idUser || !formData.idPlano) {
         addToast('error', 'Campos Obrigatórios', 'Selecione um cliente e um plano.');
@@ -185,6 +263,7 @@ export const Assinaturas: React.FC = () => {
             desconto: '0',
             observacao: ''
         });
+        setClientSearch(''); // Limpa busca de cliente
         setDateWarning(null); // Garante que o warning suma
 
         // 3. Atualiza a lista em background
@@ -419,20 +498,73 @@ export const Assinaturas: React.FC = () => {
         <div className="space-y-5">
           {/* Cliente e Plano */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
+            {/* Custom Client Combobox */}
+            <div className="flex flex-col gap-1.5 relative" ref={dropdownRef}>
                 <label className="text-sm font-medium text-gray-700">Selecionar Cliente</label>
-                <select 
-                    name="idUser" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900"
-                    value={formData.idUser}
-                    onChange={handleInputChange}
-                >
-                    <option value="">Selecione...</option>
-                    {clients.map(c => (
-                        <option key={c.idUser} value={c.idUser}>{c.nome} ({c.email})</option>
-                    ))}
-                </select>
+                <div className="relative">
+                    <input
+                        type="text"
+                        placeholder="Buscar cliente..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 pr-8"
+                        value={clientSearch}
+                        onFocus={() => setIsClientListOpen(true)}
+                        onChange={(e) => {
+                            setClientSearch(e.target.value);
+                            setIsClientListOpen(true);
+                            // Se o usuário digitar, limpamos o ID selecionado para forçar nova seleção
+                            if (formData.idUser) {
+                                setFormData(prev => ({ ...prev, idUser: '' }));
+                            }
+                        }}
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                        <ChevronsUpDown className="w-4 h-4" />
+                    </div>
+                </div>
+
+                {isClientListOpen && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {/* Opção Rápida: Convidar */}
+                        <div 
+                            className="px-3 py-3 border-b border-gray-100 hover:bg-indigo-50 cursor-pointer flex items-center text-indigo-700 font-medium transition-colors"
+                            onClick={handleOpenConnectModal}
+                        >
+                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mr-3">
+                                <UserPlus className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <span className="block text-sm">Convidar novo cliente</span>
+                                <span className="block text-xs text-indigo-500 font-normal">Enviar convite por e-mail</span>
+                            </div>
+                        </div>
+
+                        {filteredClientsForDropdown.length === 0 ? (
+                            <div className="px-3 py-4 text-center text-sm text-gray-500">
+                                Nenhum cliente encontrado.
+                            </div>
+                        ) : (
+                            filteredClientsForDropdown.map(client => (
+                                <div 
+                                    key={client.idUser}
+                                    className={`px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center justify-between ${
+                                        String(formData.idUser) === String(client.idUser) ? 'bg-gray-50' : ''
+                                    }`}
+                                    onClick={() => handleSelectClient(client)}
+                                >
+                                    <div>
+                                        <div className="text-sm font-medium text-gray-900">{client.nome} {client.sobreNome}</div>
+                                        <div className="text-xs text-gray-500">{client.email}</div>
+                                    </div>
+                                    {String(formData.idUser) === String(client.idUser) && (
+                                        <Check className="w-4 h-4 text-indigo-600" />
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
             </div>
+
             <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-gray-700">Selecionar Plano</label>
                 <select 
@@ -530,6 +662,48 @@ export const Assinaturas: React.FC = () => {
              />
           </div>
 
+        </div>
+      </Modal>
+
+      {/* Modal Conectar Cliente (Rápido) */}
+      <Modal
+        isOpen={isConnectModalOpen}
+        onClose={() => setIsConnectModalOpen(false)}
+        title="Convidar Cliente"
+        size="md"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsConnectModalOpen(false)} disabled={isConnecting}>Cancelar</Button>
+            <Button onClick={handleConnectClient} isLoading={isConnecting} className="bg-slate-900 hover:bg-slate-800">
+                <Send className="w-4 h-4 mr-2" />
+                Enviar Convite
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-6">
+            <div className="bg-indigo-50 p-4 rounded-lg flex items-start gap-3">
+                <div className="mt-0.5"><UserPlus className="w-5 h-5 text-indigo-600" /></div>
+                <div className="text-sm text-indigo-900">
+                    <p className="font-medium mb-1">Novo vínculo rápido</p>
+                    <p>O cliente receberá um e-mail para se conectar à sua empresa. Após o aceite, você poderá criar assinaturas para ele.</p>
+                </div>
+            </div>
+
+            <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">E-mail do Cliente</label>
+                <div className="relative">
+                    <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                    <input 
+                        type="email"
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="cliente@exemplo.com"
+                        value={emailToConnect}
+                        onChange={(e) => setEmailToConnect(e.target.value)}
+                        autoFocus
+                    />
+                </div>
+            </div>
         </div>
       </Modal>
 

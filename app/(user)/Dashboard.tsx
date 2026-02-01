@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { sessionService } from '../../services/session';
@@ -42,14 +43,14 @@ export const Dashboard: React.FC = () => {
 
          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
-                <h3 className="text-gray-500 text-sm font-medium">Empresas Conectadas</h3>
+                <h3 className="text-gray-500 text-sm font-medium">Estabelecimentos Conectados</h3>
                 <div className="bg-slate-100 p-2 rounded-lg">
                     <Store className="w-5 h-5 text-slate-900" />
                 </div>
             </div>
             <div className="text-2xl font-bold text-gray-900">0</div>
             <Button variant="outline" className="w-full mt-4 text-xs h-8" onClick={() => navigate('/empresas')}>
-                Ver Empresas
+                Ver Estabelecimentos
             </Button>
          </div>
 
@@ -72,7 +73,7 @@ export const Dashboard: React.FC = () => {
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Store className="w-8 h-8 text-slate-300" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Conectar a uma Empresa</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Conectar a um Estabelecimento</h3>
             <p className="text-gray-500 mb-6 text-sm">
                 Para ver seus planos e faturas, você precisa ser convidado por um estabelecimento ou escanear o QR Code da loja.
             </p>

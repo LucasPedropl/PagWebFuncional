@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
-import { Download, Filter, Search } from 'lucide-react';
+import { Download, Filter, Search, FileText } from 'lucide-react';
 
 export const Pagamentos: React.FC = () => {
   // Mock Data
@@ -11,12 +12,12 @@ export const Pagamentos: React.FC = () => {
     <UserLayout>
        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Pagamentos</h1>
-          <p className="text-gray-500 mt-1">Histórico de cobranças e faturas.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Minhas Faturas</h1>
+          <p className="text-gray-500 mt-1">Histórico de cobranças e comprovantes.</p>
         </div>
         <Button variant="outline" className="bg-white">
             <Download className="w-4 h-4 mr-2" />
-            Comprovantes
+            Baixar Comprovantes
         </Button>
       </div>
 
@@ -25,8 +26,8 @@ export const Pagamentos: React.FC = () => {
           <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Buscar pagamento..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm"
+            placeholder="Buscar fatura..."
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-900 placeholder-gray-400"
           />
         </div>
         <Button variant="outline" className="bg-white text-gray-600">
@@ -39,7 +40,7 @@ export const Pagamentos: React.FC = () => {
             <table className="w-full text-left">
                 <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
                     <tr>
-                        <th className="px-6 py-4">Data</th>
+                        <th className="px-6 py-4">Vencimento</th>
                         <th className="px-6 py-4">Descrição</th>
                         <th className="px-6 py-4">Estabelecimento</th>
                         <th className="px-6 py-4">Método</th>
@@ -51,7 +52,10 @@ export const Pagamentos: React.FC = () => {
                     {history.length === 0 ? (
                         <tr>
                             <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                                Nenhum pagamento registrado.
+                                <div className="flex flex-col items-center justify-center">
+                                    <FileText className="w-10 h-10 text-gray-300 mb-2" />
+                                    <p>Nenhuma fatura encontrada.</p>
+                                </div>
                             </td>
                         </tr>
                     ) : (

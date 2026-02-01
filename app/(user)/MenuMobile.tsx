@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Link, useNavigate } from 'react-router-dom';
@@ -18,9 +19,9 @@ export const MenuMobile: React.FC = () => {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
-    { icon: Store, label: 'Minhas Empresas', path: '/empresas' },
+    { icon: Store, label: 'Estabelecimentos', path: '/empresas' }, // Atualizado
     { icon: CreditCard, label: 'Minhas Assinaturas', path: '/assinaturas' },
-    { icon: Receipt, label: 'Histórico de Pagamentos', path: '/pagamentos' },
+    { icon: Receipt, label: 'Minhas Faturas', path: '/pagamentos' }, 
     { icon: Settings, label: 'Configurações da Conta', path: '/configuracoes' },
   ];
 

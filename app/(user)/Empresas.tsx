@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
@@ -12,8 +13,8 @@ export const Empresas: React.FC = () => {
   return (
     <UserLayout>
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Minhas Empresas</h1>
-        <p className="text-gray-500 mt-1">Estabelecimentos onde você possui cadastro ou assinaturas.</p>
+        <h1 className="text-2xl font-bold text-gray-900">Estabelecimentos</h1>
+        <p className="text-gray-500 mt-1">Lojas e empresas onde você possui cadastro ou assinaturas.</p>
       </div>
 
       {companies.length === 0 ? (
@@ -21,7 +22,7 @@ export const Empresas: React.FC = () => {
             <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
                 <Store className="w-10 h-10 text-gray-300" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma empresa encontrada</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum estabelecimento encontrado</h3>
             <p className="text-gray-500 max-w-sm mb-6">
                 Você ainda não está vinculado a nenhum estabelecimento. Peça para a loja enviar um convite para seu email.
             </p>

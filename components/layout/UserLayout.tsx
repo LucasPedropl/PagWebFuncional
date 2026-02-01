@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -11,13 +12,23 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Menu as MenuIcon
+  Menu as MenuIcon,
+  Check,
+  X,
+  Info
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 
 interface UserLayoutProps {
   children: React.ReactNode;
 }
+
+// Mock de Notificações
+const MOCK_NOTIFICATIONS = [
+  { id: 1, title: 'Pagamento Confirmado', text: 'Sua fatura da Academia SuperFit foi processada.', time: '2h atrás', read: false, type: 'success' },
+  { id: 2, title: 'Assinatura Renovada', text: 'O plano mensal foi renovado com sucesso.', time: '1d atrás', read: true, type: 'info' },
+  { id: 3, title: 'Bem-vindo!', text: 'Complete seu perfil para aproveitar melhor o sistema.', time: '3d atrás', read: true, type: 'info' }
+];
 
 export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   const location = useLocation();
@@ -28,6 +39,9 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     return savedState ? JSON.parse(savedState) : false;
   });
 
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+
   useEffect(() => {
     localStorage.setItem('pagweb_sidebar_collapsed', JSON.stringify(isCollapsed));
   }, [isCollapsed]);
@@ -37,20 +51,25 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     navigate('/');
   };
 
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
   const menuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
-    { icon: Store, label: 'Minhas Empresas', path: '/empresas' },
+    { icon: Store, label: 'Estabelecimentos', path: '/empresas' }, // Atualizado
     { icon: CreditCard, label: 'Assinaturas', path: '/assinaturas' },
-    { icon: Receipt, label: 'Pagamentos', path: '/pagamentos' },
-    // Configurações removido daqui para ir para o rodapé
+    { icon: Receipt, label: 'Faturas', path: '/pagamentos' }, 
   ];
 
   // Mobile Footer Items
   const mobileMenuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
-    { icon: Store, label: 'Empresas', path: '/empresas' },
+    { icon: Store, label: 'Estabelec.', path: '/empresas' }, // Abreviado para caber no mobile
     { icon: CreditCard, label: 'Assin.', path: '/assinaturas' },
-    { icon: Receipt, label: 'Pag.', path: '/pagamentos' },
+    { icon: Receipt, label: 'Faturas', path: '/pagamentos' },
     { icon: MenuIcon, label: 'Menu', path: '/menu' },
   ];
 
@@ -120,7 +139,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
           })}
         </nav>
 
-        {/* Footer Sidebar - Agora com Configurações */}
+        {/* Footer Sidebar */}
         <div className="p-3 border-t border-gray-100 space-y-1 relative group">
           <Link
              to="/configuracoes"
@@ -152,9 +171,76 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 relative transition-colors">
-              <Bell className="w-5 h-5" />
-            </button>
+            
+            {/* Notifications Container */}
+            <div className="relative">
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className={`p-2 rounded-full relative transition-colors ${
+                      showNotifications ? 'bg-gray-100 text-slate-900' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                      <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                  )}
+                </button>
+
+                {/* Notifications Dropdown */}
+                {showNotifications && (
+                    <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
+                        <div className="absolute right-0 top-12 w-80 md:w-96 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-fadeIn">
+                            <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                                <h3 className="font-semibold text-gray-900">Notificações</h3>
+                                {unreadCount > 0 && (
+                                    <button onClick={markAllAsRead} className="text-xs text-slate-600 hover:text-slate-900 font-medium">
+                                        Marcar todas como lidas
+                                    </button>
+                                )}
+                            </div>
+                            <div className="max-h-[350px] overflow-y-auto">
+                                {notifications.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-500 text-sm">
+                                        <Bell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                                        Você não tem novas notificações.
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-gray-50">
+                                        {notifications.map((notif) => (
+                                            <div key={notif.id} className={`p-4 hover:bg-gray-50 transition-colors ${!notif.read ? 'bg-blue-50/30' : ''}`}>
+                                                <div className="flex gap-3">
+                                                    <div className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                                                        notif.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-600'
+                                                    }`}>
+                                                        {notif.type === 'success' ? <Check size={14} /> : <Info size={14} />}
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex justify-between items-start">
+                                                            <h4 className={`text-sm ${!notif.read ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
+                                                                {notif.title}
+                                                            </h4>
+                                                            {!notif.read && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5"></span>}
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{notif.text}</p>
+                                                        <span className="text-[10px] text-gray-400 mt-2 block">{notif.time}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="p-2 border-t border-gray-50 text-center">
+                                <button className="text-xs text-slate-600 hover:text-slate-900 font-medium py-1">
+                                    Ver histórico completo
+                                </button>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+
             <div className="hidden md:flex items-center gap-3 pl-6 border-l border-gray-100 h-8">
                <span className="text-sm font-semibold text-gray-900">Minha Conta</span>
                <button 
@@ -165,6 +251,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
                   <LogOut size={18} />
               </button>
             </div>
+            
             {/* Mobile Logout (Simple) */}
             <div className="md:hidden">
                  <button onClick={handleLogout} className="text-gray-500 hover:text-red-600">
