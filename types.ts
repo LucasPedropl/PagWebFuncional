@@ -109,3 +109,43 @@ export interface ApiError {
   message: string;
   errors?: Record<string, string[]>;
 }
+
+// --- Novos Tipos para Área do Cliente ---
+
+export interface ClientConnection {
+  idEmpresa: number; // Adicionado para permitir desvínculo
+  nomeEmpresa: string;
+  cnpjEmpresa: string;
+  emailEmpresa: string;
+  nomeDono: string;
+  statusConexao: string;
+}
+
+export interface ClientSubscription {
+  idAssinatura: number;
+  nomePlano: string;
+  nomeEmpresa: string;
+  dataInicio: string; // ISO
+  dataFim: string; // ISO
+  valorMensal: number;
+  status: string;
+}
+
+export interface ClientInvoice {
+  idMensalidade: number;
+  nomeEmpresa: string;
+  nomeAdmin: string;
+  vencimento: string; // DD/MM/YYYY
+  mesReferencia: string;
+  metodo: string;
+  valor: number;
+  status: string;
+}
+
+export interface SavedCard {
+  id: string;
+  last4: string;
+  brand: string; // 'visa', 'mastercard', etc
+  holderName: string;
+  expiry: string;
+}
