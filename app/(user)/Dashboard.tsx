@@ -8,6 +8,11 @@ import { Store, CreditCard, Receipt, ArrowRight, Loader2, Calendar, AlertTriangl
 import { User, ClientInvoice } from '../../types';
 import { useNavigate } from 'react-router-dom';
 
+interface DashboardInvoice extends ClientInvoice {
+  isLate: boolean;
+  dueDateObj: Date;
+}
+
 export const Dashboard: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const navigate = useNavigate();
@@ -20,8 +25,8 @@ export const Dashboard: React.FC = () => {
     pendingAmount: 0,
     overdueCount: 0
   });
-  const [nextDueInvoice, setNextDueInvoice] = useState<ClientInvoice | null>(null);
-  const [recentInvoices, setRecentInvoices] = useState<ClientInvoice[]>([]);
+  const [nextDueInvoice, setNextDueInvoice] = useState<DashboardInvoice | null>(null);
+  const [recentInvoices, setRecentInvoices] = useState<DashboardInvoice[]>([]);
 
   useEffect(() => {
     const session = sessionService.getSession();
@@ -53,7 +58,7 @@ export const Dashboard: React.FC = () => {
         today.setHours(0,0,0,0);
 
         // Processamento de Faturas
-        const processedInvoices = invoices.map(inv => {
+        const processedInvoices: DashboardInvoice[] = invoices.map(inv => {
             const parts = inv.vencimento.split('/');
             const dueDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
             

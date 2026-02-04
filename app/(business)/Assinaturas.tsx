@@ -249,11 +249,23 @@ export const Assinaturas: React.FC = () => {
         const startDateObj = new Date(year, month - 1, day);
         const startIso = startDateObj.toISOString();
 
-        // Data fim já calculada ou fallback para inicio
+        // Data fim
         let endIso = startIso;
-        if(formData.dataFim) {
+        
+        if (formData.dataFim) {
              const [endYear, endMonth, endDay] = formData.dataFim.split('-').map(Number);
              endIso = new Date(endYear, endMonth - 1, endDay).toISOString();
+        } else if (isRecurring || formData.periodo === '0') {
+             // CORREÇÃO: Para assinaturas recorrentes, o backend exige DataFim > DataInicio.
+             // Definimos uma data distante (100 anos) para representar "indeterminado", satisfazendo a validação.
+             const futureDate = new Date(startDateObj);
+             futureDate.setFullYear(futureDate.getFullYear() + 100);
+             endIso = futureDate.toISOString();
+        } else {
+             // Fallback caso não seja recorrente e não tenha data fim (segurança)
+             const nextDay = new Date(startDateObj);
+             nextDay.setDate(nextDay.getDate() + 1);
+             endIso = nextDay.toISOString();
         }
 
         await businessService.createSubscription({
