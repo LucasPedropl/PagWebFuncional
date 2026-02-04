@@ -4,7 +4,7 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle, UserPlus, ChevronsUpDown, Check, Send, Mail } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle, UserPlus, ChevronsUpDown, Check, Send, Mail, Repeat } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { PlanResponse, SubscriptionResponse, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -48,6 +48,9 @@ export const Assinaturas: React.FC = () => {
     observacao: ''
   });
 
+  // Recurring State
+  const [isRecurring, setIsRecurring] = useState(false);
+
   // Client Combobox State
   const [clientSearch, setClientSearch] = useState('');
   const [isClientListOpen, setIsClientListOpen] = useState(false);
@@ -73,11 +76,20 @@ export const Assinaturas: React.FC = () => {
     };
   }, [dropdownRef]);
 
+  // Lógica para Recorrência: Se for recorrente, período deve ser 0
+  useEffect(() => {
+      if (isRecurring) {
+          setFormData(prev => ({ ...prev, periodo: '0', dataFim: '' }));
+      } else {
+          // Se desmarcar e estiver 0, volta para o padrão 12
+          if (formData.periodo === '0') {
+              setFormData(prev => ({ ...prev, periodo: '12' }));
+          }
+      }
+  }, [isRecurring]);
+
   // Calcula data fim e valida data inicio
   useEffect(() => {
-    // Se não tiver periodo, não faz nada
-    if (!formData.periodo) return;
-
     // Se não tiver data ou ela for inválida (ex: usuario limpou o campo)
     if (!formData.dataInicio) {
         setFormData(prev => ({ ...prev, dataFim: '' }));
@@ -119,9 +131,15 @@ export const Assinaturas: React.FC = () => {
         setDateWarning(null);
     }
 
-    // 3. Calcular Data Fim (Baseado na Data Inicio Validada)
+    // 3. Calcular Data Fim (Baseado na Data Inicio Validada e Periodo)
+    // Se for recorrente (periodo 0), não calcula data fim
+    if (isRecurring || formData.periodo === '0') {
+        setFormData(prev => ({ ...prev, dataFim: '' }));
+        return;
+    }
+
     const months = parseInt(formData.periodo);
-    if (!isNaN(months)) {
+    if (!isNaN(months) && months > 0) {
         const end = new Date(checkDate); // Clone da data inicio validada
         end.setMonth(end.getMonth() + months);
         
@@ -130,7 +148,7 @@ export const Assinaturas: React.FC = () => {
             setFormData(prev => ({ ...prev, dataFim: end.toISOString().split('T')[0] }));
         }
     }
-  }, [formData.dataInicio, formData.periodo]);
+  }, [formData.dataInicio, formData.periodo, isRecurring]);
 
   const fetchData = async () => {
     try {
@@ -245,7 +263,7 @@ export const Assinaturas: React.FC = () => {
             dataInicio: startIso,
             dataFim: endIso,
             desconto: parseFloat(formData.desconto || '0'),
-            observacao: formData.observacao
+            observacao: formData.observacao + (isRecurring ? ' [Recorrente]' : '')
         });
 
         addToast('success', 'Sucesso!', 'Assinatura criada com sucesso.');
@@ -263,6 +281,7 @@ export const Assinaturas: React.FC = () => {
             desconto: '0',
             observacao: ''
         });
+        setIsRecurring(false);
         setClientSearch(''); // Limpa busca de cliente
         setDateWarning(null); // Garante que o warning suma
 
@@ -344,7 +363,10 @@ export const Assinaturas: React.FC = () => {
           <p className="text-gray-500 mt-1">Gerencie os planos ativos dos seus clientes.</p>
         </div>
         <Button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+              setIsRecurring(false);
+              setIsModalOpen(true);
+          }}
           className="bg-slate-900 hover:bg-slate-800"
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -420,10 +442,10 @@ export const Assinaturas: React.FC = () => {
                             <div className="flex flex-col">
                                 <div className="flex items-center gap-1.5 text-sm text-gray-700">
                                     <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                                    {sub.periodo} meses
+                                    {sub.periodo === 0 ? 'Recorrente' : `${sub.periodo} meses`}
                                 </div>
                                 <span className="text-[11px] text-gray-400 mt-0.5">
-                                    {formatDateBR(sub.dataInicial)} → {formatDateBR(sub.dataFinal)}
+                                    {formatDateBR(sub.dataInicial)} → {sub.periodo === 0 ? 'Indefinido' : formatDateBR(sub.dataFinal)}
                                 </span>
                             </div>
                         </td>
@@ -581,15 +603,31 @@ export const Assinaturas: React.FC = () => {
             </div>
           </div>
 
-          {/* Período */}
-          <div className="grid grid-cols-2 gap-4 items-end">
+          {/* Período e Recorrência */}
+          <div className="grid grid-cols-2 gap-4 items-start">
             <Input 
                 label="Período (Meses)"
                 name="periodo"
                 type="number"
-                value={formData.periodo}
+                value={isRecurring ? "0" : formData.periodo}
                 onChange={handleInputChange}
+                disabled={isRecurring}
+                className={isRecurring ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''}
             />
+            <div className="flex items-center h-[42px] pt-6">
+                 <label className="flex items-center cursor-pointer space-x-2 select-none">
+                    <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-gray-300 text-slate-900 focus:ring-slate-900 accent-slate-900"
+                        checked={isRecurring}
+                        onChange={(e) => setIsRecurring(e.target.checked)}
+                    />
+                    <div className="flex items-center text-sm text-gray-700 font-medium">
+                        <Repeat className="w-3.5 h-3.5 mr-1.5 text-slate-500" />
+                        Assinatura Recorrente
+                    </div>
+                 </label>
+            </div>
           </div>
 
           {/* Datas */}
@@ -602,10 +640,12 @@ export const Assinaturas: React.FC = () => {
                         name="dataInicio"
                         value={formData.dataInicio}
                         onChange={handleInputChange}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 ${
+                        onClick={(e) => e.currentTarget.showPicker()}
+                        className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 ${
                             dateWarning?.type === 'warning' ? 'border-amber-500 focus:ring-amber-200' : 'border-gray-300'
                         }`}
                     />
+                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
                 {/* Date Warnings */}
                 {dateWarning && (
@@ -623,11 +663,13 @@ export const Assinaturas: React.FC = () => {
                     <input
                         type="date"
                         name="dataFim"
-                        value={formData.dataFim}
+                        value={isRecurring ? '' : formData.dataFim}
+                        placeholder={isRecurring ? "Indeterminado" : ""}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-100 text-gray-900"
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-100 text-gray-900"
                         readOnly
                     />
+                     <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 </div>
              </div>
           </div>

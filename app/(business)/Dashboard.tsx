@@ -5,15 +5,19 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { DollarSign, Users, TrendingUp, AlertCircle, PieChart, Loader2, ArrowRightLeft, RefreshCcw, BarChart3, Wallet, Calendar } from 'lucide-react';
 import { dashboardService } from '../../services/dashboardService';
 import { Button } from '../../components/ui/Button';
+import { InfoTooltip } from '../../components/ui/InfoTooltip';
 
-const StatCard = ({ title, value, subtitle, icon: Icon, color, isNegative = false, onClick, className }: any) => (
+const StatCard = ({ title, value, subtitle, icon: Icon, color, isNegative = false, onClick, className, infoText }: any) => (
   <div 
     className={`bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:border-slate-200' : ''} ${className}`}
     onClick={onClick}
   >
     <div className="flex justify-between items-start mb-4">
       <div>
-        <p className="text-sm font-medium text-gray-500">{title}</p>
+        <div className="flex items-center">
+            <p className="text-sm font-medium text-gray-500">{title}</p>
+            {infoText && <InfoTooltip text={infoText} />}
+        </div>
         <h3 className="text-2xl font-bold text-gray-900 mt-1">{value}</h3>
       </div>
       <div className={`p-2 rounded-lg ${color}`}>
@@ -29,11 +33,15 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color, isNegative = fals
 );
 
 // Card Menor para métricas secundárias
-const MiniStatCard = ({ title, value, icon: Icon }: any) => (
+const MiniStatCard = ({ title, value, icon: Icon, infoText, subValue }: any) => (
     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
         <div>
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{title}</p>
-            <p className="text-lg font-bold text-slate-900 mt-0.5">{value}</p>
+            <div className="flex items-center mb-0.5">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{title}</p>
+                {infoText && <InfoTooltip text={infoText} />}
+            </div>
+            <p className="text-lg font-bold text-slate-900">{value}</p>
+            {subValue && <p className="text-[10px] text-gray-500">{subValue}</p>}
         </div>
         <div className="bg-gray-50 p-2 rounded-lg">
             <Icon className="w-4 h-4 text-gray-500" />
@@ -145,7 +153,8 @@ export const BusinessDashboard: React.FC = () => {
           icon={DollarSign} 
           color="bg-slate-100 text-slate-600"
           onClick={toggleRevenue}
-          className="relative overflow-hidden"
+          className="relative"
+          infoText="Este cálculo é uma projeção baseada nas assinaturas ativas atuais, assumindo que não haverá cancelamentos futuros."
         />
 
         <StatCard 
@@ -155,6 +164,7 @@ export const BusinessDashboard: React.FC = () => {
           icon={Users} 
           color="bg-blue-50 text-blue-600"
           onClick={() => navigate('/business/clientes')}
+          infoText="Número total de clientes cadastrados na sua base, incluindo aqueles com e sem assinaturas ativas."
         />
 
         <StatCard 
@@ -164,6 +174,7 @@ export const BusinessDashboard: React.FC = () => {
           icon={TrendingUp} 
           color="bg-green-50 text-green-600"
           onClick={() => navigate('/business/relatorios')}
+          infoText="Monthly Recurring Revenue: Soma dos valores de todas as assinaturas com status 'Ativo' neste momento."
         />
 
         <StatCard 
@@ -174,6 +185,7 @@ export const BusinessDashboard: React.FC = () => {
           color="bg-orange-50 text-orange-600"
           isNegative={data.atrasadosCount > 0}
           onClick={() => navigate('/business/pagamentos?status=Atrasado')}
+          infoText="Total de faturas vencidas e ainda não pagas. Clique para ver a lista detalhada e realizar cobranças."
         />
       </div>
 
@@ -183,16 +195,20 @@ export const BusinessDashboard: React.FC = () => {
             title="Ticket Médio (ARPU)" 
             value={`R$ ${data.arpu.toFixed(2)}`}
             icon={BarChart3}
+            infoText="Valor médio mensal pago por assinatura ativa (MRR Total / Número de Assinaturas Ativas)."
           />
           <MiniStatCard 
             title="LTV Estimado" 
             value={`R$ ${data.ltv.toFixed(2)}`}
             icon={Wallet}
+            infoText="Lifetime Value: Receita total histórica dividida pelo número de clientes únicos pagantes."
           />
           <MiniStatCard 
             title="Taxa de Adimplência" 
             value={`${data.taxaAdimplencia.toFixed(1)}%`}
+            subValue={data.adimplenciaStats ? `${data.adimplenciaStats.paid} de ${data.adimplenciaStats.total} pagas` : undefined}
             icon={PieChart}
+            infoText="Porcentagem de faturas pagas ou baixadas em relação ao total de faturas já vencidas."
           />
       </div>
 
@@ -200,9 +216,14 @@ export const BusinessDashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Chart: Tendência Futura */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2 flex flex-col">
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Previsão de Faturamento (Próx. 6 meses)</h3>
-            <p className="text-xs text-gray-400">Baseado nas mensalidades geradas no sistema.</p>
+          <div className="mb-6 flex items-center">
+            <div>
+                <div className="flex items-center">
+                    <h3 className="text-lg font-semibold text-gray-900">Previsão de Faturamento</h3>
+                    <InfoTooltip text="Projeção para os próximos 6 meses baseada nos contratos ativos atuais. Não considera cancelamentos futuros." />
+                </div>
+                <p className="text-xs text-gray-400">Próximos 6 meses (Cenário sem cancelamentos)</p>
+            </div>
           </div>
           
           <div className="h-64 relative w-full flex-1 min-h-[250px]">
@@ -315,7 +336,7 @@ export const BusinessDashboard: React.FC = () => {
                                 ></span>
                                 <span className="text-gray-600 truncate max-w-[100px]" title={item.name}>{item.name}</span>
                             </div>
-                            <span className="font-medium text-gray-900">{item.percentage}%</span>
+                            <span className="font-medium text-gray-900">{item.percentage}% <span className="text-gray-400 font-normal">({item.value})</span></span>
                         </div>
                     ))}
                 </div>

@@ -3,9 +3,22 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
-import { Search, Filter, Download, Calendar, MoreHorizontal, ArrowUpRight, ArrowDownRight, Loader2, RefreshCw } from 'lucide-react';
+import { Search, Filter, Download, Calendar, MoreHorizontal, ArrowUpRight, ArrowDownRight, Loader2, RefreshCw, HelpCircle } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { Mensalidade } from '../../types';
+
+// Componente de Tooltip Interno (Reutilizado)
+const InfoTooltip = ({ text }: { text: string }) => (
+  <div className="group relative inline-flex ml-1.5 align-middle">
+    <div className="w-3.5 h-3.5 rounded-full bg-gray-200 text-gray-500 hover:bg-gray-300 flex items-center justify-center cursor-help transition-colors">
+      <HelpCircle className="w-2.5 h-2.5" />
+    </div>
+    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-[100] text-center leading-relaxed font-normal">
+      {text}
+      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-800"></div>
+    </div>
+  </div>
+);
 
 export const Pagamentos: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -113,8 +126,9 @@ export const Pagamentos: React.FC = () => {
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-between">
-            <div className="mb-2">
+            <div className="mb-2 flex items-center">
                 <span className="text-sm font-medium text-gray-500">A Receber (Em dia)</span>
+                <InfoTooltip text="Total de faturas já geradas e enviadas que estão em aberto. Difere do faturamento anual projetado pois considera apenas cobranças emitidas." />
             </div>
             <div className="flex items-center justify-between">
                 <span className="text-2xl font-bold text-gray-900">R$ {totalPendente.toFixed(2).replace('.', ',')}</span>
@@ -219,39 +233,33 @@ export const Pagamentos: React.FC = () => {
                                 <span className="text-xs text-gray-400">{trx.emailCliente}</span>
                             </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 font-mono">
-                            {trx.vencimento}
-                            {isCalculatedLate && <span className="ml-2 text-[10px] text-red-500 font-bold">(Vencido)</span>}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{trx.metodo || '-'}</td>
-                        <td className="px-6 py-4 text-sm font-bold text-gray-900">
-                            R$ {trx.valor.toFixed(2).replace('.', ',')}
+                        <td className="px-6 py-4 text-sm text-gray-500 font-mono">{trx.vencimento}</td>
+                        <td className="px-6 py-4 text-sm text-gray-500">{trx.metodo}</td>
+                        <td className="px-6 py-4">
+                            <span className={`font-semibold ${
+                                displayStatus === 'Atrasado' ? 'text-red-600' : 'text-gray-900'
+                            }`}>
+                                R$ {trx.valor.toFixed(2).replace('.', ',')}
+                            </span>
                         </td>
                         <td className="px-6 py-4">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                            displayStatus === 'Pago' 
-                                ? 'bg-green-100 text-green-700' 
-                                : displayStatus === 'Aberto' 
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-red-100 text-red-700'
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                displayStatus === 'Pago' || displayStatus === 'Baixado'
+                                ? 'bg-green-100 text-green-800' 
+                                : displayStatus === 'Atrasado'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
                             }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                                displayStatus === 'Pago' 
-                                ? 'bg-green-500' 
-                                : displayStatus === 'Aberto' 
-                                    ? 'bg-blue-500'
-                                    : 'bg-red-500'
-                            }`}></span>
-                            {displayStatus}
+                                {displayStatus}
                             </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                            <button className="text-gray-400 hover:text-gray-600 p-1">
-                            <MoreHorizontal className="w-5 h-5" />
-                            </button>
+                             <button className="text-gray-400 hover:text-slate-900">
+                                <MoreHorizontal className="w-5 h-5" />
+                             </button>
                         </td>
                         </tr>
-                    );
+                    )
                 })
               )}
             </tbody>

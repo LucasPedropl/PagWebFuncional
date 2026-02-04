@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { userService } from '../../services/userService';
@@ -16,7 +17,7 @@ export const Login: React.FC = () => {
   const isBusiness = type === 'business';
 
   const [formData, setFormData] = useState({
-    email: isBusiness ? 'pedrolucasmota2005.pl@gmail.com' : 'faxif16087@gamening.com',
+    email: isBusiness ? 'pedrolucasmota2005.pl@gmail.com' : 'pemipa5942@cimario.com',
     password: isBusiness ? '123456' : '123456'
   });
 
