@@ -55,6 +55,9 @@ export const Assinaturas: React.FC = () => {
   const [clientSearch, setClientSearch] = useState('');
   const [isClientListOpen, setIsClientListOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Ref para o input de data
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   // Aviso de Data (Warning visual)
   const [dateWarning, setDateWarning] = useState<{ type: 'info' | 'warning' | 'error', message: string } | null>(null);
@@ -658,18 +661,21 @@ export const Assinaturas: React.FC = () => {
                 <label className="text-sm font-medium text-gray-700">Primeiro Pagamento</label>
                 <div className="relative">
                     <input
+                        ref={dateInputRef}
                         type="date"
                         name="dataInicio"
                         value={formData.dataInicio}
                         min={new Date().toISOString().split('T')[0]} // Impede seleção anterior a hoje
                         onChange={handleInputChange}
-                        onClick={(e) => e.currentTarget.showPicker()}
                         className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 ${
                             dateWarning?.type === 'error' ? 'border-red-500 focus:ring-red-200' : 
                             dateWarning?.type === 'warning' ? 'border-amber-500 focus:ring-amber-200' : 'border-gray-300'
                         }`}
                     />
-                    <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <Calendar 
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 cursor-pointer" 
+                        onClick={() => dateInputRef.current?.showPicker()}
+                    />
                 </div>
                 {/* Date Warnings */}
                 {dateWarning && (

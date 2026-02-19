@@ -14,21 +14,16 @@ import {
   LogOut,
   Menu as MenuIcon,
   Check,
-  X,
-  Info
+  Info,
+  AlertTriangle
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
+import { userService } from '../../services/userService';
+import { AppNotification } from '../../types';
 
 interface UserLayoutProps {
   children: React.ReactNode;
 }
-
-// Mock de Notificações
-const MOCK_NOTIFICATIONS = [
-  { id: 1, title: 'Pagamento Confirmado', text: 'Sua fatura da Academia SuperFit foi processada.', time: '2h atrás', read: false, type: 'success' },
-  { id: 2, title: 'Assinatura Renovada', text: 'O plano mensal foi renovado com sucesso.', time: '1d atrás', read: true, type: 'info' },
-  { id: 3, title: 'Bem-vindo!', text: 'Complete seu perfil para aproveitar melhor o sistema.', time: '3d atrás', read: true, type: 'info' }
-];
 
 export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   const location = useLocation();
@@ -40,11 +35,31 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   });
 
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('pagweb_sidebar_collapsed', JSON.stringify(isCollapsed));
   }, [isCollapsed]);
+
+  // Carrega notificações ao montar
+  useEffect(() => {
+      fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+      setLoadingNotifications(true);
+      try {
+          const data = await userService.listNotifications();
+          // Ordena por data (mais recente primeiro) se vierem com data
+          const sorted = data.sort((a, b) => new Date(b.dataCadastro).getTime() - new Date(a.dataCadastro).getTime());
+          setNotifications(sorted);
+      } catch (error) {
+          console.error("Erro ao carregar notificações", error);
+      } finally {
+          setLoadingNotifications(false);
+      }
+  };
 
   const handleLogout = () => {
     sessionService.logout();
@@ -52,14 +67,29 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   };
 
   const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    // Como não há endpoint de "marcar como lido" em lote documentado,
+    // atualizamos apenas visualmente o estado local
+    setNotifications(prev => prev.map(n => ({ ...n, lida: true })));
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.lida).length;
+
+  // Helper para formatar tempo (ex: "2h atrás")
+  const formatTimeAgo = (isoString: string) => {
+      if (!isoString) return '';
+      const date = new Date(isoString);
+      const now = new Date();
+      const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+      if (diffInSeconds < 60) return 'agora';
+      if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m atrás`;
+      if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h atrás`;
+      return `${Math.floor(diffInSeconds / 86400)}d atrás`;
+  };
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
-    { icon: Store, label: 'Estabelecimentos', path: '/empresas' }, // Atualizado
+    { icon: Store, label: 'Estabelecimentos', path: '/empresas' }, 
     { icon: CreditCard, label: 'Assinaturas', path: '/assinaturas' },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos' }, 
   ];
@@ -67,7 +97,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   // Mobile Footer Items
   const mobileMenuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
-    { icon: Store, label: 'Estabelec.', path: '/empresas' }, // Abreviado para caber no mobile
+    { icon: Store, label: 'Estabelec.', path: '/empresas' },
     { icon: CreditCard, label: 'Assin.', path: '/assinaturas' },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos' },
     { icon: MenuIcon, label: 'Menu', path: '/menu' },
@@ -200,7 +230,11 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
                                 )}
                             </div>
                             <div className="max-h-[350px] overflow-y-auto">
-                                {notifications.length === 0 ? (
+                                {loadingNotifications ? (
+                                    <div className="p-8 text-center text-gray-500 text-sm">
+                                        Carregando...
+                                    </div>
+                                ) : notifications.length === 0 ? (
                                     <div className="p-8 text-center text-gray-500 text-sm">
                                         <Bell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                                         Você não tem novas notificações.
@@ -208,33 +242,28 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
                                 ) : (
                                     <div className="divide-y divide-gray-50">
                                         {notifications.map((notif) => (
-                                            <div key={notif.id} className={`p-4 hover:bg-gray-50 transition-colors ${!notif.read ? 'bg-blue-50/30' : ''}`}>
+                                            <div key={notif.id} className={`p-4 hover:bg-gray-50 transition-colors ${!notif.lida ? 'bg-blue-50/30' : ''}`}>
                                                 <div className="flex gap-3">
                                                     <div className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                                                        notif.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-600'
+                                                        !notif.lida ? 'bg-slate-100 text-slate-600' : 'bg-gray-100 text-gray-400'
                                                     }`}>
-                                                        {notif.type === 'success' ? <Check size={14} /> : <Info size={14} />}
+                                                        <Info size={14} />
                                                     </div>
                                                     <div>
                                                         <div className="flex justify-between items-start">
-                                                            <h4 className={`text-sm ${!notif.read ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
-                                                                {notif.title}
+                                                            <h4 className={`text-sm ${!notif.lida ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
+                                                                {notif.titulo}
                                                             </h4>
-                                                            {!notif.read && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5"></span>}
+                                                            {!notif.lida && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 ml-2 shrink-0"></span>}
                                                         </div>
-                                                        <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{notif.text}</p>
-                                                        <span className="text-[10px] text-gray-400 mt-2 block">{notif.time}</span>
+                                                        <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{notif.mensagem}</p>
+                                                        <span className="text-[10px] text-gray-400 mt-2 block">{formatTimeAgo(notif.dataCadastro)}</span>
                                                     </div>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 )}
-                            </div>
-                            <div className="p-2 border-t border-gray-50 text-center">
-                                <button className="text-xs text-slate-600 hover:text-slate-900 font-medium py-1">
-                                    Ver histórico completo
-                                </button>
                             </div>
                         </div>
                     </>

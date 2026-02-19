@@ -1,5 +1,5 @@
 
-import { ActivatePayload, AuthResponse, ClientConnection, ClientInvoice, ClientSubscription, LoginPayload, RegisterPayload, SavedCard } from "../types";
+import { ActivatePayload, AppNotification, AuthResponse, ClientConnection, ClientInvoice, ClientSubscription, LoginPayload, RegisterPayload, SavedCard } from "../types";
 import { sessionService } from "./session";
 import { parseApiError } from "../utils/formatters";
 
@@ -104,6 +104,18 @@ export const userService = {
       method: "POST",
       body: JSON.stringify(companyId)
     });
+  },
+
+  // --- NOTIFICAÇÕES (Compartilhado entre User e Business) ---
+  async listNotifications(): Promise<AppNotification[]> {
+    const response = await authRequest('/User/minhas-notificacoes', { method: 'GET' });
+    if (!response.ok) return [];
+    try {
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
   },
 
   // --- NOVOS MÉTODOS DE DADOS DO CLIENTE ---

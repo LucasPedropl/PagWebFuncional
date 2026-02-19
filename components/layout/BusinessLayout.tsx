@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
@@ -13,9 +14,12 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Menu as MenuIcon
+  Menu as MenuIcon,
+  Info
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
+import { userService } from '../../services/userService';
+import { AppNotification } from '../../types';
 
 interface BusinessLayoutProps {
   children: React.ReactNode;
@@ -30,9 +34,50 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     return savedState ? JSON.parse(savedState) : false;
   });
 
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
   useEffect(() => {
     localStorage.setItem('pagweb_sidebar_collapsed', JSON.stringify(isCollapsed));
   }, [isCollapsed]);
+
+  // Carrega notificações ao montar
+  useEffect(() => {
+      fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+      setLoadingNotifications(true);
+      try {
+          // Usa o mesmo serviço (endpoint é compartilhado por token)
+          const data = await userService.listNotifications();
+          const sorted = data.sort((a, b) => new Date(b.dataCadastro).getTime() - new Date(a.dataCadastro).getTime());
+          setNotifications(sorted);
+      } catch (error) {
+          console.error("Erro ao carregar notificações", error);
+      } finally {
+          setLoadingNotifications(false);
+      }
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, lida: true })));
+  };
+
+  const unreadCount = notifications.filter(n => !n.lida).length;
+
+  const formatTimeAgo = (isoString: string) => {
+      if (!isoString) return '';
+      const date = new Date(isoString);
+      const now = new Date();
+      const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+      if (diffInSeconds < 60) return 'agora';
+      if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m atrás`;
+      if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h atrás`;
+      return `${Math.floor(diffInSeconds / 86400)}d atrás`;
+  };
 
   const handleLogout = () => {
     sessionService.logout();
@@ -167,10 +212,75 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 relative transition-colors">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
+            
+             {/* Notifications Container */}
+             <div className="relative">
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className={`p-2 rounded-full relative transition-colors ${
+                      showNotifications ? 'bg-gray-100 text-slate-900' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                      <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                  )}
+                </button>
+
+                {/* Notifications Dropdown */}
+                {showNotifications && (
+                    <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
+                        <div className="absolute right-0 top-12 w-80 md:w-96 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-fadeIn">
+                            <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                                <h3 className="font-semibold text-gray-900">Notificações</h3>
+                                {unreadCount > 0 && (
+                                    <button onClick={markAllAsRead} className="text-xs text-slate-600 hover:text-slate-900 font-medium">
+                                        Marcar todas como lidas
+                                    </button>
+                                )}
+                            </div>
+                            <div className="max-h-[350px] overflow-y-auto">
+                                {loadingNotifications ? (
+                                    <div className="p-8 text-center text-gray-500 text-sm">
+                                        Carregando...
+                                    </div>
+                                ) : notifications.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-500 text-sm">
+                                        <Bell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                                        Você não tem novas notificações.
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-gray-50">
+                                        {notifications.map((notif) => (
+                                            <div key={notif.id} className={`p-4 hover:bg-gray-50 transition-colors ${!notif.lida ? 'bg-blue-50/30' : ''}`}>
+                                                <div className="flex gap-3">
+                                                    <div className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                                                        !notif.lida ? 'bg-slate-100 text-slate-600' : 'bg-gray-100 text-gray-400'
+                                                    }`}>
+                                                        <Info size={14} />
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex justify-between items-start">
+                                                            <h4 className={`text-sm ${!notif.lida ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>
+                                                                {notif.titulo}
+                                                            </h4>
+                                                            {!notif.lida && <span className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 ml-2 shrink-0"></span>}
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{notif.mensagem}</p>
+                                                        <span className="text-[10px] text-gray-400 mt-2 block">{formatTimeAgo(notif.dataCadastro)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
+
             <div className="hidden md:flex items-center gap-3 pl-6 border-l border-gray-100 h-8">
               <div className="text-right">
                 <p className="text-sm font-semibold text-gray-900">Admin</p>

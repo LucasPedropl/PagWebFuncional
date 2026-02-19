@@ -149,3 +149,12 @@ export interface SavedCard {
   holderName: string;
   expiry: string;
 }
+
+export interface AppNotification {
+  id: number;
+  titulo: string;
+  mensagem: string;
+  dataCadastro: string; // ISO date
+  lida: boolean;
+  tipo?: 'info' | 'success' | 'warning' | 'error';
+}
