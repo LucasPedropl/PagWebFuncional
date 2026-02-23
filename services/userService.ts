@@ -1,5 +1,5 @@
 
-import { ActivatePayload, AppNotification, AuthResponse, ClientConnection, ClientInvoice, ClientSubscription, LoginPayload, RegisterPayload, SavedCard } from "../types";
+import { ActivatePayload, AppNotification, AuthResponse, ClientConnection, ClientInvoice, ClientSubscription, LoginPayload, NotificationSettings, RegisterPayload, SavedCard } from "../types";
 import { sessionService } from "./session";
 import { parseApiError } from "../utils/formatters";
 
@@ -108,7 +108,7 @@ export const userService = {
 
   // --- NOTIFICAÇÕES (Compartilhado entre User e Business) ---
   async listNotifications(): Promise<AppNotification[]> {
-    const response = await authRequest('/User/minhas-notificacoes', { method: 'GET' });
+    const response = await authRequest('/Notificacao/pegar', { method: 'GET' });
     if (!response.ok) return [];
     try {
         const data = await response.json();
@@ -118,7 +118,95 @@ export const userService = {
     }
   },
 
+  async markNotificationAsSeen(id: number): Promise<void> {
+    const response = await authRequest(`/Notificacao/${id}/visto`, { method: 'PATCH' });
+    if (!response.ok) {
+      const msg = await parseApiError(response);
+      throw new Error(msg || "Falha ao marcar notificação como vista.");
+    }
+  },
+
+  async deleteNotification(id: number): Promise<void> {
+    const response = await authRequest(`/Notificacao/${id}`, { method: 'DELETE' });
+    if (!response.ok) {
+      const msg = await parseApiError(response);
+      throw new Error(msg || "Falha ao deletar notificação.");
+    }
+  },
+
+  async clearAllNotifications(): Promise<void> {
+    const response = await authRequest('/Notificacao/limpar-todas', { method: 'DELETE' });
+    if (!response.ok) {
+      const msg = await parseApiError(response);
+      throw new Error(msg || "Falha ao limpar notificações.");
+    }
+  },
+
+  async getNotificationSettings(): Promise<NotificationSettings> {
+    const response = await authRequest('/Notificacao/configuracoes/pesquisar', { method: 'GET' });
+    if (!response.ok) {
+        // Se der 404 ou erro, retorna padrão tudo true (conforme solicitado para implementar mesmo com erro)
+        if (response.status === 404) {
+            return {
+                notificações: true,
+                email: true,
+                whatsApp: true,
+                sms: true
+            };
+        }
+        return {
+            notificações: true,
+            email: true,
+            whatsApp: true,
+            sms: true
+        };
+    }
+    try {
+        return await response.json();
+    } catch {
+        return {
+            notificações: true,
+            email: true,
+            whatsApp: true,
+            sms: true
+        };
+    }
+  },
+
+  async updateNotificationSettings(settings: NotificationSettings): Promise<void> {
+    const response = await authRequest('/Notificacao/configuracoes/editar', {
+        method: 'PATCH',
+        body: JSON.stringify(settings)
+    });
+    if (!response.ok) {
+        const msg = await parseApiError(response);
+        throw new Error(msg || "Falha ao atualizar configurações de notificação.");
+    }
+  },
+
   // --- NOVOS MÉTODOS DE DADOS DO CLIENTE ---
+
+  async acceptConnection(idEmpresa: number): Promise<void> {
+    const response = await authRequest(`/User/minha-conexao/${idEmpresa}`, {
+      method: 'PATCH',
+      body: JSON.stringify("string")
+    });
+    if (!response.ok) {
+      const msg = await parseApiError(response);
+      throw new Error(msg || "Falha ao aceitar conexão.");
+    }
+  },
+
+  async acceptSubscription(idAssinatura: number): Promise<void> {
+    const response = await authRequest(`/User/minha-assinatura/${idAssinatura}`, {
+      method: 'PATCH',
+      body: JSON.stringify("string")
+    });
+    if (!response.ok) {
+      const msg = await parseApiError(response);
+      throw new Error(msg || "Falha ao aceitar assinatura.");
+    }
+  },
 
   async listConnections(): Promise<ClientConnection[]> {
     const response = await authRequest('/User/minhas-conexoes', { method: 'GET' });

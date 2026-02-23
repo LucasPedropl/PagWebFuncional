@@ -15,7 +15,8 @@ import {
   ChevronRight,
   LogOut,
   Menu as MenuIcon,
-  Info
+  Info,
+  MessageCircle
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
@@ -61,8 +62,40 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
       }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, lida: true })));
+  const markAllAsRead = async () => {
+    try {
+      setNotifications(prev => prev.map(n => ({ ...n, lida: true })));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleMarkAsRead = async (id: number) => {
+    try {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, lida: true } : n));
+      await userService.markNotificationAsSeen(id);
+    } catch (error) {
+      console.error("Erro ao marcar notificação como lida", error);
+    }
+  };
+
+  const handleDeleteNotification = async (e: React.MouseEvent, id: number) => {
+    e.preventDefault();
+    try {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      await userService.deleteNotification(id);
+    } catch (error) {
+      console.error("Erro ao deletar notificação", error);
+    }
+  };
+
+  const handleClearAllNotifications = async () => {
+    try {
+      setNotifications([]);
+      await userService.clearAllNotifications();
+    } catch (error) {
+      console.error("Erro ao limpar notificações", error);
+    }
   };
 
   const unreadCount = notifications.filter(n => !n.lida).length;
@@ -91,6 +124,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Gestão de Cobranças', path: '/business/pagamentos' },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
+    { icon: MessageCircle, label: 'Conectar WhatsApp', path: '/business/whatsapp' },
   ];
 
   // Menu items for Mobile Footer (5 items max usually)
@@ -232,13 +266,8 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
                     <>
                         <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)}></div>
                         <div className="absolute right-0 top-12 w-80 md:w-96 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden animate-fadeIn">
-                            <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                            <div className="p-4 border-b border-gray-50 bg-gray-50/50">
                                 <h3 className="font-semibold text-gray-900">Notificações</h3>
-                                {unreadCount > 0 && (
-                                    <button onClick={markAllAsRead} className="text-xs text-slate-600 hover:text-slate-900 font-medium">
-                                        Marcar todas como lidas
-                                    </button>
-                                )}
                             </div>
                             <div className="max-h-[350px] overflow-y-auto">
                                 {loadingNotifications ? (
@@ -252,8 +281,14 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
                                     </div>
                                 ) : (
                                     <div className="divide-y divide-gray-50">
-                                        {notifications.map((notif) => (
-                                            <div key={notif.id} className={`p-4 hover:bg-gray-50 transition-colors ${!notif.lida ? 'bg-blue-50/30' : ''}`}>
+                                        {notifications.map((notif, index) => (
+                                            <div 
+                                                key={`${notif.id}-${index}`} 
+                                                className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${!notif.lida ? 'bg-blue-50/30' : ''}`}
+                                                onClick={() => !notif.lida && handleMarkAsRead(notif.id)}
+                                                onContextMenu={(e) => handleDeleteNotification(e, notif.id)}
+                                                title="Clique com o botão direito para deletar"
+                                            >
                                                 <div className="flex gap-3">
                                                     <div className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                                                         !notif.lida ? 'bg-slate-100 text-slate-600' : 'bg-gray-100 text-gray-400'
@@ -276,6 +311,20 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
                                     </div>
                                 )}
                             </div>
+                            {(notifications.length > 0 || unreadCount > 0) && (
+                                <div className="p-3 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                                    {unreadCount > 0 && (
+                                        <button onClick={markAllAsRead} className="text-xs text-slate-600 hover:text-slate-900 font-medium px-2 py-1 rounded hover:bg-gray-200 transition-colors">
+                                            Marcar todas como lidas
+                                        </button>
+                                    )}
+                                    {notifications.length > 0 && (
+                                        <button onClick={handleClearAllNotifications} className="text-xs text-red-600 hover:text-red-800 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors ml-auto">
+                                            Limpar todas
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </>
                 )}

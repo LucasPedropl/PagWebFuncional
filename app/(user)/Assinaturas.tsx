@@ -18,6 +18,8 @@ export const Assinaturas: React.FC = () => {
   const [subToCancel, setSubToCancel] = useState<ClientSubscription | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const [isAccepting, setIsAccepting] = useState<number | null>(null);
+
   useEffect(() => {
     fetchSubscriptions();
   }, []);
@@ -30,6 +32,19 @@ export const Assinaturas: React.FC = () => {
       console.error(error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAcceptSubscription = async (idAssinatura: number) => {
+    try {
+      setIsAccepting(idAssinatura);
+      await userService.acceptSubscription(idAssinatura);
+      addToast('success', 'Sucesso', 'Assinatura aceita com sucesso.');
+      await fetchSubscriptions();
+    } catch (error: any) {
+      addToast('error', 'Erro', error.message);
+    } finally {
+      setIsAccepting(null);
     }
   };
 
@@ -100,7 +115,11 @@ export const Assinaturas: React.FC = () => {
                             </span>
                             <span className="text-gray-400">•</span>
                             <span className="text-gray-600 flex items-center gap-1">
-                                <Calendar className="w-3.5 h-3.5" /> Expira em {formatDate(sub.dataFim)}
+                                <Calendar className="w-3.5 h-3.5" /> 
+                                {sub.dataFim && sub.dataFim.startsWith('0001-01-01') 
+                                    ? 'Assinatura recorrente' 
+                                    : `Expira em ${formatDate(sub.dataFim)}`
+                                }
                             </span>
                         </div>
                     </div>
@@ -111,6 +130,15 @@ export const Assinaturas: React.FC = () => {
                         <span className="text-2xl font-bold text-gray-900">R$ {sub.valorMensal.toFixed(2).replace('.', ',')}</span>
                         <span className="text-xs text-gray-500">/mês</span>
                     </div>
+                    {sub.status === 'Pendente' && (
+                        <Button 
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => handleAcceptSubscription(sub.idAssinatura)}
+                            isLoading={isAccepting === sub.idAssinatura}
+                        >
+                            <CheckCircle2 className="w-4 h-4 mr-2" /> Aceitar
+                        </Button>
+                    )}
                     {sub.status === 'Ativo' && (
                         <Button 
                             variant="outline" 

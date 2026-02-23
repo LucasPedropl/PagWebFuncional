@@ -158,3 +158,10 @@ export interface AppNotification {
   lida: boolean;
   tipo?: 'info' | 'success' | 'warning' | 'error';
 }
+
+export interface NotificationSettings {
+  notificações: boolean;
+  email: boolean;
+  whatsApp: boolean;
+  sms: boolean;
+}

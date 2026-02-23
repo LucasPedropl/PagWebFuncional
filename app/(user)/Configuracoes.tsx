@@ -2,13 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Save, User as UserIcon, Lock, LogOut } from 'lucide-react';
+import { Save, User as UserIcon, Lock, LogOut, Bell } from 'lucide-react';
 import { sessionService } from '../../services/session';
+import { userService } from '../../services/userService';
 import { useNavigate } from 'react-router-dom';
-import { formatCPF, formatPhone } from '../../utils/formatters';
+import { formatPhone } from '../../utils/formatters';
+import { useToast } from '../../context/ToastContext';
+import { NotificationSettings } from '../../types';
 
 export const Configuracoes: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'perfil' | 'seguranca'>('perfil');
+  const { addToast } = useToast();
+  const [activeTab, setActiveTab] = useState<'perfil' | 'seguranca' | 'notificacoes'>('perfil');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -27,6 +31,13 @@ export const Configuracoes: React.FC = () => {
       confirmPassword: ''
   });
 
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+      notificações: true,
+      email: true,
+      whatsApp: true,
+      sms: true
+  });
+
   useEffect(() => {
       const { user } = sessionService.getSession();
       if (user) {
@@ -38,7 +49,17 @@ export const Configuracoes: React.FC = () => {
               email: user.email || ''
           });
       }
+      fetchNotificationSettings();
   }, []);
+
+  const fetchNotificationSettings = async () => {
+      try {
+          const settings = await userService.getNotificationSettings();
+          setNotificationSettings(settings);
+      } catch (error) {
+          console.error("Erro ao carregar configurações de notificação", error);
+      }
+  };
 
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       let { name, value } = e.target;
@@ -52,6 +73,10 @@ export const Configuracoes: React.FC = () => {
       setPasswordData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleNotificationChange = (key: keyof NotificationSettings) => {
+      setNotificationSettings(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const handleSaveProfile = async () => {
     setIsLoading(true);
     // Simulação de salvamento (Aqui você conectaria com businessService.updateUser se existisse)
@@ -63,21 +88,33 @@ export const Configuracoes: React.FC = () => {
             const updatedUser = { ...user, ...profileData };
             localStorage.setItem("pagweb_user", JSON.stringify(updatedUser));
         }
-        alert('Dados atualizados com sucesso!');
+        addToast('success', 'Sucesso', 'Dados atualizados com sucesso!');
     }, 1000);
   };
 
   const handleSavePassword = async () => {
       if (passwordData.newPassword !== passwordData.confirmPassword) {
-          alert("As novas senhas não coincidem.");
+          addToast('error', 'Erro', "As novas senhas não coincidem.");
           return;
       }
       setIsLoading(true);
       setTimeout(() => {
         setIsLoading(false);
         setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        alert('Senha atualizada!');
+        addToast('success', 'Sucesso', 'Senha atualizada!');
     }, 1000);
+  };
+
+  const handleSaveNotifications = async () => {
+      setIsLoading(true);
+      try {
+          await userService.updateNotificationSettings(notificationSettings);
+          addToast('success', 'Sucesso', 'Preferências de notificação atualizadas!');
+      } catch (error: any) {
+          addToast('error', 'Erro', error.message);
+      } finally {
+          setIsLoading(false);
+      }
   };
 
   const handleLogout = () => {
@@ -89,7 +126,7 @@ export const Configuracoes: React.FC = () => {
     <UserLayout>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Configurações</h1>
-        <p className="text-gray-500 mt-1">Gerencie seus dados pessoais e segurança.</p>
+        <p className="text-gray-500 mt-1">Gerencie seus dados pessoais, segurança e notificações.</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
@@ -116,6 +153,17 @@ export const Configuracoes: React.FC = () => {
                 >
                     <Lock className="w-4 h-4 mr-3" />
                     Senha e Segurança
+                </button>
+                <button
+                    onClick={() => setActiveTab('notificacoes')}
+                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                        activeTab === 'notificacoes' 
+                        ? 'bg-slate-900 text-white' 
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                >
+                    <Bell className="w-4 h-4 mr-3" />
+                    Notificações
                 </button>
                 <div className="pt-4 mt-4 border-t border-gray-100">
                      <button
@@ -207,6 +255,83 @@ export const Configuracoes: React.FC = () => {
                         <div className="pt-4">
                             <Button onClick={handleSavePassword} isLoading={isLoading} variant="secondary">
                                 Atualizar Senha
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'notificacoes' && (
+                    <div className="space-y-6 animate-fadeIn">
+                        <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-4">Preferências de Notificação</h2>
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                <div>
+                                    <h3 className="font-medium text-gray-900">Notificações Gerais</h3>
+                                    <p className="text-sm text-gray-500">Receber notificações dentro da plataforma</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        className="sr-only peer" 
+                                        checked={notificationSettings.notificações}
+                                        onChange={() => handleNotificationChange('notificações')}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
+                                </label>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                <div>
+                                    <h3 className="font-medium text-gray-900">E-mail</h3>
+                                    <p className="text-sm text-gray-500">Receber atualizações e faturas por e-mail</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        className="sr-only peer" 
+                                        checked={notificationSettings.email}
+                                        onChange={() => handleNotificationChange('email')}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
+                                </label>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                <div>
+                                    <h3 className="font-medium text-gray-900">WhatsApp</h3>
+                                    <p className="text-sm text-gray-500">Receber alertas importantes via WhatsApp</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        className="sr-only peer" 
+                                        checked={notificationSettings.whatsApp}
+                                        onChange={() => handleNotificationChange('whatsApp')}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
+                                </label>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                <div>
+                                    <h3 className="font-medium text-gray-900">SMS</h3>
+                                    <p className="text-sm text-gray-500">Receber códigos de verificação e alertas urgentes</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        className="sr-only peer" 
+                                        checked={notificationSettings.sms}
+                                        onChange={() => handleNotificationChange('sms')}
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
+                                </label>
+                            </div>
+                        </div>
+                        <div className="pt-4">
+                            <Button onClick={handleSaveNotifications} isLoading={isLoading}>
+                                <Save className="w-4 h-4 mr-2" />
+                                Salvar Preferências
                             </Button>
                         </div>
                     </div>
