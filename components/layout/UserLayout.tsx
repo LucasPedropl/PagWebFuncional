@@ -67,14 +67,17 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   };
 
   const markAllAsRead = async () => {
+    const unreadNotifications = notifications.filter(n => !n.lida);
+    if (unreadNotifications.length === 0) return;
+
     try {
       // Mark all as read locally first for fast UI
       setNotifications(prev => prev.map(n => ({ ...n, lida: true })));
-      // In a real app, you'd have a markAllAsRead endpoint, but since we only have mark one,
-      // we'd either call it for each unread or rely on a new endpoint.
-      // For now, we'll just update the local state as requested.
+      
+      // Call API for each unread notification
+      await Promise.all(unreadNotifications.map(n => userService.markNotificationAsSeen(n.id)));
     } catch (error) {
-      console.error(error);
+      console.error("Erro ao marcar todas as notificações como lidas", error);
     }
   };
 

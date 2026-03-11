@@ -63,10 +63,17 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
   };
 
   const markAllAsRead = async () => {
+    const unreadNotifications = notifications.filter(n => !n.lida);
+    if (unreadNotifications.length === 0) return;
+
     try {
+      // Mark all as read locally first for fast UI
       setNotifications(prev => prev.map(n => ({ ...n, lida: true })));
+      
+      // Call API for each unread notification
+      await Promise.all(unreadNotifications.map(n => userService.markNotificationAsSeen(n.id)));
     } catch (error) {
-      console.error(error);
+      console.error("Erro ao marcar todas as notificações como lidas", error);
     }
   };
 
@@ -124,7 +131,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Gestão de Cobranças', path: '/business/pagamentos' },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
-    { icon: MessageCircle, label: 'Conectar WhatsApp', path: '/business/whatsapp' },
+    { icon: MessageCircle, label: 'WhatsApp', path: '/business/whatsapp' },
   ];
 
   // Menu items for Mobile Footer (5 items max usually)
@@ -133,6 +140,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: Users, label: 'Clientes', path: '/business/clientes' },
     { icon: CreditCard, label: 'Assin.', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Cobr.', path: '/business/pagamentos' },
+    { icon: MessageCircle, label: 'WhatsApp', path: '/business/whatsapp' },
     { icon: MenuIcon, label: 'Menu', path: '/business/menu' },
   ];
 
