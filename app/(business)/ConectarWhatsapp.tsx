@@ -1,35 +1,174 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
-import { MessageCircle, QrCode, CheckCircle2, Smartphone, Info } from 'lucide-react';
+import { MessageCircle, QrCode, CheckCircle2, Smartphone, Info, Loader2, RefreshCw, LogOut } from 'lucide-react';
+import { businessService } from '../../services/businessService';
+import { useToast } from '../../context/ToastContext';
+import { QRCodeSVG } from 'qrcode.react';
 
 export const ConectarWhatsapp: React.FC = () => {
+  const { addToast } = useToast();
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [isInstanceCreated, setIsInstanceCreated] = useState(false);
+  const [refreshCount, setRefreshCount] = useState(0);
+
+  const REFRESH_INTERVAL = 40;
+  const MAX_REFRESHES = 4;
+
+  const handleCreateInstance = useCallback(async () => {
+    setLoading(true);
+    try {
+      await businessService.createWhatsAppInstance();
+      setIsInstanceCreated(true);
+      const data = await businessService.getWhatsAppQRCode();
+      setQrCode(data.qrCode);
+      setTimeLeft(REFRESH_INTERVAL);
+      setRefreshCount(0);
+      addToast('Instância criada! Escaneie o QR Code para conectar.', 'success');
+    } catch (error: any) {
+      addToast(error.message || 'Erro ao criar instância do WhatsApp', 'error');
+      setQrCode(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  const handleRefreshQRCode = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await businessService.getWhatsAppQRCode();
+      setQrCode(data.qrCode);
+      setTimeLeft(REFRESH_INTERVAL);
+      addToast('QR Code atualizado automaticamente.', 'success');
+    } catch (error: any) {
+      addToast(error.message || 'Erro ao atualizar QR Code', 'error');
+      // If refresh fails, maybe we should try to recreate instance?
+      handleCreateInstance();
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast, handleCreateInstance]);
+
+  useEffect(() => {
+    if (!qrCode || loading) return;
+
+    let timer: NodeJS.Timeout;
+    if (timeLeft > 0) {
+      timer = setTimeout(() => setTimeLeft(prev => prev - 1), 1000);
+    } else {
+      // Time is up
+      if (refreshCount < MAX_REFRESHES) {
+        setRefreshCount(prev => prev + 1);
+        handleRefreshQRCode();
+      } else {
+        addToast('Limite de atualizações atingido. Criando nova instância...', 'info');
+        handleCreateInstance();
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [timeLeft, qrCode, loading, refreshCount, handleRefreshQRCode, handleCreateInstance, addToast]);
+
+  const handleDisconnect = async () => {
+    if (!window.confirm('Tem certeza que deseja desconectar o WhatsApp?')) return;
+    
+    setLoading(true);
+    try {
+      await businessService.disconnectWhatsApp();
+      setQrCode(null);
+      setTimeLeft(0);
+      setRefreshCount(0);
+      setIsInstanceCreated(false);
+      addToast('WhatsApp desconectado com sucesso.', 'success');
+    } catch (error: any) {
+      addToast(error.message || 'Erro ao desconectar WhatsApp', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <BusinessLayout>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <MessageCircle className="w-8 h-8 text-green-600" />
-          WhatsApp
-        </h1>
-        <p className="text-gray-500 mt-1">Conecte seu WhatsApp para automatizar o envio de cobranças e notificações.</p>
+      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <MessageCircle className="w-8 h-8 text-green-600" />
+            WhatsApp
+          </h1>
+          <p className="text-gray-500 mt-1">Conecte seu WhatsApp para automatizar o envio de cobranças e notificações.</p>
+        </div>
+        
+        {isInstanceCreated && (
+          <button
+            onClick={handleDisconnect}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium text-sm disabled:opacity-50"
+          >
+            <LogOut size={16} />
+            Desconectar Instância
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* QR Code Section */}
         <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex flex-col items-center justify-center text-center">
-          <div className="bg-gray-50 p-6 rounded-2xl border-2 border-dashed border-gray-200 mb-6 w-full flex flex-col items-center">
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4">
-               <img 
-                 src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=PagWeb-WhatsApp-Auth-Demo" 
-                 alt="QR Code WhatsApp" 
-                 className="w-48 h-48"
-               />
+          <div className="bg-gray-50 p-6 rounded-2xl border-2 border-dashed border-gray-200 mb-6 w-full flex flex-col items-center relative overflow-hidden">
+            
+            <div className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4 transition-all duration-500 ${!qrCode ? 'blur-md grayscale' : ''}`}>
+               {qrCode ? (
+                 <QRCodeSVG 
+                   value={qrCode} 
+                   size={200}
+                   level="H"
+                   includeMargin={false}
+                 />
+               ) : (
+                 <div className="w-48 h-48 flex items-center justify-center bg-gray-50">
+                    <QrCode className="w-24 h-24 text-gray-200" />
+                 </div>
+               )}
             </div>
-            <div className="flex items-center gap-2 text-sm text-green-600 font-medium animate-pulse">
-                <QrCode className="w-4 h-4" />
-                <span>Aguardando conexão...</span>
-            </div>
+
+            {!qrCode ? (
+              <button
+                onClick={handleCreateInstance}
+                disabled={loading}
+                className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/40 hover:bg-white/60 transition-colors group"
+              >
+                <div className="bg-green-600 text-white p-4 rounded-full shadow-lg group-hover:scale-110 transition-transform mb-3">
+                  {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : <RefreshCw className="w-6 h-6" />}
+                </div>
+                <span className="font-bold text-gray-900 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100">
+                  {loading ? 'Criando instância...' : 'Gerar QR Code'}
+                </span>
+              </button>
+            ) : (
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex items-center gap-2 text-sm text-green-600 font-bold">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>QR Code Ativo</span>
+                </div>
+                <div className="text-xs text-gray-500 font-medium flex flex-col items-center gap-1">
+                  <div>Expira em: <span className="text-slate-900 font-bold">{timeLeft}s</span></div>
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider">
+                    Ciclo: <span className="font-bold">{refreshCount + 1} de {MAX_REFRESHES + 1}</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleRefreshQRCode}
+                  disabled={loading}
+                  className="mt-2 text-xs text-blue-600 hover:underline flex items-center gap-1"
+                >
+                  {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                  Atualizar agora
+                </button>
+              </div>
+            )}
           </div>
-          <p className="text-xs text-gray-400">O código QR é atualizado automaticamente a cada 30 segundos.</p>
+          <p className="text-xs text-gray-400">
+            {qrCode ? 'Aponte a câmera do seu celular para o código acima.' : 'Clique no botão acima para iniciar uma nova conexão.'}
+          </p>
         </div>
 
         {/* Instructions Section */}

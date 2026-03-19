@@ -187,5 +187,40 @@ export const businessService = {
     } catch {
         return [];
     }
+  },
+
+  // === WHATSAPP ===
+  async createWhatsAppInstance(): Promise<void> {
+    const response = await authRequest('/WhatsApps/criar', {
+      method: 'POST'
+    });
+
+    if (!response.ok) {
+        const text = await parseApiError(response);
+        throw new Error(text || "Erro ao criar instância do WhatsApp");
+    }
+  },
+
+  async getWhatsAppQRCode(): Promise<{ qrCode: string }> {
+    const response = await authRequest('/WhatsApps/qrcode', {
+      method: 'GET'
+    });
+
+    if (!response.ok) {
+        const text = await parseApiError(response);
+        throw new Error(text || "Erro ao obter QR Code do WhatsApp");
+    }
+    return await response.json();
+  },
+
+  async disconnectWhatsApp(): Promise<void> {
+    const response = await authRequest('/WhatsApps/desconectar', {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+        const text = await parseApiError(response);
+        throw new Error(text || "Erro ao desconectar WhatsApp");
+    }
   }
 };
