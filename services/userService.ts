@@ -186,10 +186,10 @@ export const userService = {
 
   // --- NOVOS MÉTODOS DE DADOS DO CLIENTE ---
 
-  async acceptConnection(idEmpresa: number): Promise<void> {
+  async acceptConnection(idEmpresa: number, emailEmpresa: string): Promise<void> {
     const response = await authRequest(`/User/minha-conexao/${idEmpresa}`, {
       method: 'PATCH',
-      body: JSON.stringify("string")
+      body: JSON.stringify(emailEmpresa)
     });
     if (!response.ok) {
       const msg = await parseApiError(response);
@@ -242,16 +242,47 @@ export const userService = {
     }
   },
 
-  // Mock de cartões salvos (já que não há endpoint oficial documentado)
   async listSavedCards(): Promise<SavedCard[]> {
-    // Simula delay de rede
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Retorna dados mockados para demonstração
-    return [
-      { id: 'card_123', last4: '4242', brand: 'visa', holderName: 'PEDRO L MOTA', expiry: '12/28' },
-      { id: 'card_456', last4: '8899', brand: 'mastercard', holderName: 'PEDRO L MOTA', expiry: '05/26' }
-    ];
+    const response = await authRequest('/Cartao/meus-cartoes', { method: 'GET' });
+    if (!response.ok) return [];
+    try {
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
+  },
+
+  async createSavedCard(data: Omit<SavedCard, 'idCartao' | 'idUser'>): Promise<void> {
+    const response = await authRequest('/Cartao/cadastrar', {
+      method: 'POST',
+      body: JSON.stringify({ ...data, idCartao: 0, idUser: 0 })
+    });
+    if (!response.ok) {
+        const msg = await parseApiError(response);
+        throw new Error(msg || "Falha ao cadastrar cartão.");
+    }
+  },
+
+  async updateSavedCard(id: number, data: Partial<SavedCard>): Promise<void> {
+    const response = await authRequest(`/Cartao/editar/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) {
+        const msg = await parseApiError(response);
+        throw new Error(msg || "Falha ao editar cartão.");
+    }
+  },
+
+  async deleteSavedCard(id: number): Promise<void> {
+    const response = await authRequest(`/Cartao/remover/${id}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) {
+        const msg = await parseApiError(response);
+        throw new Error(msg || "Falha ao remover cartão.");
+    }
   },
 
   // --- AÇÕES DO CLIENTE (Cancelar, Pagar) ---

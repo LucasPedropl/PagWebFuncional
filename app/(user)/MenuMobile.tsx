@@ -22,6 +22,7 @@ export const MenuMobile: React.FC = () => {
     { icon: Store, label: 'Estabelecimentos', path: '/empresas' }, // Atualizado
     { icon: CreditCard, label: 'Minhas Assinaturas', path: '/assinaturas' },
     { icon: Receipt, label: 'Minhas Faturas', path: '/pagamentos' }, 
+    { icon: CreditCard, label: 'Métodos de Pagamento', path: '/metodos-pagamento' },
     { icon: Settings, label: 'Configurações da Conta', path: '/configuracoes' },
   ];
 

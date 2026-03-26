@@ -3,14 +3,15 @@ import React, { useEffect, useState } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { CheckCircle2, Calendar, CreditCard, Loader2, XCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Calendar, CreditCard, Loader2, XCircle, AlertTriangle, Settings, Bell, Mail, MessageSquare, Smartphone } from 'lucide-react';
 import { userService } from '../../services/userService';
-import { ClientSubscription } from '../../types';
+import { ClientSubscription, SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
 
 export const Assinaturas: React.FC = () => {
   const { addToast } = useToast();
   const [subscriptions, setSubscriptions] = useState<ClientSubscription[]>([]);
+  const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal State
@@ -18,11 +19,42 @@ export const Assinaturas: React.FC = () => {
   const [subToCancel, setSubToCancel] = useState<ClientSubscription | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Settings Modal State
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [selectedSubForSettings, setSelectedSubForSettings] = useState<ClientSubscription | null>(null);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    notifications: {
+      geral: true,
+      email: true,
+      sms: false,
+      whatsapp: true,
+    },
+    paymentMethod: 'pix', // 'pix', 'boleto', or card ID
+  });
+
   const [isAccepting, setIsAccepting] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchSubscriptions();
+    fetchData();
   }, []);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [subsData, cardsData] = await Promise.all([
+        userService.listClientSubscriptions(),
+        userService.listSavedCards()
+      ]);
+      setSubscriptions(subsData);
+      setSavedCards(cardsData);
+    } catch (error) {
+      console.error(error);
+      addToast('error', 'Erro', 'Falha ao carregar dados.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const fetchSubscriptions = async () => {
     try {
@@ -30,8 +62,6 @@ export const Assinaturas: React.FC = () => {
       setSubscriptions(data);
     } catch (error) {
       console.error(error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -67,6 +97,50 @@ export const Assinaturas: React.FC = () => {
       } finally {
           setIsProcessing(false);
       }
+  };
+
+  const handleSettingsClick = (sub: ClientSubscription) => {
+    setSelectedSubForSettings(sub);
+    // Here you would ideally fetch the specific settings for this subscription from the backend
+    // For now, we'll initialize with default values or mock data
+    setSettingsForm({
+      notifications: {
+        geral: true,
+        email: true,
+        sms: false,
+        whatsapp: true,
+      },
+      paymentMethod: 'pix',
+    });
+    setIsSettingsModalOpen(true);
+  };
+
+  const handleSaveSettings = async () => {
+    if (!selectedSubForSettings) return;
+    
+    setIsSavingSettings(true);
+    try {
+      // Mock API call to save settings
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      addToast('success', 'Configurações Salvas', 'As configurações da assinatura foram atualizadas.');
+      setIsSettingsModalOpen(false);
+      setSelectedSubForSettings(null);
+    } catch (error: any) {
+      addToast('error', 'Erro', 'Falha ao salvar configurações.');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleNotificationToggle = (key: keyof typeof settingsForm.notifications) => {
+    setSettingsForm(prev => ({
+      ...prev,
+      notifications: {
+        ...prev.notifications,
+        [key]: !prev.notifications[key]
+      }
+    }));
   };
 
   const formatDate = (isoStr: string) => {
@@ -140,13 +214,24 @@ export const Assinaturas: React.FC = () => {
                         </Button>
                     )}
                     {sub.status === 'Ativo' && (
-                        <Button 
-                            variant="outline" 
-                            className="text-red-600 hover:bg-red-50 hover:border-red-200 border-gray-200"
-                            onClick={() => handleCancelClick(sub)}
-                        >
-                            <XCircle className="w-4 h-4 mr-2" /> Cancelar
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button 
+                                variant="outline" 
+                                className="text-slate-600 hover:bg-slate-50 border-gray-200"
+                                onClick={() => handleSettingsClick(sub)}
+                                title="Configurações da Assinatura"
+                            >
+                                <Settings className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                className="text-red-600 hover:bg-red-50 hover:border-red-200 border-gray-200"
+                                onClick={() => handleCancelClick(sub)}
+                                title="Cancelar Assinatura"
+                            >
+                                <XCircle className="w-4 h-4" />
+                            </Button>
+                        </div>
                     )}
                 </div>
              </div>
@@ -182,6 +267,197 @@ export const Assinaturas: React.FC = () => {
                 Você perderá acesso aos benefícios deste plano ao final do ciclo atual. Esta ação não pode ser desfeita.
             </p>
          </div>
+      </Modal>
+
+      {/* Modal Configurações da Assinatura */}
+      <Modal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        title="Configurações da Assinatura"
+        size="lg"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsSettingsModalOpen(false)} disabled={isSavingSettings}>Cancelar</Button>
+            <Button 
+                onClick={handleSaveSettings} 
+                isLoading={isSavingSettings} 
+                className="bg-slate-900 hover:bg-slate-800 text-white"
+            >
+                Salvar Configurações
+            </Button>
+          </>
+        }
+      >
+        {selectedSubForSettings && (
+          <div className="space-y-8">
+            {/* Header Info */}
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 flex justify-between items-center">
+              <div>
+                <h4 className="font-bold text-slate-900">{selectedSubForSettings.nomePlano}</h4>
+                <p className="text-sm text-slate-500">{selectedSubForSettings.nomeEmpresa}</p>
+              </div>
+              <div className="text-right">
+                <span className="font-bold text-slate-900">R$ {selectedSubForSettings.valorMensal.toFixed(2).replace('.', ',')}</span>
+                <span className="text-xs text-slate-500 block">/mês</span>
+              </div>
+            </div>
+
+            {/* Notificações */}
+            <div>
+              <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
+                <Bell className="w-4 h-4 mr-2 text-slate-500" />
+                Preferências de Notificação
+              </h4>
+              <div className="space-y-3">
+                <label className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-full ${settingsForm.notifications.geral ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                      <Bell className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">Notificações Gerais</p>
+                      <p className="text-xs text-gray-500">Avisos sobre a assinatura no painel</p>
+                    </div>
+                  </div>
+                  <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${settingsForm.notifications.geral ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.notifications.geral ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </div>
+                  {/* Hidden input to make it accessible/form-ready if needed */}
+                  <input type="checkbox" className="hidden" checked={settingsForm.notifications.geral} onChange={() => handleNotificationToggle('geral')} />
+                </label>
+
+                <label className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-full ${settingsForm.notifications.email ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">E-mail</p>
+                      <p className="text-xs text-gray-500">Receber faturas e recibos por e-mail</p>
+                    </div>
+                  </div>
+                  <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${settingsForm.notifications.email ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.notifications.email ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </div>
+                  <input type="checkbox" className="hidden" checked={settingsForm.notifications.email} onChange={() => handleNotificationToggle('email')} />
+                </label>
+
+                <label className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-full ${settingsForm.notifications.whatsapp ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                      <MessageSquare className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">WhatsApp</p>
+                      <p className="text-xs text-gray-500">Lembretes de vencimento no WhatsApp</p>
+                    </div>
+                  </div>
+                  <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${settingsForm.notifications.whatsapp ? 'bg-green-600' : 'bg-gray-300'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.notifications.whatsapp ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </div>
+                  <input type="checkbox" className="hidden" checked={settingsForm.notifications.whatsapp} onChange={() => handleNotificationToggle('whatsapp')} />
+                </label>
+
+                <label className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-full ${settingsForm.notifications.sms ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                      <Smartphone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">SMS</p>
+                      <p className="text-xs text-gray-500">Lembretes de vencimento por SMS</p>
+                    </div>
+                  </div>
+                  <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${settingsForm.notifications.sms ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.notifications.sms ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </div>
+                  <input type="checkbox" className="hidden" checked={settingsForm.notifications.sms} onChange={() => handleNotificationToggle('sms')} />
+                </label>
+              </div>
+            </div>
+
+            {/* Método de Pagamento */}
+            <div>
+              <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
+                <CreditCard className="w-4 h-4 mr-2 text-slate-500" />
+                Método de Pagamento Principal
+              </h4>
+              <div className="space-y-3">
+                <label className={`flex items-center p-4 border rounded-lg cursor-pointer transition-all ${settingsForm.paymentMethod === 'pix' ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <input 
+                    type="radio" 
+                    name="paymentMethod" 
+                    value="pix" 
+                    checked={settingsForm.paymentMethod === 'pix'}
+                    onChange={(e) => setSettingsForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div className="ml-3 flex-1 flex justify-between items-center">
+                    <span className="font-medium text-gray-900">PIX</span>
+                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-medium">Aprovação Imediata</span>
+                  </div>
+                </label>
+
+                <label className={`flex items-center p-4 border rounded-lg cursor-pointer transition-all ${settingsForm.paymentMethod === 'boleto' ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <input 
+                    type="radio" 
+                    name="paymentMethod" 
+                    value="boleto" 
+                    checked={settingsForm.paymentMethod === 'boleto'}
+                    onChange={(e) => setSettingsForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <div className="ml-3 flex-1">
+                    <span className="font-medium text-gray-900">Boleto Bancário</span>
+                  </div>
+                </label>
+
+                {savedCards.length > 0 && (
+                  <div className="pt-2">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Cartões Salvos</p>
+                    <div className="space-y-3">
+                      {savedCards.map(card => (
+                        <label key={card.idCartao} className={`flex items-center p-4 border rounded-lg cursor-pointer transition-all ${settingsForm.paymentMethod === card.idCartao.toString() ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' : 'border-gray-200 hover:border-gray-300'}`}>
+                          <input 
+                            type="radio" 
+                            name="paymentMethod" 
+                            value={card.idCartao.toString()} 
+                            checked={settingsForm.paymentMethod === card.idCartao.toString()}
+                            onChange={(e) => setSettingsForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                          />
+                          <div className="ml-3 flex-1 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-6 bg-slate-800 rounded flex items-center justify-center text-[10px] text-white font-bold italic">
+                                {card.bandeira || 'Cartão'}
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900 text-sm">•••• {card.ultimosDigitos}</p>
+                                <p className="text-xs text-gray-500">{card.nomeNoCartao}</p>
+                              </div>
+                            </div>
+                            {card.isDefault && (
+                              <span className="text-[10px] uppercase tracking-wider font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">Principal</span>
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {savedCards.length === 0 && (
+                  <div className="p-4 border border-dashed border-gray-300 rounded-lg text-center">
+                    <p className="text-sm text-gray-500 mb-2">Nenhum cartão de crédito salvo.</p>
+                    <Button variant="outline" size="sm" onClick={() => window.location.href = '/user/pagamentos/metodos'}>
+                      Adicionar Cartão
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
 
     </UserLayout>

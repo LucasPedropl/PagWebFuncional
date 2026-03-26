@@ -129,6 +129,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: Store, label: 'Estabelecimentos', path: '/empresas' }, 
     { icon: CreditCard, label: 'Assinaturas', path: '/assinaturas' },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos' }, 
+    { icon: CreditCard, label: 'Cartões', path: '/metodos-pagamento' },
   ];
 
   // Mobile Footer Items
@@ -137,6 +138,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: Store, label: 'Estabelec.', path: '/empresas' },
     { icon: CreditCard, label: 'Assin.', path: '/assinaturas' },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos' },
+    { icon: CreditCard, label: 'Cartões', path: '/metodos-pagamento' },
     { icon: MenuIcon, label: 'Menu', path: '/menu' },
   ];
 

@@ -118,7 +118,7 @@ export interface ClientConnection {
   cnpjEmpresa: string;
   emailEmpresa: string;
   nomeDono: string;
-  statusConexao: string;
+  status: string;
 }
 
 export interface ClientSubscription {
@@ -143,11 +143,14 @@ export interface ClientInvoice {
 }
 
 export interface SavedCard {
-  id: string;
-  last4: string;
-  brand: string; // 'visa', 'mastercard', etc
-  holderName: string;
-  expiry: string;
+  idCartao: number;
+  idUser: number;
+  nomeNoCartao: string;
+  gatewayToken: string;
+  ultimosDigitos: string;
+  bandeira: string;
+  mesAnoExpiracao: string;
+  isDefault: boolean;
 }
 
 export interface AppNotification {

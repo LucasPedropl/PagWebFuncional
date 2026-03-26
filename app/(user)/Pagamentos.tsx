@@ -23,7 +23,7 @@ export const Pagamentos: React.FC = () => {
 
   // Credit Card Specific State
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
-  const [selectedCardId, setSelectedCardId] = useState<string>('new'); // 'new' ou id do cartão
+  const [selectedCardId, setSelectedCardId] = useState<number | 'new'>('new'); // 'new' ou id do cartão
   const [cardForm, setCardForm] = useState({
       number: '',
       holder: '',
@@ -48,7 +48,7 @@ export const Pagamentos: React.FC = () => {
           setSavedCards(cards);
           // Se tiver cartões salvos, seleciona o primeiro por padrão
           if (cards.length > 0) {
-              setSelectedCardId(cards[0].id);
+              setSelectedCardId(cards[0].idCartao);
           }
       } catch (error) {
           console.warn("Falha ao carregar cartões salvos", error);
@@ -365,23 +365,23 @@ export const Pagamentos: React.FC = () => {
                                         <div className="mb-4 space-y-2">
                                             <p className="text-xs font-semibold text-gray-500 uppercase">Seus Cartões Salvos</p>
                                             {savedCards.map(card => (
-                                                <label key={card.id} className={`flex items-center p-3 rounded-lg border cursor-pointer bg-white hover:bg-gray-50 ${
-                                                    selectedCardId === card.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'
+                                                <label key={card.idCartao} className={`flex items-center p-3 rounded-lg border cursor-pointer bg-white hover:bg-gray-50 ${
+                                                    selectedCardId === card.idCartao ? 'border-blue-500 ring-1 ring-blue-500' : 'border-gray-200'
                                                 }`}>
                                                     <input 
                                                         type="radio" 
                                                         name="selectedCard"
-                                                        value={card.id}
-                                                        checked={selectedCardId === card.id}
-                                                        onChange={() => setSelectedCardId(card.id)}
+                                                        value={card.idCartao}
+                                                        checked={selectedCardId === card.idCartao}
+                                                        onChange={() => setSelectedCardId(card.idCartao)}
                                                         className="sr-only"
                                                     />
                                                     <CreditCard className="w-4 h-4 text-gray-400 mr-3" />
                                                     <div className="flex-1">
-                                                        <span className="text-sm font-medium text-gray-900 uppercase">•••• {card.last4}</span>
-                                                        <span className="text-xs text-gray-500 ml-2">{card.brand} - {card.expiry}</span>
+                                                        <span className="text-sm font-medium text-gray-900 uppercase">•••• {card.ultimosDigitos}</span>
+                                                        <span className="text-xs text-gray-500 ml-2">{card.bandeira} - {card.mesAnoExpiracao}</span>
                                                     </div>
-                                                    {selectedCardId === card.id && <div className="w-2 h-2 bg-blue-500 rounded-full" />}
+                                                    {selectedCardId === card.idCartao && <div className="w-2 h-2 bg-blue-500 rounded-full" />}
                                                 </label>
                                             ))}
                                             

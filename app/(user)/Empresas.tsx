@@ -41,10 +41,10 @@ export const Empresas: React.FC = () => {
     }
   };
 
-  const handleAcceptConnection = async (idEmpresa: number) => {
+  const handleAcceptConnection = async (idEmpresa: number, emailEmpresa: string) => {
     try {
       setIsAccepting(idEmpresa);
-      await userService.acceptConnection(idEmpresa);
+      await userService.acceptConnection(idEmpresa, emailEmpresa);
       addToast('success', 'Sucesso', 'Conexão aceita com sucesso.');
       await fetchConnections();
     } catch (error: any) {
@@ -142,10 +142,10 @@ export const Empresas: React.FC = () => {
                             {company.nomeEmpresa.substring(0,2)}
                         </div>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                            company.statusConexao === 'Ativo' ? 'bg-green-100 text-green-800' : 
-                            company.statusConexao === 'Pendente' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
+                            company.status === 'Ativo' ? 'bg-green-100 text-green-800' : 
+                            company.status === 'Pendente' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
                         }`}>
-                            {company.statusConexao}
+                            {company.status}
                         </span>
                     </div>
                     
@@ -160,16 +160,16 @@ export const Empresas: React.FC = () => {
                     </div>
 
                     <div className="mt-auto flex gap-2">
-                        {company.statusConexao === 'Pendente' && (
+                        {company.status === 'Pendente' && (
                             <Button 
                                 className="w-full bg-green-600 hover:bg-green-700 text-white"
-                                onClick={() => handleAcceptConnection(company.idEmpresa)}
+                                onClick={() => handleAcceptConnection(company.idEmpresa, company.emailEmpresa)}
                                 isLoading={isAccepting === company.idEmpresa}
                             >
                                 Aceitar Conexão
                             </Button>
                         )}
-                        {company.statusConexao !== 'Pendente' && (
+                        {company.status !== 'Pendente' && (
                             <Button 
                                 variant="outline" 
                                 className="w-full"
