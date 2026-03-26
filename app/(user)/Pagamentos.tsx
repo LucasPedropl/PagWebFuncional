@@ -7,12 +7,23 @@ import { Download, Filter, Search, FileText, Loader2, ArrowRight, CreditCard, Qr
 import { userService } from '../../services/userService';
 import { ClientInvoice, SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
+import { jsPDF } from 'jspdf';
 
 export const Pagamentos: React.FC = () => {
   const { addToast } = useToast();
   const [invoices, setInvoices] = useState<ClientInvoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Filters State
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    status: 'Todos',
+    dateFrom: '',
+    dateTo: '',
+    valueMin: '',
+    valueMax: '',
+  });
 
   // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -64,6 +75,93 @@ export const Pagamentos: React.FC = () => {
       console.error(error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const generateReceiptPDF = (invoice: ClientInvoice) => {
+    try {
+      const doc = new jsPDF();
+      
+      // Colors
+      const primaryColor = '#0f172a'; // slate-900
+      const secondaryColor = '#64748b'; // slate-500
+      const accentColor = '#10b981'; // emerald-500
+      const lightGray = '#f8fafc'; // slate-50
+      
+      // Header Background
+      doc.setFillColor(primaryColor);
+      doc.rect(0, 0, 210, 45, 'F');
+      
+      // Header Text
+      doc.setTextColor('#ffffff');
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.text('COMPROVANTE DE PAGAMENTO', 105, 28, { align: 'center' });
+      
+      // Receipt Info Box
+      doc.setFillColor(lightGray);
+      doc.setDrawColor(226, 232, 240); // slate-200
+      doc.roundedRect(15, 60, 180, 130, 4, 4, 'FD');
+      
+      // Content
+      doc.setTextColor(primaryColor);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Detalhes da Transação', 25, 75);
+      
+      doc.setFontSize(11);
+      doc.setTextColor(secondaryColor);
+      
+      // Left column labels
+      doc.setFont('helvetica', 'normal');
+      doc.text('ID da Fatura:', 25, 95);
+      doc.text('Estabelecimento:', 25, 110);
+      doc.text('Referência:', 25, 125);
+      doc.text('Data de Vencimento:', 25, 140);
+      doc.text('Status:', 25, 155);
+      
+      // Right column values
+      doc.setTextColor(primaryColor);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`#${invoice.idMensalidade}`, 75, 95);
+      doc.text(invoice.nomeEmpresa, 75, 110);
+      doc.text(invoice.mesReferencia, 75, 125);
+      doc.text(invoice.vencimento, 75, 140);
+      
+      // Status with color
+      doc.setTextColor(accentColor);
+      doc.text(invoice.status.toUpperCase(), 75, 155);
+      
+      // Divider
+      doc.setDrawColor(203, 213, 225); // slate-300
+      doc.setLineDashPattern([2, 2], 0);
+      doc.line(25, 165, 185, 165);
+      doc.setLineDashPattern([], 0);
+      
+      // Total
+      doc.setTextColor(secondaryColor);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Valor Total Pago:', 25, 178);
+      
+      doc.setTextColor(primaryColor);
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`R$ ${invoice.valor.toFixed(2).replace('.', ',')}`, 185, 179, { align: 'right' });
+      
+      // Footer
+      doc.setFontSize(9);
+      doc.setTextColor(secondaryColor);
+      doc.setFont('helvetica', 'normal');
+      const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      doc.text(`Comprovante gerado em ${today}`, 105, 275, { align: 'center' });
+      doc.text('Este documento é um comprovante válido de pagamento.', 105, 280, { align: 'center' });
+      
+      // Save
+      doc.save(`comprovante_fatura_${invoice.idMensalidade}.pdf`);
+      addToast('success', 'Download Iniciado', 'O comprovante foi gerado com sucesso.');
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      addToast('error', 'Erro', 'Não foi possível gerar o comprovante em PDF.');
     }
   };
 
@@ -142,10 +240,44 @@ export const Pagamentos: React.FC = () => {
       setPaymentSuccess(false);
   };
 
-  const filteredInvoices = invoices.filter(inv => 
-    inv.nomeEmpresa.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    inv.idMensalidade.toString().includes(searchTerm)
-  );
+  const filteredInvoices = invoices.filter(inv => {
+    // Search
+    const matchesSearch = 
+      inv.nomeEmpresa.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      inv.idMensalidade.toString().includes(searchTerm);
+    
+    // Status
+    const matchesStatus = filters.status === 'Todos' || inv.status === filters.status;
+
+    // Date Range
+    let matchesDate = true;
+    if (filters.dateFrom || filters.dateTo) {
+      const parts = inv.vencimento.split('/');
+      if (parts.length === 3) {
+        const invDate = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+        
+        if (filters.dateFrom) {
+          const fromDate = new Date(filters.dateFrom + 'T00:00:00');
+          if (invDate < fromDate) matchesDate = false;
+        }
+        if (filters.dateTo) {
+          const toDate = new Date(filters.dateTo + 'T23:59:59');
+          if (invDate > toDate) matchesDate = false;
+        }
+      }
+    }
+
+    // Value Range
+    let matchesValue = true;
+    if (filters.valueMin) {
+      if (inv.valor < Number(filters.valueMin)) matchesValue = false;
+    }
+    if (filters.valueMax) {
+      if (inv.valor > Number(filters.valueMax)) matchesValue = false;
+    }
+
+    return matchesSearch && matchesStatus && matchesDate && matchesValue;
+  });
 
   return (
     <UserLayout>
@@ -160,20 +292,98 @@ export const Pagamentos: React.FC = () => {
         </Button>
       </div>
 
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar fatura por empresa ou ID..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-900 placeholder-gray-400"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar fatura por empresa ou ID..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-900 placeholder-gray-400"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Button 
+            variant={isFilterOpen ? "default" : "outline"} 
+            className={isFilterOpen ? "bg-slate-900 text-white" : "bg-white text-gray-600"}
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+          >
+              <Filter className="w-4 h-4 mr-2" /> Filtros
+          </Button>
         </div>
-        <Button variant="outline" className="bg-white text-gray-600">
-            <Filter className="w-4 h-4 mr-2" /> Filtros
-        </Button>
+
+        {/* Filter Panel */}
+        {isFilterOpen && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100 animate-fadeIn">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+              <select 
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900"
+                value={filters.status}
+                onChange={(e) => setFilters({...filters, status: e.target.value})}
+              >
+                <option value="Todos">Todos</option>
+                <option value="Aberto">Aberto</option>
+                <option value="Pago">Pago</option>
+                <option value="Atrasado">Atrasado</option>
+                <option value="Baixado">Baixado</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Data Inicial (Vencimento)</label>
+              <input 
+                type="date" 
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900"
+                value={filters.dateFrom}
+                onChange={(e) => setFilters({...filters, dateFrom: e.target.value})}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Data Final (Vencimento)</label>
+              <input 
+                type="date" 
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900"
+                value={filters.dateTo}
+                onChange={(e) => setFilters({...filters, dateTo: e.target.value})}
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Valor Mín (R$)</label>
+                <input 
+                  type="number" 
+                  placeholder="0,00"
+                  className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900"
+                  value={filters.valueMin}
+                  onChange={(e) => setFilters({...filters, valueMin: e.target.value})}
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Valor Máx (R$)</label>
+                <input 
+                  type="number" 
+                  placeholder="0,00"
+                  className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900"
+                  value={filters.valueMax}
+                  onChange={(e) => setFilters({...filters, valueMax: e.target.value})}
+                />
+              </div>
+            </div>
+            
+            <div className="md:col-span-4 flex justify-end">
+               <button 
+                 onClick={() => setFilters({ status: 'Todos', dateFrom: '', dateTo: '', valueMin: '', valueMax: '' })}
+                 className="text-xs text-gray-500 hover:text-gray-700 underline"
+               >
+                 Limpar Filtros
+               </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -236,7 +446,11 @@ export const Pagamentos: React.FC = () => {
                                             Pagar <ArrowRight className="w-3 h-3 ml-1" />
                                         </button>
                                     ) : (
-                                        <button className="text-gray-400 hover:text-gray-600 text-xs">
+                                        <button 
+                                            onClick={() => generateReceiptPDF(inv)}
+                                            className="text-gray-400 hover:text-gray-600 text-xs inline-flex items-center"
+                                        >
+                                            <Download className="w-3 h-3 mr-1" />
                                             Ver Recibo
                                         </button>
                                     )}

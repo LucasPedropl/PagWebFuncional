@@ -33,6 +33,10 @@ export const Assinaturas: React.FC = () => {
     paymentMethod: 'pix', // 'pix', 'boleto', or card ID
   });
 
+  // Details Modal State
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedSubForDetails, setSelectedSubForDetails] = useState<ClientSubscription | null>(null);
+
   const [isAccepting, setIsAccepting] = useState<number | null>(null);
 
   useEffect(() => {
@@ -143,6 +147,11 @@ export const Assinaturas: React.FC = () => {
     }));
   };
 
+  const handleDetailsClick = (sub: ClientSubscription) => {
+    setSelectedSubForDetails(sub);
+    setIsDetailsModalOpen(true);
+  };
+
   const formatDate = (isoStr: string) => {
     try {
         return new Date(isoStr).toLocaleDateString('pt-BR');
@@ -175,7 +184,11 @@ export const Assinaturas: React.FC = () => {
       ) : (
         <div className="space-y-4">
           {subscriptions.map((sub) => (
-             <div key={sub.idAssinatura} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+             <div 
+                key={sub.idAssinatura} 
+                className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-slate-300 hover:shadow-md transition-all cursor-pointer"
+                onClick={() => handleDetailsClick(sub)}
+             >
                 <div className="flex items-start gap-4">
                     <div className="w-12 h-12 bg-slate-900 rounded-lg flex items-center justify-center text-white">
                         <CreditCard className="w-6 h-6" />
@@ -199,7 +212,7 @@ export const Assinaturas: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex flex-col md:flex-row items-end md:items-center gap-4">
+                <div className="flex flex-col md:flex-row items-end md:items-center gap-4" onClick={(e) => e.stopPropagation()}>
                     <div className="flex flex-col items-end gap-1">
                         <span className="text-2xl font-bold text-gray-900">R$ {sub.valorMensal.toFixed(2).replace('.', ',')}</span>
                         <span className="text-xs text-gray-500">/mês</span>
@@ -456,6 +469,121 @@ export const Assinaturas: React.FC = () => {
                 )}
               </div>
             </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Details Modal */}
+      <Modal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        title="Detalhes da Assinatura"
+        size="lg"
+        footer={
+          <div className="flex justify-end w-full">
+            <Button variant="outline" onClick={() => setIsDetailsModalOpen(false)}>
+              Fechar
+            </Button>
+          </div>
+        }
+      >
+        {selectedSubForDetails && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-4 pb-6 border-b border-gray-100">
+              <div className="w-16 h-16 bg-slate-900 rounded-xl flex items-center justify-center text-white shadow-sm">
+                <CreditCard className="w-8 h-8" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{selectedSubForDetails.nomePlano}</h2>
+                <p className="text-gray-500">{selectedSubForDetails.nomeEmpresa}</p>
+                <div className="mt-2">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedSubForDetails.status === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                    {selectedSubForDetails.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Informações do Plano</h3>
+                
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 space-y-3">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Valor Mensal</p>
+                    <p className="font-semibold text-gray-900 text-lg">R$ {selectedSubForDetails.valorMensal.toFixed(2).replace('.', ',')}</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Data de Início</p>
+                      <p className="font-medium text-gray-900">{formatDate(selectedSubForDetails.dataInicio)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Data de Fim</p>
+                      <p className="font-medium text-gray-900">
+                        {selectedSubForDetails.dataFim && selectedSubForDetails.dataFim.startsWith('0001-01-01') 
+                          ? 'Recorrente' 
+                          : formatDate(selectedSubForDetails.dataFim)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {selectedSubForDetails.descricaoPlano && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Descrição</p>
+                    <p className="text-sm text-gray-700">{selectedSubForDetails.descricaoPlano}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Empresa Responsável</h3>
+                
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 space-y-3">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Nome da Empresa</p>
+                    <p className="font-medium text-gray-900">{selectedSubForDetails.nomeEmpresa}</p>
+                  </div>
+                  
+                  {selectedSubForDetails.nomeDono && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Responsável</p>
+                      <p className="font-medium text-gray-900">{selectedSubForDetails.nomeDono}</p>
+                    </div>
+                  )}
+
+                  {selectedSubForDetails.cnpjEmpresa && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">CNPJ</p>
+                      <p className="font-medium text-gray-900">{selectedSubForDetails.cnpjEmpresa}</p>
+                    </div>
+                  )}
+
+                  {selectedSubForDetails.emailEmpresa && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">E-mail de Contato</p>
+                      <p className="font-medium text-gray-900">{selectedSubForDetails.emailEmpresa}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {selectedSubForDetails.beneficios && selectedSubForDetails.beneficios.length > 0 && (
+              <div className="pt-4 border-t border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">Benefícios do Plano</h3>
+                <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {selectedSubForDetails.beneficios.map((beneficio, idx) => (
+                    <li key={idx} className="flex items-start text-sm text-gray-700">
+                      <CheckCircle2 className="w-4 h-4 text-green-500 mr-2 shrink-0 mt-0.5" />
+                      <span>{beneficio}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
       </Modal>

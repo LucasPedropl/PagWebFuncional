@@ -129,6 +129,12 @@ export interface ClientSubscription {
   dataFim: string; // ISO
   valorMensal: number;
   status: string;
+  // Optional fields that might come from the API for details
+  descricaoPlano?: string;
+  beneficios?: string[];
+  nomeDono?: string;
+  emailEmpresa?: string;
+  cnpjEmpresa?: string;
 }
 
 export interface ClientInvoice {
