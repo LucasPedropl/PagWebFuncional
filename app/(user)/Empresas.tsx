@@ -41,10 +41,10 @@ export const Empresas: React.FC = () => {
     }
   };
 
-  const handleAcceptConnection = async (idEmpresa: number, emailEmpresa: string) => {
+  const handleAcceptConnection = async (idEmpresa: number) => {
     try {
       setIsAccepting(idEmpresa);
-      await userService.acceptConnection(idEmpresa, emailEmpresa);
+      await userService.acceptConnection(idEmpresa);
       addToast('success', 'Sucesso', 'Conexão aceita com sucesso.');
       await fetchConnections();
     } catch (error: any) {
@@ -163,7 +163,7 @@ export const Empresas: React.FC = () => {
                         {company.status === 'Pendente' && (
                             <Button 
                                 className="w-full bg-green-600 hover:bg-green-700 text-white"
-                                onClick={() => handleAcceptConnection(company.idEmpresa, company.emailEmpresa)}
+                                onClick={() => handleAcceptConnection(company.idEmpresa)}
                                 isLoading={isAccepting === company.idEmpresa}
                             >
                                 Aceitar Conexão

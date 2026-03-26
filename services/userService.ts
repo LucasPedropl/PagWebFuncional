@@ -186,10 +186,9 @@ export const userService = {
 
   // --- NOVOS MÉTODOS DE DADOS DO CLIENTE ---
 
-  async acceptConnection(idEmpresa: number, emailEmpresa: string): Promise<void> {
+  async acceptConnection(idEmpresa: number): Promise<void> {
     const response = await authRequest(`/User/minha-conexao/${idEmpresa}`, {
-      method: 'PATCH',
-      body: JSON.stringify(emailEmpresa)
+      method: 'PATCH'
     });
     if (!response.ok) {
       const msg = await parseApiError(response);
