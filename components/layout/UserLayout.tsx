@@ -15,7 +15,8 @@ import {
   Menu as MenuIcon,
   Check,
   Info,
-  AlertTriangle
+  AlertTriangle,
+  Compass
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
@@ -126,6 +127,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
+    { icon: Compass, label: 'Explorar', path: '/explorar' },
     { icon: Store, label: 'Estabelecimentos', path: '/empresas' }, 
     { icon: CreditCard, label: 'Assinaturas', path: '/assinaturas' },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos' }, 
@@ -135,10 +137,9 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   // Mobile Footer Items
   const mobileMenuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
+    { icon: Compass, label: 'Explorar', path: '/explorar' },
     { icon: Store, label: 'Estabelec.', path: '/empresas' },
     { icon: CreditCard, label: 'Assin.', path: '/assinaturas' },
-    { icon: Receipt, label: 'Faturas', path: '/pagamentos' },
-    { icon: CreditCard, label: 'Cartões', path: '/metodos-pagamento' },
     { icon: MenuIcon, label: 'Menu', path: '/menu' },
   ];
 
