@@ -10,7 +10,8 @@ import {
   Settings, 
   ChevronRight,
   LogOut,
-  User
+  User,
+  Compass
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 
@@ -19,7 +20,8 @@ export const MenuMobile: React.FC = () => {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
-    { icon: Store, label: 'Estabelecimentos', path: '/empresas' }, // Atualizado
+    { icon: Compass, label: 'Explorar', path: '/explorar' },
+    { icon: Store, label: 'Estabelecimentos', path: '/empresas' },
     { icon: CreditCard, label: 'Minhas Assinaturas', path: '/assinaturas' },
     { icon: Receipt, label: 'Minhas Faturas', path: '/pagamentos' }, 
     { icon: CreditCard, label: 'Métodos de Pagamento', path: '/metodos-pagamento' },

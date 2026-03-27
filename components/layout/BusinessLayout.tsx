@@ -140,7 +140,6 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: Users, label: 'Clientes', path: '/business/clientes' },
     { icon: CreditCard, label: 'Assin.', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Cobr.', path: '/business/pagamentos' },
-    { icon: MessageCircle, label: 'WhatsApp', path: '/business/whatsapp' },
     { icon: MenuIcon, label: 'Menu', path: '/business/menu' },
   ];
 

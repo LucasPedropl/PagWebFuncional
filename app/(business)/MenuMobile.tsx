@@ -11,7 +11,8 @@ import {
   Settings, 
   Plus,
   ChevronRight,
-  LogOut
+  LogOut,
+  MessageCircle
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 
@@ -31,6 +32,7 @@ export const MenuMobile: React.FC = () => {
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Gestão de Cobranças', path: '/business/pagamentos' },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
+    { icon: MessageCircle, label: 'WhatsApp', path: '/business/whatsapp' },
     { icon: Settings, label: 'Configurações', path: '/business/configuracoes' },
   ];
 
