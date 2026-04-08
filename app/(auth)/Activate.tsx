@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import { userService } from '../../services/userService';
 import { companyService } from '../../services/companyService';
 import { AuthLayout } from '../../components/layout/AuthLayout';
@@ -10,22 +10,56 @@ import { CheckCircle2, Loader2 } from 'lucide-react';
 export const Activate: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
   
   const [email, setEmail] = useState('');
   const [token, setToken] = useState('');
+  
+  const autoActivateAttempted = useRef(false);
 
   // Data passed from Register screen
   // inviteCompanyId: ID da empresa que convidou o usuário (se houver)
   const { password, isBusinessRegistration, companyData, inviteCompanyId } = location.state || {};
 
   useEffect(() => {
-    if (location.state?.email) {
-      setEmail(location.state.email);
+    const urlEmail = searchParams.get('email');
+    const urlToken = searchParams.get('token');
+
+    if (urlEmail) setEmail(urlEmail);
+    else if (location.state?.email) setEmail(location.state.email);
+
+    if (urlToken) setToken(urlToken);
+
+    // Auto-activate if both are present in URL
+    if (urlEmail && urlToken && !autoActivateAttempted.current) {
+      autoActivateAttempted.current = true;
+      handleAutoActivate(urlEmail, urlToken);
     }
-  }, [location.state]);
+  }, [searchParams, location.state]);
+
+  const handleAutoActivate = async (autoEmail: string, autoToken: string) => {
+    setIsLoading(true);
+    setError(null);
+    setStatusMessage("Verificando link de ativação...");
+
+    try {
+      await userService.activate({ email: autoEmail, token: autoToken });
+      setStatusMessage("Conta ativada com sucesso! Redirecionando para login...");
+      setIsSuccess(true);
+      setTimeout(() => navigate('/login'), 3000);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Link de ativação inválido ou expirado. Tente novamente.');
+      setStatusMessage(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +95,7 @@ export const Activate: React.FC = () => {
          } else {
              // Fluxo manual
              setStatusMessage("Conta ativada! Redirecionando para login...");
+             setIsSuccess(true);
              setTimeout(() => navigate('/login'), 2000);
          }
          return;
@@ -96,6 +131,22 @@ export const Activate: React.FC = () => {
     }
   };
 
+  if (isSuccess) {
+    return (
+      <AuthLayout title="Conta Ativada!" subtitle="Sua conta foi verificada com sucesso.">
+        <div className="flex flex-col items-center justify-center py-8 space-y-4">
+          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-2">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
+          <p className="text-slate-600 text-center">
+            {statusMessage || "Redirecionando para o login..."}
+          </p>
+          <Loader2 className="w-6 h-6 text-blue-600 animate-spin mt-4" />
+        </div>
+      </AuthLayout>
+    );
+  }
+
   return (
     <AuthLayout 
       title="Ativar Conta" 
@@ -109,7 +160,7 @@ export const Activate: React.FC = () => {
           onChange={(e) => setEmail(e.target.value)}
           required
           placeholder="seu@email.com"
-          disabled={!!location.state?.email}
+          disabled={!!location.state?.email || !!searchParams.get('email')}
         />
 
         <Input
@@ -121,7 +172,7 @@ export const Activate: React.FC = () => {
           placeholder="Ex: 123456"
         />
 
-        {statusMessage && (
+        {statusMessage && !isSuccess && (
             <div className="flex items-center justify-center p-3 bg-blue-50 text-blue-700 text-sm rounded-lg">
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 {statusMessage}
