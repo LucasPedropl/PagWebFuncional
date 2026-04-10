@@ -190,18 +190,40 @@ export const businessService = {
   },
 
   // === WHATSAPP ===
-  async createWhatsAppInstance(): Promise<void> {
+  async checkWhatsAppInstance(): Promise<any> {
+    const response = await authRequest('/WhatsApps/verificar', {
+      method: 'GET'
+    });
+    
+    if (!response.ok) {
+        if (response.status === 404) return null;
+        const text = await parseApiError(response);
+        throw new Error(text || "Erro ao verificar instância do WhatsApp");
+    }
+    
+    const text = await response.text();
+    if (!text) return null;
+    
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
+  },
+
+  async createWhatsAppInstance(): Promise<{ qrCode: string, status: string, instancia: number }> {
     const response = await authRequest('/WhatsApps/criar', {
-      method: 'POST'
+      method: 'GET'
     });
 
     if (!response.ok) {
         const text = await parseApiError(response);
         throw new Error(text || "Erro ao criar instância do WhatsApp");
     }
+    return await response.json();
   },
 
-  async getWhatsAppQRCode(): Promise<{ qrCode: string }> {
+  async getWhatsAppQRCode(): Promise<{ qrCode: string, status: string, instancia: number }> {
     const response = await authRequest('/WhatsApps/qrcode', {
       method: 'GET'
     });

@@ -50,6 +50,18 @@ const isValidExpiry = (expiry: string) => {
   return true;
 };
 
+const detectBrand = (number: string) => {
+  const cleanNumber = number.replace(/\D/g, '');
+  if (/^4/.test(cleanNumber)) return 'visa';
+  if (/^(5[1-5]|222[1-9]|22[3-9]\d|2[3-6]\d{2}|27[0-1]\d|2720)/.test(cleanNumber)) return 'mastercard';
+  if (/^3[47]/.test(cleanNumber)) return 'amex';
+  if (/^(4011|4312|4389|4514|5066|5067|5090|636368)/.test(cleanNumber)) return 'elo';
+  if (/^(30[15]|36|38)/.test(cleanNumber)) return 'diners';
+  if (/^(6011|622|64|65)/.test(cleanNumber)) return 'discover';
+  if (/^6062/.test(cleanNumber)) return 'hipercard';
+  return 'unknown';
+};
+
 export const MetodosPagamento: React.FC = () => {
   const { addToast } = useToast();
   const [cards, setCards] = useState<SavedCard[]>([]);
@@ -87,10 +99,10 @@ export const MetodosPagamento: React.FC = () => {
     if (card) {
       setEditingCard(card);
       setCardForm({
-        number: `**** **** **** ${card.ultimosDigitos}`,
+        number: card.numCartao ? card.numCartao.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ').substring(0, 19) : `**** **** **** ${card.ultimosDigitos}`,
         holder: card.nomeNoCartao,
         expiry: card.mesAnoExpiracao,
-        cvv: '***',
+        cvv: card.ccv || '***',
         isDefault: card.isDefault
       });
     } else {
@@ -121,11 +133,11 @@ export const MetodosPagamento: React.FC = () => {
 
     let formattedValue = value;
 
-    if (name === 'number' && !editingCard) {
+    if (name === 'number') {
       formattedValue = value.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ').substring(0, 19);
     } else if (name === 'expiry') {
       formattedValue = value.replace(/\D/g, '').replace(/^(\d{2})(\d)/, '$1/$2').substring(0, 5);
-    } else if (name === 'cvv' && !editingCard) {
+    } else if (name === 'cvv') {
       formattedValue = value.replace(/\D/g, '').substring(0, 4);
     } else if (name === 'holder') {
       formattedValue = value.toUpperCase();
@@ -137,23 +149,21 @@ export const MetodosPagamento: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!editingCard) {
-      if (!isValidLuhn(cardForm.number)) {
-        addToast('error', 'Cartão Inválido', 'O número do cartão de crédito é inválido.');
-        return;
-      }
-      if (!isValidExpiry(cardForm.expiry)) {
-        addToast('error', 'Validade Inválida', 'A data de validade é inválida ou o cartão está expirado.');
-        return;
-      }
-      if (cardForm.cvv.length < 3) {
-        addToast('error', 'CVV Inválido', 'O código de segurança deve ter 3 ou 4 dígitos.');
-        return;
-      }
-      if (cardForm.holder.trim().length < 3) {
-        addToast('error', 'Nome Inválido', 'O nome impresso no cartão é obrigatório.');
-        return;
-      }
+    if (!isValidLuhn(cardForm.number)) {
+      addToast('error', 'Cartão Inválido', 'O número do cartão de crédito é inválido.');
+      return;
+    }
+    if (!isValidExpiry(cardForm.expiry)) {
+      addToast('error', 'Validade Inválida', 'A data de validade é inválida ou o cartão está expirado.');
+      return;
+    }
+    if (cardForm.cvv.length < 3) {
+      addToast('error', 'CVV Inválido', 'O código de segurança deve ter 3 ou 4 dígitos.');
+      return;
+    }
+    if (cardForm.holder.trim().length < 3) {
+      addToast('error', 'Nome Inválido', 'O nome impresso no cartão é obrigatório.');
+      return;
     }
 
     setIsSubmitting(true);
@@ -161,21 +171,19 @@ export const MetodosPagamento: React.FC = () => {
       if (editingCard) {
         await userService.updateSavedCard(editingCard.idCartao, {
           nomeNoCartao: cardForm.holder,
+          numCartao: cardForm.number.replace(/\D/g, ''),
+          ccv: cardForm.cvv,
+          bandeira: detectBrand(cardForm.number),
           mesAnoExpiracao: cardForm.expiry,
           isDefault: cardForm.isDefault
         });
         addToast('success', 'Sucesso', 'Cartão atualizado com sucesso.');
       } else {
-        // Mock gateway token generation
-        const gatewayToken = `tok_${Math.random().toString(36).substr(2, 9)}`;
-        const ultimosDigitos = cardForm.number.replace(/\s/g, '').slice(-4);
-        const bandeira = cardForm.number.startsWith('4') ? 'Visa' : 'Mastercard'; // Simple mock
-
         await userService.createSavedCard({
           nomeNoCartao: cardForm.holder,
-          gatewayToken,
-          ultimosDigitos,
-          bandeira,
+          numCartao: cardForm.number.replace(/\D/g, ''),
+          ccv: cardForm.cvv,
+          bandeira: detectBrand(cardForm.number),
           mesAnoExpiracao: cardForm.expiry,
           isDefault: cardForm.isDefault
         });
@@ -307,7 +315,6 @@ export const MetodosPagamento: React.FC = () => {
                     value={cardForm.number}
                     onChange={handleInputChange}
                     onFocus={() => setIsFlipped(false)}
-                    disabled={!!editingCard}
                     placeholder="0000 0000 0000 0000" 
                     className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-500" 
                     maxLength={19}
@@ -353,7 +360,6 @@ export const MetodosPagamento: React.FC = () => {
                       onChange={handleInputChange}
                       onFocus={() => setIsFlipped(true)}
                       onBlur={() => setIsFlipped(false)}
-                      disabled={!!editingCard}
                       placeholder="123" 
                       className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-500" 
                       maxLength={4}

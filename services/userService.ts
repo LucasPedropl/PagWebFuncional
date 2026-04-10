@@ -252,10 +252,17 @@ export const userService = {
     }
   },
 
-  async createSavedCard(data: Omit<SavedCard, 'idCartao' | 'idUser'>): Promise<void> {
+  async createSavedCard(data: {
+    nomeNoCartao: string;
+    numCartao: string;
+    ccv: string;
+    bandeira: string;
+    mesAnoExpiracao: string;
+    isDefault: boolean;
+  }): Promise<void> {
     const response = await authRequest('/Cartao/cadastrar', {
       method: 'POST',
-      body: JSON.stringify({ ...data, idCartao: 0, idUser: 0 })
+      body: JSON.stringify(data)
     });
     if (!response.ok) {
         const msg = await parseApiError(response);
@@ -263,7 +270,14 @@ export const userService = {
     }
   },
 
-  async updateSavedCard(id: number, data: Partial<SavedCard>): Promise<void> {
+  async updateSavedCard(id: number, data: {
+    nomeNoCartao: string;
+    numCartao: string;
+    ccv: string;
+    bandeira: string;
+    mesAnoExpiracao: string;
+    isDefault: boolean;
+  }): Promise<void> {
     const response = await authRequest(`/Cartao/editar/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data)

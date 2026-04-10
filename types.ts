@@ -57,6 +57,8 @@ export interface CompanyLoginPayload {
 export interface PlanPayload {
   nome: string;
   valorMensalidade: number;
+  percentualMulta: number;
+  percentualJurosMensal: number;
   funcionalidades: string[];
 }
 
@@ -64,6 +66,8 @@ export interface PlanResponse {
   idPlano: number;
   nome: string;
   valorMensalidade: number;
+  percentualMulta: number;
+  percentualJurosMensal: number;
   funcionalidades: string[];
 }
 
@@ -151,12 +155,15 @@ export interface ClientInvoice {
 export interface SavedCard {
   idCartao: number;
   idUser: number;
+  usuario?: any;
   nomeNoCartao: string;
-  gatewayToken: string;
+  numCartao: string;
   ultimosDigitos: string;
+  ccv: string;
   bandeira: string;
   mesAnoExpiracao: string;
   isDefault: boolean;
+  dataCriacao?: string;
 }
 
 export interface AppNotification {

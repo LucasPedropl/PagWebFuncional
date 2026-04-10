@@ -19,15 +19,26 @@ export const ConectarWhatsapp: React.FC = () => {
   const handleCreateInstance = useCallback(async () => {
     setLoading(true);
     try {
-      await businessService.createWhatsAppInstance();
-      setIsInstanceCreated(true);
-      const data = await businessService.getWhatsAppQRCode();
-      setQrCode(data.qrCode);
+      // 1. Check if instance exists
+      const instance = await businessService.checkWhatsAppInstance();
+      
+      let qrCodeData;
+      if (!instance) {
+        // 2a. If no instance, create one
+        qrCodeData = await businessService.createWhatsAppInstance();
+        setIsInstanceCreated(true);
+      } else {
+        // 2b. If instance exists, just get the QR code
+        setIsInstanceCreated(true);
+        qrCodeData = await businessService.getWhatsAppQRCode();
+      }
+
+      setQrCode(qrCodeData.qrCode);
       setTimeLeft(REFRESH_INTERVAL);
       setRefreshCount(0);
-      addToast('Instância criada! Escaneie o QR Code para conectar.', 'success');
+      addToast('success', 'Sucesso', 'QR Code gerado! Escaneie para conectar.');
     } catch (error: any) {
-      addToast(error.message || 'Erro ao criar instância do WhatsApp', 'error');
+      addToast('error', 'Erro', error.message || 'Erro ao gerar QR Code do WhatsApp');
       setQrCode(null);
     } finally {
       setLoading(false);
@@ -40,9 +51,9 @@ export const ConectarWhatsapp: React.FC = () => {
       const data = await businessService.getWhatsAppQRCode();
       setQrCode(data.qrCode);
       setTimeLeft(REFRESH_INTERVAL);
-      addToast('QR Code atualizado automaticamente.', 'success');
+      addToast('success', 'Atualizado', 'QR Code atualizado automaticamente.');
     } catch (error: any) {
-      addToast(error.message || 'Erro ao atualizar QR Code', 'error');
+      addToast('error', 'Erro', error.message || 'Erro ao atualizar QR Code');
       // If refresh fails, maybe we should try to recreate instance?
       handleCreateInstance();
     } finally {
@@ -62,7 +73,7 @@ export const ConectarWhatsapp: React.FC = () => {
         setRefreshCount(prev => prev + 1);
         handleRefreshQRCode();
       } else {
-        addToast('Limite de atualizações atingido. Criando nova instância...', 'info');
+        addToast('success', 'Aviso', 'Limite de atualizações atingido. Criando nova instância...');
         handleCreateInstance();
       }
     }
@@ -79,9 +90,9 @@ export const ConectarWhatsapp: React.FC = () => {
       setTimeLeft(0);
       setRefreshCount(0);
       setIsInstanceCreated(false);
-      addToast('WhatsApp desconectado com sucesso.', 'success');
+      addToast('success', 'Desconectado', 'WhatsApp desconectado com sucesso.');
     } catch (error: any) {
-      addToast(error.message || 'Erro ao desconectar WhatsApp', 'error');
+      addToast('error', 'Erro', error.message || 'Erro ao desconectar WhatsApp');
     } finally {
       setLoading(false);
     }
@@ -115,16 +126,17 @@ export const ConectarWhatsapp: React.FC = () => {
         <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex flex-col items-center justify-center text-center">
           <div className="bg-gray-50 p-6 rounded-2xl border-2 border-dashed border-gray-200 mb-6 w-full flex flex-col items-center relative overflow-hidden">
             
-            <div className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4 transition-all duration-500 ${!qrCode ? 'blur-md grayscale' : ''}`}>
+            <div className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4 transition-all duration-500 w-full flex justify-center ${!qrCode ? 'blur-md grayscale' : ''}`}>
                {qrCode ? (
                  <QRCodeSVG 
                    value={qrCode} 
-                   size={200}
+                   size={300}
+                   style={{ width: "100%", height: "auto", maxWidth: "300px" }}
                    level="H"
                    includeMargin={false}
                  />
                ) : (
-                 <div className="w-48 h-48 flex items-center justify-center bg-gray-50">
+                 <div className="w-full aspect-square max-w-[300px] flex items-center justify-center bg-gray-50 rounded-lg">
                     <QrCode className="w-24 h-24 text-gray-200" />
                  </div>
                )}

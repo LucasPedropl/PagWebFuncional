@@ -6,12 +6,14 @@ import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { formatCNPJ, formatCPF, formatPhone } from '../../utils/formatters';
+import { ChevronRight, ChevronLeft } from 'lucide-react';
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState(1);
 
   // Limpa o parâmetro type caso venha sujo da URL (ex: client?Id=4)
   const rawType = searchParams.get('type');
@@ -29,6 +31,7 @@ export const Register: React.FC = () => {
     cpf: '',
     email: '',
     password: '',
+    confirmPassword: '',
     telefone: '',
     // Company Data (Only if isBusiness)
     companyNome: '',
@@ -84,8 +87,60 @@ export const Register: React.FC = () => {
     }));
   };
 
+  const validateStep = () => {
+    setError(null);
+    if (step === 1) {
+      if (!formData.nome || (!isBusiness && !formData.sobreNome) || !formData.cpf || !formData.telefone) {
+        setError('Por favor, preencha todos os campos.');
+        return false;
+      }
+      if (formData.cpf.length < 14) {
+        setError('CPF inválido.');
+        return false;
+      }
+      if (formData.telefone.length < 14) {
+        setError('Telefone inválido.');
+        return false;
+      }
+    } else if (step === 2) {
+      if (!formData.email || !formData.password || !formData.confirmPassword) {
+        setError('Por favor, preencha todos os campos.');
+        return false;
+      }
+      if (formData.password.length < 6) {
+        setError('A senha deve ter pelo menos 6 caracteres.');
+        return false;
+      }
+      if (formData.password !== formData.confirmPassword) {
+        setError('As senhas não coincidem.');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleNext = () => {
+    if (validateStep()) {
+      setStep(prev => prev + 1);
+    }
+  };
+
+  const handleBack = () => {
+    setStep(prev => prev - 1);
+    setError(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateStep()) return;
+
+    // If it's not the final step, just go to the next step
+    if ((isBusiness && step < 3) || (!isBusiness && step < 2)) {
+      handleNext();
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -135,67 +190,86 @@ export const Register: React.FC = () => {
     }
   };
 
+  const totalSteps = isBusiness ? 3 : 2;
+
   return (
     <AuthLayout 
       title={isBusiness ? "Cadastre seu Negócio" : "Crie sua conta"} 
-      subtitle={inviteCompanyId ? "Complete seu cadastro para se vincular à empresa." : (isBusiness ? "Passo 1: Crie seu usuário administrativo." : "Preencha os dados abaixo para começar.")}
+      subtitle={inviteCompanyId ? "Complete seu cadastro para se vincular à empresa." : (isBusiness ? `Passo ${step} de ${totalSteps}` : `Passo ${step} de ${totalSteps}`)}
     >
+      <div className="mb-6 flex items-center justify-center gap-2">
+        {Array.from({ length: totalSteps }).map((_, i) => (
+          <div key={i} className="flex items-center">
+            <div className={`w-2.5 h-2.5 rounded-full ${step >= i + 1 ? (isBusiness ? 'bg-slate-900' : 'bg-blue-600') : 'bg-gray-200'}`} />
+            {i < totalSteps - 1 && (
+              <div className={`w-8 h-0.5 ${step > i + 1 ? (isBusiness ? 'bg-slate-900' : 'bg-blue-600') : 'bg-gray-200'}`} />
+            )}
+          </div>
+        ))}
+      </div>
+
       <form className="space-y-4" onSubmit={handleSubmit} autoComplete="off">
         
-        {/* User Section */}
-        <div className="space-y-4">
+        {step === 1 && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+              <h4 className="text-sm font-bold text-gray-900 uppercase border-b border-gray-100 pb-2">
+                  {isBusiness ? "Dados do Administrador" : "Seus Dados"}
+              </h4>
+              
+              <div className={isBusiness ? "" : "grid grid-cols-2 gap-4"}>
+                  <Input
+                      label="Nome"
+                      name="nome"
+                      value={formData.nome}
+                      onChange={handleChange}
+                      required
+                      placeholder="Seu nome"
+                      autoComplete="given-name"
+                  />
+                  {!isBusiness && (
+                      <Input
+                      label="Sobrenome"
+                      name="sobreNome"
+                      value={formData.sobreNome}
+                      onChange={handleChange}
+                      required
+                      placeholder="Sobrenome"
+                      autoComplete="family-name"
+                      />
+                  )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                  <Input
+                      label="CPF"
+                      name="cpf"
+                      value={formData.cpf}
+                      onChange={handleChange}
+                      required
+                      placeholder="000.000.000-00"
+                      maxLength={14}
+                      autoComplete="off"
+                  />
+                  <Input
+                      label="Telefone Pessoal"
+                      name="telefone"
+                      type="tel"
+                      value={formData.telefone}
+                      onChange={handleChange}
+                      required
+                      placeholder="(00) 00000-0000"
+                      maxLength={15}
+                      autoComplete="off"
+                  />
+              </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
             <h4 className="text-sm font-bold text-gray-900 uppercase border-b border-gray-100 pb-2">
-                {isBusiness ? "Dados do Administrador" : "Seus Dados"}
+                Dados de Acesso
             </h4>
-            
-            <div className={isBusiness ? "" : "grid grid-cols-2 gap-4"}>
-                <Input
-                    label="Nome"
-                    name="nome"
-                    value={formData.nome}
-                    onChange={handleChange}
-                    required
-                    placeholder="Seu nome"
-                    autoComplete="given-name"
-                />
-                {!isBusiness && (
-                    <Input
-                    label="Sobrenome"
-                    name="sobreNome"
-                    value={formData.sobreNome}
-                    onChange={handleChange}
-                    required
-                    placeholder="Sobrenome"
-                    autoComplete="family-name"
-                    />
-                )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                <Input
-                    label="CPF"
-                    name="cpf"
-                    value={formData.cpf}
-                    onChange={handleChange}
-                    required
-                    placeholder="000.000.000-00"
-                    maxLength={14}
-                    autoComplete="off"
-                />
-                <Input
-                    label="Telefone Pessoal"
-                    name="telefone"
-                    type="tel"
-                    value={formData.telefone}
-                    onChange={handleChange}
-                    required
-                    placeholder="(00) 00000-0000"
-                    maxLength={15}
-                    // 'off' ou um valor aleatório ajuda a evitar autofill do navegador
-                    autoComplete="off"
-                />
-            </div>
-
             <Input
                 label="Email (Login)"
                 name="email"
@@ -220,11 +294,23 @@ export const Register: React.FC = () => {
                 minLength={6}
                 autoComplete="new-password"
             />
-        </div>
 
-        {/* Company Section (Business Only) */}
-        {isBusiness && (
-            <div className="space-y-4 pt-4">
+            <Input
+                label="Confirmar Senha"
+                name="confirmPassword"
+                type="password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                required
+                placeholder="******"
+                minLength={6}
+                autoComplete="new-password"
+            />
+          </div>
+        )}
+
+        {step === 3 && isBusiness && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                 <h4 className="text-sm font-bold text-gray-900 uppercase border-b border-gray-100 pb-2">
                     Dados da Empresa
                 </h4>
@@ -270,9 +356,22 @@ export const Register: React.FC = () => {
           </div>
         )}
 
-        <Button type="submit" className="w-full mt-6" isLoading={isLoading} variant={isBusiness ? 'secondary' : 'primary'}>
-          {isBusiness ? 'Continuar Cadastro' : 'Criar Conta'}
-        </Button>
+        <div className="flex gap-3 mt-8">
+          {step > 1 && (
+            <Button type="button" variant="outline" onClick={handleBack} className="flex-1">
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Voltar
+            </Button>
+          )}
+          <Button type="submit" className="flex-[2]" isLoading={isLoading} variant={isBusiness ? 'secondary' : 'primary'}>
+            {step === totalSteps ? (isBusiness ? 'Finalizar Cadastro' : 'Criar Conta') : (
+              <>
+                Próximo
+                <ChevronRight className="w-4 h-4 ml-2" />
+              </>
+            )}
+          </Button>
+        </div>
       </form>
 
       <div className="mt-6 text-center space-y-2">

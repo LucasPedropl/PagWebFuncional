@@ -28,6 +28,8 @@ export const Planos: React.FC = () => {
   const [formData, setFormData] = useState({
     nome: '',
     valorMensalidade: '',
+    percentualMulta: '',
+    percentualJurosMensal: '',
     funcionalidades: ''
   });
 
@@ -58,7 +60,7 @@ export const Planos: React.FC = () => {
 
   const openNewPlanModal = () => {
       setSelectedPlan(null);
-      setFormData({ nome: '', valorMensalidade: '', funcionalidades: '' });
+      setFormData({ nome: '', valorMensalidade: '', percentualMulta: '', percentualJurosMensal: '', funcionalidades: '' });
       setIsEditModalOpen(true);
   };
 
@@ -79,6 +81,8 @@ export const Planos: React.FC = () => {
       setFormData({
           nome: plan.nome,
           valorMensalidade: plan.valorMensalidade.toString(),
+          percentualMulta: plan.percentualMulta?.toString() || '0',
+          percentualJurosMensal: plan.percentualJurosMensal?.toString() || '0',
           funcionalidades: funcs
       });
       setIsEditModalOpen(true);
@@ -119,6 +123,8 @@ export const Planos: React.FC = () => {
       const payload = {
         nome: formData.nome,
         valorMensalidade: Number(formData.valorMensalidade.replace(',', '.')),
+        percentualMulta: Number(formData.percentualMulta.replace(',', '.')),
+        percentualJurosMensal: Number(formData.percentualJurosMensal.replace(',', '.')),
         funcionalidades: funcionalidadesArray
       };
 
@@ -132,7 +138,7 @@ export const Planos: React.FC = () => {
 
       await fetchPlans();
       setIsEditModalOpen(false);
-      setFormData({ nome: '', valorMensalidade: '', funcionalidades: '' });
+      setFormData({ nome: '', valorMensalidade: '', percentualMulta: '', percentualJurosMensal: '', funcionalidades: '' });
       setSelectedPlan(null);
     } catch (error: any) {
       addToast('error', 'Erro ao salvar', error.message || "Verifique os dados.");
@@ -288,6 +294,21 @@ export const Planos: React.FC = () => {
                 </div>
              </div>
 
+             <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-500">Multa por Atraso</p>
+                    <p className="text-lg font-bold text-slate-900">
+                        {selectedPlan?.percentualMulta?.toFixed(2).replace('.', ',') || '0,00'}%
+                    </p>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-lg">
+                    <p className="text-sm text-gray-500">Juros Mensal</p>
+                    <p className="text-lg font-bold text-slate-900">
+                        {selectedPlan?.percentualJurosMensal?.toFixed(2).replace('.', ',') || '0,00'}%
+                    </p>
+                </div>
+             </div>
+
              <div>
                 <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
                     <Box className="w-4 h-4 mr-2" /> 
@@ -346,6 +367,27 @@ export const Planos: React.FC = () => {
                 onChange={handleInputChange}
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Input 
+              label="Multa (%)" 
+              placeholder="Ex: 2.00" 
+              type="number"
+              step="0.01"
+              name="percentualMulta"
+              value={formData.percentualMulta}
+              onChange={handleInputChange}
+            />
+            <Input 
+              label="Juros Mensal (%)" 
+              placeholder="Ex: 1.00" 
+              type="number"
+              step="0.01"
+              name="percentualJurosMensal"
+              value={formData.percentualJurosMensal}
+              onChange={handleInputChange}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
