@@ -189,6 +189,18 @@ export const businessService = {
     }
   },
 
+  // === PAGAMENTOS ===
+  async cancelPayment(idPagamento: number): Promise<void> {
+    const response = await authRequest(`/Pagamento/Cancelar?idPagamento=${idPagamento}`, {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+        const text = await parseApiError(response);
+        throw new Error(text || "Erro ao cancelar pagamento");
+    }
+  },
+
   // === WHATSAPP ===
   async checkWhatsAppInstance(): Promise<any> {
     const response = await authRequest('/WhatsApps/verificar', {

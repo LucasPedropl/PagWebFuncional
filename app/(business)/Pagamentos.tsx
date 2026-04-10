@@ -3,9 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
-import { Search, Filter, Download, Calendar, MoreHorizontal, ArrowUpRight, ArrowDownRight, Loader2, RefreshCw, HelpCircle } from 'lucide-react';
+import { Modal } from '../../components/ui/Modal';
+import { Search, Filter, Download, Calendar, MoreHorizontal, ArrowUpRight, ArrowDownRight, Loader2, RefreshCw, HelpCircle, XCircle } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { Mensalidade } from '../../types';
+import { useToast } from '../../context/ToastContext';
 
 // Componente de Tooltip Interno (Reutilizado)
 const InfoTooltip = ({ text }: { text: string }) => (
@@ -28,6 +30,12 @@ export const Pagamentos: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
+  const { addToast } = useToast();
+
+  // Cancel Payment Modal State
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [paymentToCancel, setPaymentToCancel] = useState<Mensalidade | null>(null);
+  const [isCanceling, setIsCanceling] = useState(false);
 
   useEffect(() => {
     fetchMensalidades();
@@ -92,6 +100,27 @@ export const Pagamentos: React.FC = () => {
   const totalAtrasado = mensalidades
     .filter(m => m.status === 'Atrasado' || (m.status === 'Aberto' && parseDate(m.vencimento) < new Date()))
     .reduce((acc, curr) => acc + curr.valor, 0);
+
+  const handleCancelClick = (payment: Mensalidade) => {
+    setPaymentToCancel(payment);
+    setIsCancelModalOpen(true);
+  };
+
+  const confirmCancelPayment = async () => {
+    if (!paymentToCancel) return;
+    setIsCanceling(true);
+    try {
+      await businessService.cancelPayment(paymentToCancel.idMensalidade);
+      addToast('success', 'Sucesso', 'Pagamento cancelado com sucesso.');
+      await fetchMensalidades();
+      setIsCancelModalOpen(false);
+      setPaymentToCancel(null);
+    } catch (error: any) {
+      addToast('error', 'Erro', error.message || 'Falha ao cancelar pagamento.');
+    } finally {
+      setIsCanceling(false);
+    }
+  };
 
   return (
     <BusinessLayout>
@@ -254,9 +283,27 @@ export const Pagamentos: React.FC = () => {
                             </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                             <button className="text-gray-400 hover:text-slate-900">
-                                <MoreHorizontal className="w-5 h-5" />
-                             </button>
+                             <div className="relative group inline-block">
+                               <button className="text-gray-400 hover:text-slate-900 focus:outline-none">
+                                  <MoreHorizontal className="w-5 h-5" />
+                               </button>
+                               <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 hidden group-hover:block border border-gray-100">
+                                  <div className="py-1">
+                                    {displayStatus === 'Aberto' || displayStatus === 'Atrasado' ? (
+                                      <button 
+                                        onClick={() => handleCancelClick(trx)}
+                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                                      >
+                                        <XCircle className="w-4 h-4 mr-2" /> Cancelar Pagamento
+                                      </button>
+                                    ) : (
+                                      <div className="px-4 py-2 text-sm text-gray-400 italic">
+                                        Nenhuma ação disponível
+                                      </div>
+                                    )}
+                                  </div>
+                               </div>
+                             </div>
                         </td>
                         </tr>
                     )
@@ -266,6 +313,47 @@ export const Pagamentos: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Cancel Payment Modal */}
+      <Modal
+        isOpen={isCancelModalOpen}
+        onClose={() => !isCanceling && setIsCancelModalOpen(false)}
+        title="Cancelar Pagamento"
+      >
+        <div className="p-6">
+          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4">
+            <XCircle className="w-6 h-6 text-red-600" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 text-center mb-2">Confirmar Cancelamento</h3>
+          <p className="text-sm text-gray-500 text-center mb-6">
+            Tem certeza que deseja cancelar o pagamento <strong>#{paymentToCancel?.idMensalidade}</strong> do cliente <strong>{paymentToCancel?.nomeCliente}</strong> no valor de <strong>R$ {paymentToCancel?.valor.toFixed(2).replace('.', ',')}</strong>? Esta ação não pode ser desfeita.
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsCancelModalOpen(false)}
+              disabled={isCanceling}
+            >
+              Voltar
+            </Button>
+            <Button
+              onClick={confirmCancelPayment}
+              disabled={isCanceling}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isCanceling ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Cancelando...
+                </>
+              ) : (
+                'Sim, Cancelar'
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
     </BusinessLayout>
   );
 };
