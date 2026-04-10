@@ -25,10 +25,12 @@ export const Assinaturas: React.FC = () => {
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsForm, setSettingsForm] = useState({
     notifications: {
-      geral: true,
+      usarConfigsGerais: true,
+      notificacoes: true,
+      notificacoesAtraso: 0,
       email: true,
       sms: false,
-      whatsapp: true,
+      whatsApp: true,
     },
     paymentMethod: 'pix', // 'pix', 'boleto', or card ID
   });
@@ -103,20 +105,26 @@ export const Assinaturas: React.FC = () => {
       }
   };
 
-  const handleSettingsClick = (sub: ClientSubscription) => {
+  const handleSettingsClick = async (sub: ClientSubscription) => {
     setSelectedSubForSettings(sub);
-    // Here you would ideally fetch the specific settings for this subscription from the backend
-    // For now, we'll initialize with default values or mock data
-    setSettingsForm({
-      notifications: {
-        geral: true,
-        email: true,
-        sms: false,
-        whatsapp: true,
-      },
-      paymentMethod: 'pix',
-    });
     setIsSettingsModalOpen(true);
+    
+    try {
+      const settings = await userService.getSubscriptionNotificationSettings(sub.idAssinatura);
+      setSettingsForm(prev => ({
+        ...prev,
+        notifications: {
+          usarConfigsGerais: settings.usarConfigsGerais ?? true,
+          notificacoes: settings.notificacoes ?? true,
+          notificacoesAtraso: settings.notificacoesAtraso ?? 0,
+          email: settings.email ?? true,
+          sms: settings.sms ?? false,
+          whatsApp: settings.whatsApp ?? true,
+        }
+      }));
+    } catch (error) {
+      console.error("Failed to load notification settings", error);
+    }
   };
 
   const handleSaveSettings = async () => {
@@ -124,14 +132,16 @@ export const Assinaturas: React.FC = () => {
     
     setIsSavingSettings(true);
     try {
-      // Mock API call to save settings
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await userService.updateSubscriptionNotificationSettings(
+        selectedSubForSettings.idAssinatura, 
+        settingsForm.notifications
+      );
       
       addToast('success', 'Configurações Salvas', 'As configurações da assinatura foram atualizadas.');
       setIsSettingsModalOpen(false);
       setSelectedSubForSettings(null);
     } catch (error: any) {
-      addToast('error', 'Erro', 'Falha ao salvar configurações.');
+      addToast('error', 'Erro', error.message || 'Falha ao salvar configurações.');
     } finally {
       setIsSavingSettings(false);
     }
@@ -324,68 +334,91 @@ export const Assinaturas: React.FC = () => {
               <div className="space-y-3">
                 <label className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${settingsForm.notifications.geral ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                      <Bell className="w-4 h-4" />
+                    <div className={`p-2 rounded-full ${settingsForm.notifications.usarConfigsGerais ? 'bg-slate-100 text-slate-700' : 'bg-gray-100 text-gray-400'}`}>
+                      <Settings className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900 text-sm">Notificações Gerais</p>
-                      <p className="text-xs text-gray-500">Avisos sobre a assinatura no painel</p>
+                      <p className="font-medium text-gray-900 text-sm">Usar Configurações Gerais</p>
+                      <p className="text-xs text-gray-500">Seguir as configurações globais da sua conta</p>
                     </div>
                   </div>
-                  <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${settingsForm.notifications.geral ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.notifications.geral ? 'translate-x-5' : 'translate-x-0'}`} />
+                  <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${settingsForm.notifications.usarConfigsGerais ? 'bg-slate-900' : 'bg-gray-300'}`}>
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.notifications.usarConfigsGerais ? 'translate-x-5' : 'translate-x-0'}`} />
                   </div>
-                  {/* Hidden input to make it accessible/form-ready if needed */}
-                  <input type="checkbox" className="hidden" checked={settingsForm.notifications.geral} onChange={() => handleNotificationToggle('geral')} />
+                  <input type="checkbox" className="hidden" checked={settingsForm.notifications.usarConfigsGerais} onChange={() => handleNotificationToggle('usarConfigsGerais')} />
                 </label>
 
-                <label className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${settingsForm.notifications.email ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                      <Mail className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">E-mail</p>
-                      <p className="text-xs text-gray-500">Receber faturas e recibos por e-mail</p>
-                    </div>
-                  </div>
-                  <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${settingsForm.notifications.email ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.notifications.email ? 'translate-x-5' : 'translate-x-0'}`} />
-                  </div>
-                  <input type="checkbox" className="hidden" checked={settingsForm.notifications.email} onChange={() => handleNotificationToggle('email')} />
-                </label>
+                {!settingsForm.notifications.usarConfigsGerais && (
+                  <div className="pl-4 border-l-2 border-gray-100 space-y-3 animate-in fade-in slide-in-from-top-2">
+                    <label className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${settingsForm.notifications.notificacoes ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                          <Bell className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">Receber Notificações</p>
+                          <p className="text-xs text-gray-500">Ativar alertas para esta assinatura</p>
+                        </div>
+                      </div>
+                      <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${settingsForm.notifications.notificacoes ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                        <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.notifications.notificacoes ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </div>
+                      <input type="checkbox" className="hidden" checked={settingsForm.notifications.notificacoes} onChange={() => handleNotificationToggle('notificacoes')} />
+                    </label>
 
-                <label className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${settingsForm.notifications.whatsapp ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
-                      <MessageSquare className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">WhatsApp</p>
-                      <p className="text-xs text-gray-500">Lembretes de vencimento no WhatsApp</p>
-                    </div>
-                  </div>
-                  <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${settingsForm.notifications.whatsapp ? 'bg-green-600' : 'bg-gray-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.notifications.whatsapp ? 'translate-x-5' : 'translate-x-0'}`} />
-                  </div>
-                  <input type="checkbox" className="hidden" checked={settingsForm.notifications.whatsapp} onChange={() => handleNotificationToggle('whatsapp')} />
-                </label>
+                    {settingsForm.notifications.notificacoes && (
+                      <>
+                        <label className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-full ${settingsForm.notifications.email ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                              <Mail className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 text-sm">E-mail</p>
+                              <p className="text-xs text-gray-500">Receber faturas e alertas por email</p>
+                            </div>
+                          </div>
+                          <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${settingsForm.notifications.email ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                            <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.notifications.email ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </div>
+                          <input type="checkbox" className="hidden" checked={settingsForm.notifications.email} onChange={() => handleNotificationToggle('email')} />
+                        </label>
 
-                <label className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${settingsForm.notifications.sms ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
-                      <Smartphone className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">SMS</p>
-                      <p className="text-xs text-gray-500">Lembretes de vencimento por SMS</p>
-                    </div>
+                        <label className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-full ${settingsForm.notifications.whatsApp ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                              <MessageSquare className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 text-sm">WhatsApp</p>
+                              <p className="text-xs text-gray-500">Lembretes de vencimento no WhatsApp</p>
+                            </div>
+                          </div>
+                          <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${settingsForm.notifications.whatsApp ? 'bg-green-600' : 'bg-gray-300'}`}>
+                            <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.notifications.whatsApp ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </div>
+                          <input type="checkbox" className="hidden" checked={settingsForm.notifications.whatsApp} onChange={() => handleNotificationToggle('whatsApp')} />
+                        </label>
+
+                        <label className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-full ${settingsForm.notifications.sms ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-400'}`}>
+                              <Smartphone className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 text-sm">SMS</p>
+                              <p className="text-xs text-gray-500">Lembretes de vencimento por SMS</p>
+                            </div>
+                          </div>
+                          <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${settingsForm.notifications.sms ? 'bg-blue-600' : 'bg-gray-300'}`}>
+                            <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.notifications.sms ? 'translate-x-5' : 'translate-x-0'}`} />
+                          </div>
+                          <input type="checkbox" className="hidden" checked={settingsForm.notifications.sms} onChange={() => handleNotificationToggle('sms')} />
+                        </label>
+                      </>
+                    )}
                   </div>
-                  <div className={`w-11 h-6 rounded-full transition-colors flex items-center px-1 ${settingsForm.notifications.sms ? 'bg-blue-600' : 'bg-gray-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${settingsForm.notifications.sms ? 'translate-x-5' : 'translate-x-0'}`} />
-                  </div>
-                  <input type="checkbox" className="hidden" checked={settingsForm.notifications.sms} onChange={() => handleNotificationToggle('sms')} />
-                </label>
+                )}
               </div>
             </div>
 

@@ -188,6 +188,43 @@ export const userService = {
     }
   },
 
+  async getSubscriptionNotificationSettings(idAssinatura: number): Promise<any> {
+    const response = await authRequest(`/Notificacao/${idAssinatura}/assinatura`, { method: 'GET' });
+    if (!response.ok) {
+        return {
+            usarConfigsGerais: true,
+            notificacoes: true,
+            notificacoesAtraso: 0,
+            email: true,
+            whatsApp: true,
+            sms: true
+        };
+    }
+    try {
+        return await response.json();
+    } catch {
+        return {
+            usarConfigsGerais: true,
+            notificacoes: true,
+            notificacoesAtraso: 0,
+            email: true,
+            whatsApp: true,
+            sms: true
+        };
+    }
+  },
+
+  async updateSubscriptionNotificationSettings(idAssinatura: number, settings: any): Promise<void> {
+    const response = await authRequest(`/Notificacao/${idAssinatura}/assinatura`, {
+        method: 'PATCH',
+        body: JSON.stringify(settings)
+    });
+    if (!response.ok) {
+        const msg = await parseApiError(response);
+        throw new Error(msg || "Falha ao atualizar configurações de notificação da assinatura.");
+    }
+  },
+
   // --- NOVOS MÉTODOS DE DADOS DO CLIENTE ---
 
   async acceptConnection(idEmpresa: number): Promise<void> {

@@ -234,31 +234,33 @@ export const MetodosPagamento: React.FC = () => {
           <div className="col-span-full bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center text-gray-500">
             <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-1">Nenhum cartão salvo</h3>
-            <p className="mb-4">Adicione um cartão de crédito para facilitar seus pagamentos.</p>
-            <Button onClick={() => handleOpenModal()} variant="outline">
-              Adicionar Cartão
-            </Button>
+            <p className="mb-6">Adicione um cartão de crédito para facilitar seus pagamentos.</p>
+            <div className="flex justify-center">
+              <Button onClick={() => handleOpenModal()} variant="outline">
+                Adicionar Cartão
+              </Button>
+            </div>
           </div>
         ) : (
           cards.map((card) => (
-            <div key={card.idCartao} className="relative group">
+            <div key={card.idCartao} className="relative group w-[320px] mx-auto">
               {card.isDefault && (
-                <div className="absolute top-0 right-0 z-10 bg-blue-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg rounded-tr-2xl uppercase tracking-wider">
+                <div className="absolute -top-2 -right-2 z-20 bg-blue-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-md uppercase tracking-wider">
                   Principal
                 </div>
               )}
               
-              <div className="absolute top-4 right-4 z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-4 right-4 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button 
                   onClick={() => handleOpenModal(card)}
-                  className="p-1.5 text-white bg-black/30 hover:bg-blue-600 rounded-lg backdrop-blur-sm transition-colors"
+                  className="p-1.5 text-white bg-black/40 hover:bg-blue-600 rounded-lg backdrop-blur-md transition-colors shadow-sm"
                   title="Editar"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
                 <button 
                   onClick={() => handleDelete(card.idCartao)}
-                  className="p-1.5 text-white bg-black/30 hover:bg-red-600 rounded-lg backdrop-blur-sm transition-colors"
+                  className="p-1.5 text-white bg-black/40 hover:bg-red-600 rounded-lg backdrop-blur-md transition-colors shadow-sm"
                   title="Remover"
                 >
                   <Trash2 className="w-4 h-4" />
