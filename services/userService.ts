@@ -14,7 +14,11 @@ const authRequest = async (endpoint: string, options: RequestInit = {}) => {
     throw new Error("Sessão inválida. Faça login novamente.");
   }
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
+  const url = endpoint.startsWith('http') 
+    ? endpoint 
+    : (endpoint.startsWith('/api/') ? `https://lojas.vlks.com.br${endpoint}` : `${BASE_URL}${endpoint}`);
+
+  const response = await fetch(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -242,7 +246,7 @@ export const userService = {
   },
 
   async listSavedCards(): Promise<SavedCard[]> {
-    const response = await authRequest('/Cartao/meus-cartoes', { method: 'GET' });
+    const response = await authRequest('/api/Cartao/meus-cartoes', { method: 'GET' });
     if (!response.ok) return [];
     try {
         const data = await response.json();
@@ -260,7 +264,7 @@ export const userService = {
     mesAnoExpiracao: string;
     isDefault: boolean;
   }): Promise<void> {
-    const response = await authRequest('/Cartao/cadastrar', {
+    const response = await authRequest('/api/Cartao/cadastrar', {
       method: 'POST',
       body: JSON.stringify(data)
     });
@@ -278,7 +282,7 @@ export const userService = {
     mesAnoExpiracao: string;
     isDefault: boolean;
   }): Promise<void> {
-    const response = await authRequest(`/Cartao/editar/${id}`, {
+    const response = await authRequest(`/api/Cartao/editar/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data)
     });
@@ -289,7 +293,7 @@ export const userService = {
   },
 
   async deleteSavedCard(id: number): Promise<void> {
-    const response = await authRequest(`/Cartao/remover/${id}`, {
+    const response = await authRequest(`/api/Cartao/remover/${id}`, {
       method: 'DELETE'
     });
     if (!response.ok) {

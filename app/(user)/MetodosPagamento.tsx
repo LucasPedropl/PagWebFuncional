@@ -171,9 +171,9 @@ export const MetodosPagamento: React.FC = () => {
       if (editingCard) {
         await userService.updateSavedCard(editingCard.idCartao, {
           nomeNoCartao: cardForm.holder,
-          numCartao: cardForm.number.replace(/\D/g, ''),
+          numCartao: cardForm.number,
           ccv: cardForm.cvv,
-          bandeira: detectBrand(cardForm.number),
+          bandeira: detectBrand(cardForm.number).toUpperCase(),
           mesAnoExpiracao: cardForm.expiry,
           isDefault: cardForm.isDefault
         });
@@ -181,9 +181,9 @@ export const MetodosPagamento: React.FC = () => {
       } else {
         await userService.createSavedCard({
           nomeNoCartao: cardForm.holder,
-          numCartao: cardForm.number.replace(/\D/g, ''),
+          numCartao: cardForm.number,
           ccv: cardForm.cvv,
-          bandeira: detectBrand(cardForm.number),
+          bandeira: detectBrand(cardForm.number).toUpperCase(),
           mesAnoExpiracao: cardForm.expiry,
           isDefault: cardForm.isDefault
         });
