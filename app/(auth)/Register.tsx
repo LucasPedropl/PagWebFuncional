@@ -72,6 +72,17 @@ export const Register: React.FC = () => {
     }
   }, [searchParams]);
 
+  // Temporary testing helper for business password
+  useEffect(() => {
+    if (isBusiness) {
+      setFormData(prev => ({
+        ...prev,
+        password: '123123',
+        confirmPassword: '123123'
+      }));
+    }
+  }, [isBusiness]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value;
     const name = e.target.name;
@@ -210,6 +221,33 @@ export const Register: React.FC = () => {
 
       <form className="space-y-4" onSubmit={handleSubmit} autoComplete="off">
         
+        {/* Temporary Test Button */}
+        <div className="mb-4">
+          <Button 
+            type="button" 
+            variant="outline" 
+            className="w-full text-xs bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100"
+            onClick={() => {
+              const random = Math.floor(Math.random() * 10000);
+              setFormData(prev => ({
+                ...prev,
+                nome: `Teste ${random}`,
+                sobreNome: `User ${random}`,
+                cpf: '123.456.789-00',
+                email: `teste${random}@example.com`,
+                password: isBusiness ? '123123' : 'password123',
+                confirmPassword: isBusiness ? '123123' : 'password123',
+                telefone: '(11) 99999-9999',
+                companyNome: `Empresa ${random}`,
+                companyCnpj: '12.345.678/0001-00',
+                companyTelefone: '(11) 98888-8888'
+              }));
+            }}
+          >
+            Preencher dados aleatórios (Teste)
+          </Button>
+        </div>
+
         {step === 1 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
               <h4 className="text-sm font-bold text-gray-900 uppercase border-b border-gray-100 pb-2">

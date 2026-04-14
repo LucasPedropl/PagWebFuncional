@@ -30,7 +30,8 @@ export const Planos: React.FC = () => {
     valorMensalidade: '',
     percentualMulta: '',
     percentualJurosMensal: '',
-    funcionalidades: ''
+    funcionalidades: '',
+    contrato: null as File | null
   });
 
   useEffect(() => {
@@ -56,11 +57,17 @@ export const Planos: React.FC = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFormData(prev => ({ ...prev, contrato: e.target.files![0] }));
+    }
+  };
+
   // --- ACTIONS ---
 
   const openNewPlanModal = () => {
       setSelectedPlan(null);
-      setFormData({ nome: '', valorMensalidade: '', percentualMulta: '', percentualJurosMensal: '', funcionalidades: '' });
+      setFormData({ nome: '', valorMensalidade: '', percentualMulta: '', percentualJurosMensal: '', funcionalidades: '', contrato: null });
       setIsEditModalOpen(true);
   };
 
@@ -83,7 +90,8 @@ export const Planos: React.FC = () => {
           valorMensalidade: plan.valorMensalidade.toString(),
           percentualMulta: plan.percentualMulta?.toString() || '0',
           percentualJurosMensal: plan.percentualJurosMensal?.toString() || '0',
-          funcionalidades: funcs
+          funcionalidades: funcs,
+          contrato: null
       });
       setIsEditModalOpen(true);
   };
@@ -388,6 +396,33 @@ export const Planos: React.FC = () => {
               value={formData.percentualJurosMensal}
               onChange={handleInputChange}
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-gray-700">
+              Contrato do Plano (PDF)
+            </label>
+            <div className="relative group">
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={handleFileChange}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              />
+              <div className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 group-hover:border-slate-900 group-hover:bg-slate-50 transition-all">
+                <div className="p-2 bg-white rounded-lg border border-gray-200 shadow-sm">
+                  <Box className="w-5 h-5 text-slate-600" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    {formData.contrato ? formData.contrato.name : 'Clique para selecionar o contrato'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {formData.contrato ? 'Arquivo selecionado' : 'Apenas arquivos PDF'}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">

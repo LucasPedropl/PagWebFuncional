@@ -30,6 +30,11 @@ export const Pagamentos: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
+  const [showFilters, setShowFilters] = useState(false);
+  const [dateStart, setDateStart] = useState('');
+  const [dateEnd, setDateEnd] = useState('');
+  const [minVal, setMinVal] = useState('');
+  const [maxVal, setMaxVal] = useState('');
   const { addToast } = useToast();
 
   // Cancel Payment Modal State
@@ -85,7 +90,29 @@ export const Pagamentos: React.FC = () => {
         }
     }
 
-    return matchesSearch && matchesStatus;
+    let matchesDate = true;
+    if (dateStart || dateEnd) {
+        const vDate = parseDate(m.vencimento);
+        if (dateStart) {
+            const sDate = new Date(dateStart);
+            if (vDate < sDate) matchesDate = false;
+        }
+        if (dateEnd) {
+            const eDate = new Date(dateEnd);
+            eDate.setHours(23, 59, 59, 999);
+            if (vDate > eDate) matchesDate = false;
+        }
+    }
+
+    let matchesValue = true;
+    if (minVal) {
+        if (m.valor < Number(minVal)) matchesValue = false;
+    }
+    if (maxVal) {
+        if (m.valor > Number(maxVal)) matchesValue = false;
+    }
+
+    return matchesSearch && matchesStatus && matchesDate && matchesValue;
   });
 
   // Cálculos Rápidos para os Cards Superiores baseados nos dados carregados
@@ -181,32 +208,106 @@ export const Pagamentos: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar por cliente ou ID..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm text-gray-900 bg-white"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar por cliente ou ID..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm text-gray-900 bg-white"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowFilters(!showFilters)} 
+            className={`flex items-center gap-2 ${showFilters ? 'bg-slate-50 border-slate-300' : ''}`}
+          >
+              <Filter className="w-4 h-4" /> Filtros
+          </Button>
         </div>
-        <div className="flex gap-3 overflow-x-auto">
-            {['Todos', 'Aberto', 'Pago', 'Atrasado'].map(status => (
-                <button
-                    key={status}
-                    onClick={() => setStatusFilter(status)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
-                        statusFilter === status 
-                        ? 'bg-slate-900 text-white border-slate-900' 
-                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                    }`}
+
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Status */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700"
                 >
-                    {status}
-                </button>
-            ))}
-        </div>
+                  <option value="Todos">Todos os status</option>
+                  <option value="Aberto">Aberto</option>
+                  <option value="Pago">Pago</option>
+                  <option value="Atrasado">Atrasado</option>
+                </select>
+              </div>
+              
+              {/* Date Range */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Vencimento</label>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="date" 
+                    value={dateStart}
+                    onChange={(e) => setDateStart(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                  />
+                  <span className="text-gray-400">-</span>
+                  <input 
+                    type="date" 
+                    value={dateEnd}
+                    onChange={(e) => setDateEnd(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                  />
+                </div>
+              </div>
+
+              {/* Value Range */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Valor (R$)</label>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="number" 
+                    placeholder="Min" 
+                    value={minVal}
+                    onChange={(e) => setMinVal(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                  />
+                  <span className="text-gray-400">-</span>
+                  <input 
+                    type="number" 
+                    placeholder="Max" 
+                    value={maxVal}
+                    onChange={(e) => setMaxVal(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end mt-4">
+               <Button 
+                 variant="outline" 
+                 size="sm" 
+                 onClick={() => {
+                   setStatusFilter('Todos');
+                   setDateStart('');
+                   setDateEnd('');
+                   setMinVal('');
+                   setMaxVal('');
+                 }} 
+                 className="text-gray-600"
+               >
+                 Limpar Filtros
+               </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Table */}

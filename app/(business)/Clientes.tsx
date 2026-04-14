@@ -18,6 +18,8 @@ export const Clientes: React.FC = () => {
 
   // Data States
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [showFilters, setShowFilters] = useState(false);
   const [clientes, setClientes] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -137,10 +139,12 @@ export const Clientes: React.FC = () => {
   };
 
   const safeClientes = Array.isArray(clientes) ? clientes : [];
-  const filteredClients = safeClientes.filter(c => 
-    (c.nome && c.nome.toLowerCase().includes(searchTerm.toLowerCase())) || 
-    (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredClients = safeClientes.filter(c => {
+    const matchesSearch = (c.nome && c.nome.toLowerCase().includes(searchTerm.toLowerCase())) || 
+                          (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus = statusFilter === 'Todos' || c.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <BusinessLayout>
@@ -159,21 +163,59 @@ export const Clientes: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar por nome ou email..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar por nome ou email..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm text-gray-900 bg-white"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowFilters(!showFilters)} 
+            className={`flex items-center gap-2 ${showFilters ? 'bg-slate-50 border-slate-300' : ''}`}
+          >
+            <Filter className="w-4 h-4" />
+            Filtros
+          </Button>
         </div>
-        <Button variant="outline" className="text-gray-600 bg-white">
-          <Filter className="w-4 h-4 mr-2" />
-          Filtros
-        </Button>
+
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Status */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700"
+                >
+                  <option value="Todos">Todos os status</option>
+                  <option value="Ativo">Ativo</option>
+                  <option value="Inativo">Inativo</option>
+                  <option value="Pendente">Pendente</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex justify-end mt-4">
+               <Button 
+                 variant="outline" 
+                 size="sm" 
+                 onClick={() => setStatusFilter('Todos')} 
+                 className="text-gray-600"
+               >
+                 Limpar Filtros
+               </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Table */}

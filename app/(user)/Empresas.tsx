@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { Store, MapPin, Mail, FileText, Loader2, LogOut, AlertTriangle, Calendar, CreditCard } from 'lucide-react';
+import { Store, MapPin, Mail, FileText, Loader2, LogOut, AlertTriangle, Calendar, CreditCard, Filter, Search } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { ClientConnection, ClientSubscription } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -11,6 +11,9 @@ import { useToast } from '../../context/ToastContext';
 export const Empresas: React.FC = () => {
   const { addToast } = useToast();
   const [companies, setCompanies] = useState<ClientConnection[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [showFilters, setShowFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // Modal State
@@ -161,6 +164,13 @@ export const Empresas: React.FC = () => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
+  const filteredCompanies = companies.filter(c => {
+    const matchesSearch = (c.nomeEmpresa && c.nomeEmpresa.toLowerCase().includes(searchTerm.toLowerCase())) || 
+                          (c.cnpjEmpresa && c.cnpjEmpresa.includes(searchTerm));
+    const matchesStatus = statusFilter === 'Todos' || c.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <UserLayout>
       <div className="mb-8">
@@ -168,23 +178,77 @@ export const Empresas: React.FC = () => {
         <p className="text-gray-500 mt-1">Lojas e empresas onde você possui cadastro ou assinaturas.</p>
       </div>
 
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar por nome ou CNPJ..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm text-gray-900 bg-white"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowFilters(!showFilters)} 
+            className={`flex items-center gap-2 ${showFilters ? 'bg-slate-50 border-slate-300' : ''}`}
+          >
+            <Filter className="w-4 h-4" />
+            Filtros
+          </Button>
+        </div>
+
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Status */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700"
+                >
+                  <option value="Todos">Todos os status</option>
+                  <option value="Ativo">Ativo</option>
+                  <option value="Pendente">Pendente</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex justify-end mt-4">
+               <Button 
+                 variant="outline" 
+                 size="sm" 
+                 onClick={() => setStatusFilter('Todos')} 
+                 className="text-gray-600"
+               >
+                 Limpar Filtros
+               </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
            <Loader2 className="w-8 h-8 animate-spin text-slate-600" />
         </div>
-      ) : companies.length === 0 ? (
+      ) : filteredCompanies.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center flex flex-col items-center">
             <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
                 <Store className="w-10 h-10 text-gray-300" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhum estabelecimento encontrado</h3>
             <p className="text-gray-500 max-w-sm mb-6">
-                Você ainda não está vinculado a nenhum estabelecimento. Peça para a loja enviar um convite para seu email.
+                Nenhum estabelecimento corresponde aos filtros aplicados.
             </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {companies.map((company, index) => (
+            {filteredCompanies.map((company, index) => (
                 <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col relative group">
                     <div className="flex justify-between items-start mb-4">
                         <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center text-slate-700 font-bold text-xl uppercase">

@@ -24,6 +24,12 @@ export const Assinaturas: React.FC = () => {
 
   // Search/Filter Main Table
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [showFilters, setShowFilters] = useState(false);
+  const [dateStart, setDateStart] = useState('');
+  const [dateEnd, setDateEnd] = useState('');
+  const [minVal, setMinVal] = useState('');
+  const [maxVal, setMaxVal] = useState('');
   
   // Data State
   const [subscriptions, setSubscriptions] = useState<SubscriptionResponse[]>([]);
@@ -377,7 +383,33 @@ export const Assinaturas: React.FC = () => {
     const searchLower = searchTerm.toLowerCase();
     const clienteName = sub.nomeCliente || '';
     const planoName = sub.nomePlano || '';
-    return clienteName.toLowerCase().includes(searchLower) || planoName.toLowerCase().includes(searchLower);
+    const matchesSearch = clienteName.toLowerCase().includes(searchLower) || planoName.toLowerCase().includes(searchLower);
+    
+    const matchesStatus = statusFilter === 'Todos' || sub.status === statusFilter;
+
+    let matchesDate = true;
+    if (dateStart || dateEnd) {
+        const vDate = new Date(sub.dataInicial);
+        if (dateStart) {
+            const sDate = new Date(dateStart);
+            if (vDate < sDate) matchesDate = false;
+        }
+        if (dateEnd) {
+            const eDate = new Date(dateEnd);
+            eDate.setHours(23, 59, 59, 999);
+            if (vDate > eDate) matchesDate = false;
+        }
+    }
+
+    let matchesValue = true;
+    if (minVal) {
+        if (sub.valorComDesconto < Number(minVal)) matchesValue = false;
+    }
+    if (maxVal) {
+        if (sub.valorComDesconto > Number(maxVal)) matchesValue = false;
+    }
+
+    return matchesSearch && matchesStatus && matchesDate && matchesValue;
   });
 
   return (
@@ -400,21 +432,107 @@ export const Assinaturas: React.FC = () => {
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Buscar por cliente ou plano..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-900 bg-white"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar por cliente ou plano..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm text-gray-900 bg-white"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowFilters(!showFilters)} 
+            className={`flex items-center gap-2 ${showFilters ? 'bg-slate-50 border-slate-300' : ''}`}
+          >
+            <Filter className="w-4 h-4" />
+            Filtros
+          </Button>
         </div>
-        <Button variant="outline" className="text-gray-600 bg-white">
-          <Filter className="w-4 h-4 mr-2" />
-          Filtros
-        </Button>
+
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Status */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700"
+                >
+                  <option value="Todos">Todos os status</option>
+                  <option value="Ativa">Ativa</option>
+                  <option value="Cancelada">Cancelada</option>
+                  <option value="Pendente">Pendente</option>
+                </select>
+              </div>
+              
+              {/* Date Range */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Data Inicial</label>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="date" 
+                    value={dateStart}
+                    onChange={(e) => setDateStart(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                  />
+                  <span className="text-gray-400">-</span>
+                  <input 
+                    type="date" 
+                    value={dateEnd}
+                    onChange={(e) => setDateEnd(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                  />
+                </div>
+              </div>
+
+              {/* Value Range */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Valor Mensal (R$)</label>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="number" 
+                    placeholder="Min" 
+                    value={minVal}
+                    onChange={(e) => setMinVal(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                  />
+                  <span className="text-gray-400">-</span>
+                  <input 
+                    type="number" 
+                    placeholder="Max" 
+                    value={maxVal}
+                    onChange={(e) => setMaxVal(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end mt-4">
+               <Button 
+                 variant="outline" 
+                 size="sm" 
+                 onClick={() => {
+                   setStatusFilter('Todos');
+                   setDateStart('');
+                   setDateEnd('');
+                   setMinVal('');
+                   setMaxVal('');
+                 }} 
+                 className="text-gray-600"
+               >
+                 Limpar Filtros
+               </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Table */}
