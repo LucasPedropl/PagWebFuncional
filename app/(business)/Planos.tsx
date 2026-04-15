@@ -3,7 +3,7 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Check, Edit2, Trash2, Loader2, AlertTriangle, ExternalLink, Box } from 'lucide-react';
+import { Plus, Check, Edit2, Trash2, Loader2, AlertTriangle, ExternalLink, Box, FileText, Download } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { PlanResponse } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -133,7 +133,8 @@ export const Planos: React.FC = () => {
         valorMensalidade: Number(formData.valorMensalidade.replace(',', '.')),
         percentualMulta: Number(formData.percentualMulta.replace(',', '.')),
         percentualJurosMensal: Number(formData.percentualJurosMensal.replace(',', '.')),
-        funcionalidades: funcionalidadesArray
+        funcionalidades: funcionalidadesArray,
+        arquivoContrato: formData.contrato
       };
 
       if (selectedPlan) {
@@ -337,6 +338,23 @@ export const Planos: React.FC = () => {
                     )}
                 </div>
              </div>
+
+             {selectedPlan?.contratoPath && (
+                <div>
+                    <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                        <FileText className="w-4 h-4 mr-2" /> 
+                        Contrato
+                    </h4>
+                    <Button 
+                        variant="outline" 
+                        className="w-full justify-start text-slate-700 border-slate-200 hover:bg-slate-50"
+                        onClick={() => window.open(selectedPlan.contratoPath as string, '_blank')}
+                    >
+                        <Download className="w-4 h-4 mr-2" />
+                        Baixar Contrato PDF
+                    </Button>
+                </div>
+             )}
         </div>
       </Modal>
 

@@ -53,9 +53,37 @@ export const businessService = {
   },
 
   async createPlan(data: PlanPayload): Promise<PlanResponse> {
-    const response = await authRequest('/Plano', {
+    const formData = new FormData();
+    formData.append('Nome', data.nome);
+    formData.append('ValorMensalidade', data.valorMensalidade.toString());
+    formData.append('PercentualMulta', data.percentualMulta.toString());
+    formData.append('PercentualJurosMensal', data.percentualJurosMensal.toString());
+    
+    if (data.funcionalidades && data.funcionalidades.length > 0) {
+      data.funcionalidades.forEach(func => {
+        formData.append('Funcionalidades', func);
+      });
+    } else {
+      // If empty, we might need to send an empty string or nothing. Based on swagger, it can be empty.
+    }
+
+    if (data.arquivoContrato) {
+      formData.append('ArquivoContrato', data.arquivoContrato);
+    }
+
+    const { token } = sessionService.getSession();
+    if (!token) {
+      sessionService.logout();
+      throw new Error("Sessão inválida. Faça login novamente.");
+    }
+
+    const response = await fetch(`${BASE_URL}/Plano`, {
       method: 'POST',
-      body: JSON.stringify(data)
+      headers: {
+        "accept": "*/*",
+        "Authorization": `Bearer ${token}`
+      },
+      body: formData
     });
 
     if (!response.ok) {

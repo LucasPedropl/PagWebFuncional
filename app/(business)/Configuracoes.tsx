@@ -95,11 +95,19 @@ export const Configuracoes: React.FC = () => {
                         </div>
 
                         <div className="flex items-center gap-6 pb-6 border-b border-gray-100">
-                            <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
+                            <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200 overflow-hidden">
                                 <Store className="w-8 h-8 text-gray-400" />
                             </div>
-                            <div>
-                                <Button variant="outline" className="text-sm">Alterar Logo</Button>
+                            <div className="flex-1">
+                                <label className="block text-sm font-medium text-slate-700 mb-1">
+                                    Logo da Empresa
+                                </label>
+                                <input
+                                    type="file"
+                                    name="companyLogo"
+                                    accept="image/*"
+                                    className="w-full max-w-sm px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-slate-900 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
+                                />
                                 <p className="text-xs text-gray-400 mt-2">JPG, GIF ou PNG. Max 1MB.</p>
                             </div>
                         </div>

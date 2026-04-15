@@ -42,13 +42,22 @@ export const userService = {
       ? `${BASE_URL}/User/register?idEmpresa=${companyId}` 
       : `${BASE_URL}/User/register`;
 
+    const formData = new FormData();
+    formData.append('Nome', data.nome);
+    formData.append('SobreNome', data.sobreNome);
+    formData.append('Cpf', data.cpf);
+    formData.append('Email', data.email);
+    formData.append('Password', data.password);
+    formData.append('Telefone', data.telefone);
+    // FotoPerfil is empty for now as per the curl example
+    formData.append('FotoPerfil', '');
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         "accept": "*/*"
       },
-      body: JSON.stringify(data),
+      body: formData,
     });
 
     if (!response.ok) {
@@ -74,9 +83,9 @@ export const userService = {
   },
 
   async login(email: string, password: string): Promise<AuthResponse> {
-    const payload: LoginPayload = {
-      email,
-      password,
+    const payload = {
+      Email: email,
+      Password: password,
     };
 
     const response = await fetch(`${BASE_URL}/User/login-cliente`, {

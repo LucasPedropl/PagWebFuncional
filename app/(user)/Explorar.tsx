@@ -71,6 +71,13 @@ export const Explorar: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'estabelecimentos' | 'planos'>('estabelecimentos');
   
+  // Advanced Filters
+  const [showFilters, setShowFilters] = useState(false);
+  const [minRating, setMinRating] = useState('');
+  const [connectionStatus, setConnectionStatus] = useState('Todos'); // 'Todos', 'Conectados', 'NaoConectados'
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  
   // Modals
   const [selectedEstablishment, setSelectedEstablishment] = useState<any | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
@@ -82,9 +89,19 @@ export const Explorar: React.FC = () => {
       const matchesSearch = est.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             est.category.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory ? est.category === selectedCategory : true;
-      return matchesSearch && matchesCategory;
+      
+      let matchesRating = true;
+      if (minRating) {
+          matchesRating = Number(est.rating) >= Number(minRating);
+      }
+
+      let matchesConnection = true;
+      if (connectionStatus === 'Conectados') matchesConnection = est.isConnected;
+      if (connectionStatus === 'NaoConectados') matchesConnection = !est.isConnected;
+
+      return matchesSearch && matchesCategory && matchesRating && matchesConnection;
     });
-  }, [searchTerm, selectedCategory]);
+  }, [searchTerm, selectedCategory, minRating, connectionStatus]);
 
   const filteredPlans = useMemo(() => {
     return MOCK_PLANS.filter(plan => {
@@ -92,9 +109,18 @@ export const Explorar: React.FC = () => {
                             plan.establishmentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             plan.category.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory ? plan.category === selectedCategory : true;
-      return matchesSearch && matchesCategory;
+      
+      let matchesPrice = true;
+      if (minPrice) {
+          matchesPrice = Number(plan.price) >= Number(minPrice);
+      }
+      if (maxPrice) {
+          matchesPrice = Number(plan.price) <= Number(maxPrice);
+      }
+
+      return matchesSearch && matchesCategory && matchesPrice;
     });
-  }, [searchTerm, selectedCategory]);
+  }, [searchTerm, selectedCategory, minPrice, maxPrice]);
 
   const handleSubscribe = () => {
     setIsSubscribing(true);
@@ -136,10 +162,91 @@ export const Explorar: React.FC = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button className="py-3 md:py-4 px-6 md:px-8 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg h-auto text-base md:text-lg w-full md:w-auto">
-              Buscar
+            <Button 
+              className="py-3 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm flex items-center justify-center gap-2"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter className="w-5 h-5" />
+              Filtros
             </Button>
           </div>
+
+          {/* Advanced Filters Panel */}
+          {showFilters && (
+            <div className="mt-4 p-4 bg-slate-800/50 rounded-xl border border-slate-700 backdrop-blur-sm animate-in fade-in slide-in-from-top-2 max-w-3xl">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {activeTab === 'estabelecimentos' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1.5">Avaliação Mínima</label>
+                      <select
+                        value={minRating}
+                        onChange={(e) => setMinRating(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-700 text-white"
+                      >
+                        <option value="">Qualquer avaliação</option>
+                        <option value="4.5">4.5+ Estrelas</option>
+                        <option value="4.0">4.0+ Estrelas</option>
+                        <option value="3.5">3.5+ Estrelas</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1.5">Conexão</label>
+                      <select
+                        value={connectionStatus}
+                        onChange={(e) => setConnectionStatus(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-700 text-white"
+                      >
+                        <option value="Todos">Todos</option>
+                        <option value="Conectados">Já Conectados</option>
+                        <option value="NaoConectados">Não Conectados</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {activeTab === 'planos' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1.5">Valor Mensal (R$)</label>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="number" 
+                          placeholder="Min" 
+                          value={minPrice}
+                          onChange={(e) => setMinPrice(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-700 text-white placeholder-slate-400" 
+                        />
+                        <span className="text-slate-400">-</span>
+                        <input 
+                          type="number" 
+                          placeholder="Max" 
+                          value={maxPrice}
+                          onChange={(e) => setMaxPrice(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-700 text-white placeholder-slate-400" 
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="flex justify-end mt-4">
+                 <Button 
+                   variant="outline" 
+                   size="sm" 
+                   onClick={() => {
+                     setMinRating('');
+                     setConnectionStatus('Todos');
+                     setMinPrice('');
+                     setMaxPrice('');
+                   }} 
+                   className="text-slate-300 border-slate-600 hover:bg-slate-700 hover:text-white"
+                 >
+                   Limpar Filtros
+                 </Button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

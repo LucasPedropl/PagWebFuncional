@@ -22,7 +22,8 @@ export const Configuracoes: React.FC = () => {
       sobreNome: '',
       cpf: '',
       telefone: '',
-      email: ''
+      email: '',
+      fotoPerfil: null as File | null
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -66,6 +67,11 @@ export const Configuracoes: React.FC = () => {
       if (name === 'telefone') value = formatPhone(value);
       
       setProfileData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0] || null;
+      setProfileData(prev => ({ ...prev, fotoPerfil: file }));
   };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -217,6 +223,18 @@ export const Configuracoes: React.FC = () => {
                             disabled 
                             className="bg-gray-50 text-gray-500 cursor-not-allowed" 
                         />
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                Foto de Perfil
+                            </label>
+                            <input
+                                type="file"
+                                name="fotoPerfil"
+                                accept="image/*"
+                                onChange={handleFileChange}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-slate-900 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
+                            />
+                        </div>
                         <div className="pt-4">
                             <Button onClick={handleSaveProfile} isLoading={isLoading}>
                                 <Save className="w-4 h-4 mr-2" />

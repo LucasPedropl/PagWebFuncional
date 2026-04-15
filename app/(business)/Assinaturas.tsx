@@ -4,7 +4,7 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle, UserPlus, ChevronsUpDown, Check, Send, Mail, Repeat } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle, UserPlus, ChevronsUpDown, Check, Send, Mail, Repeat, FileText } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { PlanResponse, SubscriptionResponse, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -616,6 +616,15 @@ export const Assinaturas: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 text-right">
                             <div className="flex justify-end gap-2">
+                                {sub.contratoPath && (
+                                    <button 
+                                        onClick={() => window.open(sub.contratoPath as string, '_blank')}
+                                        className="p-1.5 text-gray-400 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors"
+                                        title="Baixar Contrato"
+                                    >
+                                        <FileText className="w-4 h-4" />
+                                    </button>
+                                )}
                                 <button 
                                     onClick={() => openStatusModal(sub)}
                                     className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"

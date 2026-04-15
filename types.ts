@@ -22,12 +22,14 @@ export interface RegisterPayload {
   email: string;
   password: string;
   telefone: string;
+  fotoPerfil?: File | null;
 }
 
 export interface CompanyCreationPayload {
   nome: string;
   cnpj: string;
   telefone: string;
+  logo?: File | null;
 }
 
 export interface CompanyResponse {
@@ -43,13 +45,13 @@ export interface ActivatePayload {
 }
 
 export interface LoginPayload {
-  email: string;
-  password: string;
+  Email: string;
+  Password: string;
 }
 
 export interface CompanyLoginPayload {
-  email: string;
-  password: string;
+  Email: string;
+  Password: string;
 }
 
 // Interfaces de Negócio (Planos e Assinaturas)
@@ -60,6 +62,7 @@ export interface PlanPayload {
   percentualMulta: number;
   percentualJurosMensal: number;
   funcionalidades: string[];
+  arquivoContrato?: File | null;
 }
 
 export interface PlanResponse {
@@ -69,6 +72,7 @@ export interface PlanResponse {
   percentualMulta: number;
   percentualJurosMensal: number;
   funcionalidades: string[];
+  contratoPath?: string | null;
 }
 
 export interface SubscriptionPayload {
@@ -91,6 +95,7 @@ export interface SubscriptionResponse {
   dataFinal: string;
   valorComDesconto: number;
   status: string;
+  contratoPath?: string | null;
   
   // Campos opcionais/legados para compatibilidade
   idUser?: number;
@@ -133,6 +138,7 @@ export interface ClientSubscription {
   dataFim: string; // ISO
   valorMensal: number;
   status: string;
+  contratoPath?: string | null;
   // Optional fields that might come from the API for details
   descricaoPlano?: string;
   beneficios?: string[];

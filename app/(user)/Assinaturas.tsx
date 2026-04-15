@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { CheckCircle2, Calendar, CreditCard, Loader2, XCircle, AlertTriangle, Settings, Bell, Mail, MessageSquare, Smartphone } from 'lucide-react';
+import { CheckCircle2, Calendar, CreditCard, Loader2, XCircle, AlertTriangle, Settings, Bell, Mail, MessageSquare, Smartphone, Search, Filter } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { ClientSubscription, SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -13,6 +13,15 @@ export const Assinaturas: React.FC = () => {
   const [subscriptions, setSubscriptions] = useState<ClientSubscription[]>([]);
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Todos');
+  const [showFilters, setShowFilters] = useState(false);
+  const [dateStart, setDateStart] = useState('');
+  const [dateEnd, setDateEnd] = useState('');
+  const [minVal, setMinVal] = useState('');
+  const [maxVal, setMaxVal] = useState('');
 
   // Modal State
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -170,6 +179,39 @@ export const Assinaturas: React.FC = () => {
     }
   };
 
+  const filteredSubscriptions = subscriptions.filter(sub => {
+    const searchLower = searchTerm.toLowerCase();
+    const planoName = sub.nomePlano || '';
+    const empresaName = sub.nomeEmpresa || '';
+    const matchesSearch = planoName.toLowerCase().includes(searchLower) || empresaName.toLowerCase().includes(searchLower);
+    
+    const matchesStatus = statusFilter === 'Todos' || sub.status === statusFilter;
+
+    let matchesDate = true;
+    if (dateStart || dateEnd) {
+        const vDate = new Date(sub.dataInicio);
+        if (dateStart) {
+            const sDate = new Date(dateStart);
+            if (vDate < sDate) matchesDate = false;
+        }
+        if (dateEnd) {
+            const eDate = new Date(dateEnd);
+            eDate.setHours(23, 59, 59, 999);
+            if (vDate > eDate) matchesDate = false;
+        }
+    }
+
+    let matchesValue = true;
+    if (minVal) {
+        if (sub.valorMensal < Number(minVal)) matchesValue = false;
+    }
+    if (maxVal) {
+        if (sub.valorMensal > Number(maxVal)) matchesValue = false;
+    }
+
+    return matchesSearch && matchesStatus && matchesDate && matchesValue;
+  });
+
   return (
     <UserLayout>
       <div className="mb-8">
@@ -177,23 +219,126 @@ export const Assinaturas: React.FC = () => {
         <p className="text-gray-500 mt-1">Gerencie seus planos e serviços contratados.</p>
       </div>
 
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar por plano ou empresa..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm text-gray-900 bg-white"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowFilters(!showFilters)} 
+            className={`flex items-center gap-2 ${showFilters ? 'bg-slate-50 border-slate-300' : ''}`}
+          >
+            <Filter className="w-4 h-4" />
+            Filtros
+          </Button>
+        </div>
+
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Status */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700"
+                >
+                  <option value="Todos">Todos os status</option>
+                  <option value="Ativo">Ativo</option>
+                  <option value="Pendente">Pendente</option>
+                  <option value="Cancelada">Cancelada</option>
+                </select>
+              </div>
+              
+              {/* Date Range */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Data Inicial</label>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="date" 
+                    value={dateStart}
+                    onChange={(e) => setDateStart(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                  />
+                  <span className="text-gray-400">-</span>
+                  <input 
+                    type="date" 
+                    value={dateEnd}
+                    onChange={(e) => setDateEnd(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                  />
+                </div>
+              </div>
+
+              {/* Value Range */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Valor Mensal (R$)</label>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="number" 
+                    placeholder="Min" 
+                    value={minVal}
+                    onChange={(e) => setMinVal(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                  />
+                  <span className="text-gray-400">-</span>
+                  <input 
+                    type="number" 
+                    placeholder="Max" 
+                    value={maxVal}
+                    onChange={(e) => setMaxVal(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end mt-4">
+               <Button 
+                 variant="outline" 
+                 size="sm" 
+                 onClick={() => {
+                   setStatusFilter('Todos');
+                   setDateStart('');
+                   setDateEnd('');
+                   setMinVal('');
+                   setMaxVal('');
+                 }} 
+                 className="text-gray-600"
+               >
+                 Limpar Filtros
+               </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
            <Loader2 className="w-8 h-8 animate-spin text-slate-600" />
         </div>
-      ) : subscriptions.length === 0 ? (
+      ) : filteredSubscriptions.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center flex flex-col items-center">
             <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-6">
                 <CreditCard className="w-10 h-10 text-gray-300" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Você não possui assinaturas ativas</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Nenhuma assinatura encontrada</h3>
             <p className="text-gray-500 max-w-sm">
-                Assim que você contratar um serviço em um estabelecimento parceiro, ele aparecerá aqui.
+                Nenhuma assinatura corresponde aos filtros aplicados.
             </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {subscriptions.map((sub) => (
+          {filteredSubscriptions.map((sub) => (
              <div 
                 key={sub.idAssinatura} 
                 className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-slate-300 hover:shadow-md transition-all cursor-pointer"
@@ -238,6 +383,16 @@ export const Assinaturas: React.FC = () => {
                     )}
                     {sub.status === 'Ativo' && (
                         <div className="flex gap-2">
+                            {sub.contratoPath && (
+                                <Button 
+                                    variant="outline" 
+                                    className="text-slate-600 hover:bg-slate-50 border-gray-200"
+                                    onClick={() => window.open(sub.contratoPath as string, '_blank')}
+                                    title="Baixar Contrato"
+                                >
+                                    <FileText className="w-4 h-4" />
+                                </Button>
+                            )}
                             <Button 
                                 variant="outline" 
                                 className="text-slate-600 hover:bg-slate-50 border-gray-200"

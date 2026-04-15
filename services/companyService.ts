@@ -8,14 +8,23 @@ const USER_URL = "https://lojas.vlks.com.br/api/v1/User";
 export const companyService = {
   // Agora recebe o token do usuário logado para criar a empresa
   async create(token: string, data: CompanyCreationPayload): Promise<CompanyResponse> {
+    const formData = new FormData();
+    formData.append('Nome', data.nome);
+    formData.append('Cnpj', data.cnpj);
+    formData.append('Telefone', data.telefone);
+    if (data.logo) {
+      formData.append('Logo', data.logo);
+    } else {
+      formData.append('Logo', '');
+    }
+
     const response = await fetch(COMPANY_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         "accept": "*/*",
         "Authorization": `Bearer ${token}`
       },
-      body: JSON.stringify(data),
+      body: formData,
     });
 
     if (!response.ok) {
@@ -27,18 +36,16 @@ export const companyService = {
   },
 
   async login(email: string, password: string): Promise<AuthResponse> {
-    const payload: CompanyLoginPayload = {
-      email,
-      password,
-    };
+    const formData = new FormData();
+    formData.append('Email', email);
+    formData.append('Password', password);
 
     const response = await fetch(`${USER_URL}/login-admin`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         "accept": "*/*"
       },
-      body: JSON.stringify(payload),
+      body: formData,
     });
 
     if (!response.ok) {

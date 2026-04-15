@@ -33,11 +33,22 @@ export const Register: React.FC = () => {
     password: '',
     confirmPassword: '',
     telefone: '',
+    fotoPerfil: null as File | null,
     // Company Data (Only if isBusiness)
     companyNome: '',
     companyCnpj: '',
-    companyTelefone: ''
+    companyTelefone: '',
+    companyLogo: null as File | null
   });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.name;
+    const file = e.target.files?.[0] || null;
+    setFormData(prev => ({
+      ...prev,
+      [name]: file
+    }));
+  };
 
   // Effect para processar a URL de convite (incluindo formato com duplo ?)
   useEffect(() => {
@@ -169,7 +180,8 @@ export const Register: React.FC = () => {
         cpf: cleanCPF,
         email: formData.email,
         password: formData.password,
-        telefone: cleanPhone
+        telefone: cleanPhone,
+        fotoPerfil: formData.fotoPerfil
       }, inviteCompanyId || undefined);
 
       // CASO ESPECIAL: Convite por Link (Id da empresa presente)
@@ -188,7 +200,8 @@ export const Register: React.FC = () => {
         companyData: isBusiness ? {
           nome: formData.companyNome,
           cnpj: cleanCNPJ,
-          telefone: cleanCompPhone
+          telefone: cleanCompPhone,
+          logo: formData.companyLogo
         } : null
       };
 
@@ -300,6 +313,19 @@ export const Register: React.FC = () => {
                       autoComplete="off"
                   />
               </div>
+
+              <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Foto de Perfil
+                  </label>
+                  <input
+                      type="file"
+                      name="fotoPerfil"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-slate-900 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
+                  />
+              </div>
           </div>
         )}
 
@@ -383,6 +409,19 @@ export const Register: React.FC = () => {
                         placeholder="(00) 00000-0000"
                         maxLength={15}
                         autoComplete="tel"
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                        Logo da Empresa
+                    </label>
+                    <input
+                        type="file"
+                        name="companyLogo"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-slate-900 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
                     />
                 </div>
             </div>
