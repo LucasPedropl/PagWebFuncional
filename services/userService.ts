@@ -49,8 +49,11 @@ export const userService = {
     formData.append('Email', data.email);
     formData.append('Password', data.password);
     formData.append('Telefone', data.telefone);
-    // FotoPerfil is empty for now as per the curl example
-    formData.append('FotoPerfil', '');
+    if (data.fotoPerfil) {
+      formData.append('FotoPerfil', data.fotoPerfil);
+    } else {
+      formData.append('FotoPerfil', '');
+    }
 
     const response = await fetch(url, {
       method: "POST",

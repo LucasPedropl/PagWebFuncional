@@ -36,16 +36,18 @@ export const companyService = {
   },
 
   async login(email: string, password: string): Promise<AuthResponse> {
-    const formData = new FormData();
-    formData.append('Email', email);
-    formData.append('Password', password);
+    const payload = {
+      email: email,
+      password: password,
+    };
 
     const response = await fetch(`${USER_URL}/login-admin`, {
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
         "accept": "*/*"
       },
-      body: formData,
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
