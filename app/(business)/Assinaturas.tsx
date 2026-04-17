@@ -34,7 +34,6 @@ export const Assinaturas: React.FC = () => {
   // Data State
   const [subscriptions, setSubscriptions] = useState<SubscriptionResponse[]>([]);
   const [clients, setClients] = useState<User[]>([]);
-  const [plans, setPlans] = useState<PlanResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -68,22 +67,41 @@ export const Assinaturas: React.FC = () => {
   // Aviso de Data (Warning visual)
   const [dateWarning, setDateWarning] = useState<{ type: 'info' | 'warning' | 'error', message: string } | null>(null);
 
+  // Plan Combobox State
+  const [plans, setPlans] = useState<PlanResponse[]>([]);
+  const [planSearch, setPlanSearch] = useState('');
+  const [isPlanListOpen, setIsPlanListOpen] = useState(false);
+  const planDropdownRef = useRef<HTMLDivElement>(null);
+
+  // New Plan Modal State
+  const [isNewPlanModalOpen, setIsNewPlanModalOpen] = useState(false);
+  const [newPlanFormData, setNewPlanFormData] = useState({
+      nome: '',
+      valorMensalidade: '',
+      percentualMulta: '0',
+      percentualJurosMensal: '0',
+      funcionalidades: ''
+  });
+
   useEffect(() => {
     fetchData();
   }, []);
 
-  // Click outside handler for dropdown
+  // Click outside handler for dropdowns
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsClientListOpen(false);
+      }
+      if (planDropdownRef.current && !planDropdownRef.current.contains(event.target as Node)) {
+        setIsPlanListOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [dropdownRef]);
+  }, [dropdownRef, planDropdownRef]);
 
   // Lógica para Recorrência: Se for recorrente, período deve ser 0
   useEffect(() => {
@@ -232,6 +250,47 @@ export const Assinaturas: React.FC = () => {
         }
       } finally {
         setIsConnecting(false);
+      }
+  };
+
+  const handleSelectPlan = (plan: PlanResponse) => {
+      setFormData(prev => ({ ...prev, idPlano: String(plan.idPlano) }));
+      setPlanSearch(plan.nome);
+      setIsPlanListOpen(false);
+  };
+
+  const handleCreatePlan = async () => {
+    try {
+        setIsSaving(true);
+        const funcionalidadesArray = newPlanFormData.funcionalidades
+            .split('\n')
+            .map(f => f.trim())
+            .filter(f => f !== '');
+        
+        await businessService.createPlan({
+            nome: newPlanFormData.nome,
+            valorMensalidade: Number(newPlanFormData.valorMensalidade),
+            percentualMulta: Number(newPlanFormData.percentualMulta),
+            percentualJurosMensal: Number(newPlanFormData.percentualJurosMensal),
+            funcionalidades: funcionalidadesArray,
+            arquivoContrato: newPlanFormData.contrato
+        });
+        
+        addToast('success', 'Plano Criado', 'Novo plano adicionado.');
+        const newPlans = await businessService.listPlans();
+        setPlans(newPlans);
+        setIsNewPlanModalOpen(false);
+        setNewPlanFormData({ nome: '', valorMensalidade: '', percentualMulta: '0', percentualJurosMensal: '0', funcionalidades: '', contrato: null });
+    } catch (e: any) {
+        addToast('error', 'Erro', e.message || 'Erro ao criar plano');
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
+  const handleNewPlanFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+          setNewPlanFormData(prev => ({ ...prev, contrato: e.target.files![0] }));
       }
   };
 
@@ -739,19 +798,52 @@ export const Assinaturas: React.FC = () => {
                 )}
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1.5 relative" ref={planDropdownRef}>
                 <label className="text-sm font-medium text-gray-700">Selecionar Plano</label>
-                <select 
-                    name="idPlano" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900"
-                    value={formData.idPlano}
-                    onChange={handleInputChange}
-                >
-                    <option value="">Selecione...</option>
-                    {plans.map(p => (
-                        <option key={p.idPlano} value={p.idPlano}>{p.nome} - R$ {p.valorMensalidade}</option>
-                    ))}
-                </select>
+                <div className="relative">
+                    <input
+                        type="text"
+                        placeholder="Buscar plano..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 pr-8"
+                        value={planSearch}
+                        onFocus={() => setIsPlanListOpen(true)}
+                        onChange={(e) => {
+                            setPlanSearch(e.target.value);
+                            setIsPlanListOpen(true);
+                            if (formData.idPlano) setFormData(prev => ({ ...prev, idPlano: '' }));
+                        }}
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                        <ChevronsUpDown className="w-4 h-4" />
+                    </div>
+                </div>
+
+                {isPlanListOpen && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        <div 
+                            className="px-3 py-3 border-b border-gray-100 hover:bg-indigo-50 cursor-pointer flex items-center text-indigo-700 font-medium transition-colors"
+                            onClick={() => setIsNewPlanModalOpen(true)}
+                        >
+                            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center mr-3">
+                                <Plus className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <span className="block text-sm">Cadastrar novo plano</span>
+                                <span className="block text-xs text-indigo-500 font-normal">Criar um novo plano disponível</span>
+                            </div>
+                        </div>
+                        {plans.filter(p => p.nome.toLowerCase().includes(planSearch.toLowerCase())).map(p => (
+                            <div 
+                                key={p.idPlano}
+                                className={`px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center justify-between ${formData.idPlano === String(p.idPlano) ? 'bg-gray-50' : ''}`}
+                                onClick={() => handleSelectPlan(p)}
+                            >
+                                <span className="text-sm">{p.nome} - R$ {p.valorMensalidade}</span>
+                                {formData.idPlano === String(p.idPlano) && <Check className="w-4 h-4 text-slate-600" />}
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
           </div>
 
@@ -967,6 +1059,50 @@ export const Assinaturas: React.FC = () => {
                 Esta ação removerá permanentemente a assinatura. O histórico de pagamentos pode ser mantido, mas o vínculo do plano será encerrado.
             </p>
          </div>
+      </Modal>
+
+      {/* New Plan Modal */}
+      <Modal
+        isOpen={isNewPlanModalOpen}
+        onClose={() => setIsNewPlanModalOpen(false)}
+        title="Cadastrar Novo Plano"
+        footer={
+            <>
+                <Button variant="outline" onClick={() => setIsNewPlanModalOpen(false)} disabled={isSaving}>Cancelar</Button>
+                <Button onClick={handleCreatePlan} isLoading={isSaving} className="bg-slate-900 hover:bg-slate-800">Criar Plano</Button>
+            </>
+        }
+      >
+        <div className="space-y-4">
+            <Input label="Nome" placeholder="Ex: Plano Enterprise" value={newPlanFormData.nome} onChange={(e) => setNewPlanFormData({...newPlanFormData, nome: e.target.value})} />
+            <Input label="Valor Mensal" placeholder="R$ 0.00" type="number" value={newPlanFormData.valorMensalidade} onChange={(e) => setNewPlanFormData({...newPlanFormData, valorMensalidade: e.target.value})} />
+            <div className="grid grid-cols-2 gap-4">
+                <Input label="Multa (%)" placeholder="Ex: 2.00" type="number" value={newPlanFormData.percentualMulta} onChange={(e) => setNewPlanFormData({...newPlanFormData, percentualMulta: e.target.value})} />
+                <Input label="Juros Mensal (%)" placeholder="Ex: 1.00" type="number" value={newPlanFormData.percentualJurosMensal} onChange={(e) => setNewPlanFormData({...newPlanFormData, percentualJurosMensal: e.target.value})} />
+            </div>
+            
+            <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-gray-700">Contrato do Plano (PDF)</label>
+                <label className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 transition-colors">
+                    <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center mb-2">
+                        <FileText className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-600">
+                        {newPlanFormData.contrato ? newPlanFormData.contrato.name : 'Clique para selecionar o contrato'}
+                    </span>
+                    <span className="text-xs text-gray-400">Apenas arquivos PDF</span>
+                    <input type="file" accept=".pdf" className="hidden" onChange={handleNewPlanFileChange} />
+                </label>
+            </div>
+
+            <textarea 
+                className="w-full border rounded p-2" 
+                placeholder="Funcionalidades (uma por linha)&#10;Ex: Suporte 24h&#10;Acesso ilimitado" 
+                rows={4} 
+                value={newPlanFormData.funcionalidades} 
+                onChange={(e) => setNewPlanFormData({...newPlanFormData, funcionalidades: e.target.value})} 
+            />
+        </div>
       </Modal>
 
     </BusinessLayout>

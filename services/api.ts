@@ -37,8 +37,8 @@ export const authService = {
 
   async login(email: string, password: string): Promise<AuthResponse> {
     const payload: LoginPayload = {
-      email,
-      password,
+      Email: email,
+      Password: password,
     };
 
     const response = await fetch(`${BASE_URL}/login`, {

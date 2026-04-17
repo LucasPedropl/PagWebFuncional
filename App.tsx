@@ -21,7 +21,8 @@ import { Relatorios } from './app/(business)/Relatorios';
 import { Configuracoes } from './app/(business)/Configuracoes';
 import { ConectarWhatsapp } from './app/(business)/ConectarWhatsapp';
 import { MenuMobile } from './app/(business)/MenuMobile';
-import { Welcome } from './app/Welcome';
+import { Landing } from './app/Landing';
+import { CompanyDetails } from './app/CompanyDetails';
 import { sessionService } from './services/session';
 
 // --- Guards de Rota (Proteção por Tipo de Usuário) ---
@@ -65,7 +66,8 @@ const App: React.FC = () => {
     <ToastProvider>
       <HashRouter>
         <Routes>
-          <Route path="/" element={<Welcome />} />
+          <Route path="/" element={<Landing />} />
+          <Route path="/empresa/:id" element={<CompanyDetails />} />
           
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

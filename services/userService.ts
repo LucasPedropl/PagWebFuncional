@@ -1,5 +1,5 @@
 
-import { ActivatePayload, AppNotification, AuthResponse, ClientConnection, ClientInvoice, ClientSubscription, LoginPayload, NotificationSettings, RegisterPayload, SavedCard } from "../types";
+import { ActivatePayload, AppNotification, AuthResponse, ClientConnection, ClientInvoice, ClientSubscription, LoginPayload, NotificationSettings, RegisterPayload, SavedCard, UserAccountResponse, UserUpdatePayload } from "../types";
 import { sessionService } from "./session";
 import { parseApiError } from "../utils/formatters";
 
@@ -113,6 +113,46 @@ export const userService = {
 
     sessionService.setSession(data);
     return data;
+  },
+
+  async getMyAccount(): Promise<UserAccountResponse> {
+    const response = await authRequest('/User/minha-conta', {
+      method: "GET"
+    });
+
+    if (!response.ok) {
+      const errorMessage = await parseApiError(response);
+      throw new Error(errorMessage || "Falha ao obter dados da conta");
+    }
+
+    return await response.json();
+  },
+
+  async updateAccount(id: number, data: UserUpdatePayload): Promise<void> {
+    const formData = new FormData();
+    if (data.nome) formData.append('Nome', data.nome);
+    if (data.sobreNome) formData.append('SobreNome', data.sobreNome);
+    if (data.email) formData.append('Email', data.email);
+    if (data.password) formData.append('Password', data.password);
+    if (data.telefone) formData.append('Telefone', data.telefone);
+    
+    if (data.fotoPerfil !== undefined) {
+      if (data.fotoPerfil) {
+        formData.append('FotoPerfil', data.fotoPerfil);
+      } else {
+        formData.append('FotoPerfil', '');
+      }
+    }
+
+    const response = await authRequest(`/User/${id}`, {
+      method: "PATCH",
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorMessage = await parseApiError(response);
+      throw new Error(errorMessage || "Falha ao atualizar conta");
+    }
   },
 
   async linkToCompany(companyId: number): Promise<void> {
@@ -262,6 +302,17 @@ export const userService = {
 
   async listConnections(): Promise<ClientConnection[]> {
     const response = await authRequest('/User/minhas-conexoes', { method: 'GET' });
+    if (!response.ok) return [];
+    try {
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
+  },
+
+  async listCompanyPlans(idEmpresa: number): Promise<any[]> {
+    const response = await authRequest(`/Plano/empresa/${idEmpresa}`, { method: 'GET' });
     if (!response.ok) return [];
     try {
         const data = await response.json();

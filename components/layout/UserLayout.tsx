@@ -38,15 +38,58 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [userProfile, setUserProfile] = useState<{nome: string, fotoPerfilPath: string | null} | null>(null);
+
+  const [pendingConnectionsCount, setPendingConnectionsCount] = useState(0);
+  const [pendingSubscriptionsCount, setPendingSubscriptionsCount] = useState(0);
+  const [pendingInvoicesCount, setPendingInvoicesCount] = useState(0);
 
   useEffect(() => {
     localStorage.setItem('pagweb_sidebar_collapsed', JSON.stringify(isCollapsed));
   }, [isCollapsed]);
 
-  // Carrega notificações ao montar
+  // Carrega notificações e perfil ao montar
   useEffect(() => {
       fetchNotifications();
+      fetchProfile();
   }, []);
+
+  // Recarrega as contagens pendentes a cada mudança de rota
+  useEffect(() => {
+    fetchPendingCounts();
+  }, [location.pathname]);
+
+  const fetchPendingCounts = async () => {
+    try {
+      const [connections, subs, invoices] = await Promise.all([
+        userService.listConnections(),
+        userService.listClientSubscriptions(),
+        userService.listClientInvoices()
+      ]);
+      setPendingConnectionsCount(connections.filter(c => c.status === 'Pendente').length);
+      setPendingSubscriptionsCount(subs.filter(s => s.status === 'Pendente').length);
+      setPendingInvoicesCount(invoices.filter(i => i.status === 'Aberto' || i.status === 'Atrasado').length);
+    } catch (error) {
+      console.error("Erro ao carregar contagens pendentes", error);
+    }
+  };
+
+  const fetchProfile = async () => {
+    try {
+      const data = await userService.getMyAccount();
+      setUserProfile({
+          nome: data.nome,
+          fotoPerfilPath: data.fotoPerfilPath
+      });
+    } catch (error) {
+      console.error("Erro ao carregar perfil no layout", error);
+      // Fallback para sessão se falhar
+      const { user } = sessionService.getSession();
+      if (user) {
+          setUserProfile({ nome: user.nome, fotoPerfilPath: null });
+      }
+    }
+  };
 
   const fetchNotifications = async () => {
       setLoadingNotifications(true);
@@ -128,9 +171,9 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
     { icon: Compass, label: 'Explorar', path: '/explorar' },
-    { icon: Store, label: 'Estabelecimentos', path: '/empresas' }, 
-    { icon: CreditCard, label: 'Assinaturas', path: '/assinaturas' },
-    { icon: Receipt, label: 'Faturas', path: '/pagamentos' }, 
+    { icon: Store, label: 'Estabelecimentos', path: '/empresas', badge: pendingConnectionsCount }, 
+    { icon: CreditCard, label: 'Assinaturas', path: '/assinaturas', badge: pendingSubscriptionsCount },
+    { icon: Receipt, label: 'Faturas', path: '/pagamentos', badge: pendingInvoicesCount }, 
     { icon: CreditCard, label: 'Cartões', path: '/metodos-pagamento' },
   ];
 
@@ -138,8 +181,9 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   const mobileMenuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
     { icon: Compass, label: 'Explorar', path: '/explorar' },
-    { icon: Store, label: 'Estabelec.', path: '/empresas' },
-    { icon: CreditCard, label: 'Assin.', path: '/assinaturas' },
+    { icon: Store, label: 'Estabelec.', path: '/empresas', badge: pendingConnectionsCount },
+    { icon: CreditCard, label: 'Assin.', path: '/assinaturas', badge: pendingSubscriptionsCount },
+    { icon: Receipt, label: 'Faturas', path: '/pagamentos', badge: pendingInvoicesCount },
     { icon: MenuIcon, label: 'Menu', path: '/menu' },
   ];
 
@@ -186,16 +230,28 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
                       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   } ${isCollapsed ? 'justify-center px-0' : 'px-4'}`}
                 >
-                  <item.icon 
-                    size={20}
-                    className={`min-w-[20px] transition-all duration-200 ${
-                      isCollapsed ? '' : 'mr-3'
-                    } ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'}`} 
-                  />
-                  <span className={`font-normal text-base whitespace-nowrap transition-all duration-300 ${
-                    isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100 block'
+                  <div className="relative flex items-center justify-center">
+                    <item.icon 
+                      size={20}
+                      className={`min-w-[20px] transition-all duration-200 ${
+                        isCollapsed ? '' : 'mr-3'
+                      } ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'}`} 
+                    />
+                    {item.badge != null && item.badge > 0 && isCollapsed && (
+                       <span className="absolute -top-1 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-[9px] font-bold text-white ring-1 ring-white">
+                         {item.badge > 9 ? '9+' : item.badge}
+                       </span>
+                    )}
+                  </div>
+                  <span className={`font-normal text-base whitespace-nowrap transition-all duration-300 flex-1 flex items-center justify-between ${
+                    isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100 flex'
                   }`}>
                     {item.label}
+                    {item.badge != null && item.badge > 0 && !isCollapsed && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-2">
+                        {item.badge > 9 ? '9+' : item.badge}
+                      </span>
+                    )}
                   </span>
                 </Link>
                 {isCollapsed && (
@@ -326,7 +382,18 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
             </div>
 
             <div className="hidden md:flex items-center gap-3 pl-6 border-l border-gray-100 h-8">
-               <span className="text-sm font-semibold text-gray-900">Minha Conta</span>
+               <span className="text-sm font-semibold text-gray-900">
+                  {userProfile?.nome || 'Minha Conta'}
+               </span>
+               <div className="w-8 h-8 rounded-full border border-gray-200 overflow-hidden bg-gray-100 flex items-center justify-center shrink-0 shadow-sm">
+                  {userProfile?.fotoPerfilPath ? (
+                      <img src={userProfile.fotoPerfilPath} alt="Perfil" className="w-full h-full object-cover" />
+                  ) : (
+                      <span className="text-xs font-bold text-gray-500">
+                          {userProfile?.nome?.charAt(0).toUpperCase() || 'U'}
+                      </span>
+                  )}
+               </div>
                <button 
                 onClick={handleLogout}
                 className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors ml-1"
@@ -357,11 +424,18 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
                     <Link 
                         key={item.path} 
                         to={item.path}
-                        className={`flex flex-col items-center justify-center w-full py-1 gap-1 ${
+                        className={`flex flex-col items-center justify-center w-full py-1 gap-1 relative ${
                             isActive ? 'text-slate-900 font-medium' : 'text-gray-400'
                         }`}
                     >
-                        <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                        <div className="relative">
+                            <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                            {item.badge != null && item.badge > 0 && (
+                                <span className="absolute -top-1 -right-2 flex items-center justify-center min-w-[14px] h-[14px] rounded-full bg-red-500 text-white text-[8px] font-bold px-1 ring-2 ring-white">
+                                    {item.badge > 9 ? '9+' : item.badge}
+                                </span>
+                            )}
+                        </div>
                         <span className="text-[10px]">{item.label}</span>
                     </Link>
                 )

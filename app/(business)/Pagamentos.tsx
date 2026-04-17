@@ -50,12 +50,26 @@ export const Pagamentos: React.FC = () => {
     setIsLoading(true);
     try {
         const data = await businessService.listMensalidades();
-        // Ordenar por vencimento (parse DD/MM/YYYY)
-        const sorted = data.sort((a, b) => {
+        
+        // Determinar status lógico imediatamente para ordenação
+        const processedData = data.map(m => {
+            let status = m.status;
+            if (m.status === 'Aberto' && parseDate(m.vencimento) < new Date()) {
+                status = 'Atrasado';
+            }
+            return { ...m, _computedStatus: status };
+        });
+
+        // Ordenar: Atrasados primeiro, depois por data de vencimento mais recente
+        const sorted = processedData.sort((a, b) => {
+            if (a._computedStatus === 'Atrasado' && b._computedStatus !== 'Atrasado') return -1;
+            if (a._computedStatus !== 'Atrasado' && b._computedStatus === 'Atrasado') return 1;
+            
             const dateA = a.vencimento.split('/').reverse().join('-');
             const dateB = b.vencimento.split('/').reverse().join('-');
-            return dateB.localeCompare(dateA); // Mais recente primeiro
+            return dateB.localeCompare(dateA);
         });
+
         setMensalidades(sorted);
     } catch (error) {
         console.error("Erro ao buscar mensalidades", error);
@@ -316,7 +330,6 @@ export const Pagamentos: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                <th className="px-6 py-4">ID</th>
                 <th className="px-6 py-4">Cliente</th>
                 <th className="px-6 py-4">Vencimento</th>
                 <th className="px-6 py-4">Método</th>
@@ -328,7 +341,7 @@ export const Pagamentos: React.FC = () => {
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
                   <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center">
+                      <td colSpan={6} className="px-6 py-12 text-center">
                           <div className="flex justify-center items-center text-gray-500">
                               <Loader2 className="w-6 h-6 animate-spin mr-2" /> Carregando cobranças...
                           </div>
@@ -336,27 +349,17 @@ export const Pagamentos: React.FC = () => {
                   </tr>
               ) : filtered.length === 0 ? (
                   <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                      <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                           Nenhuma cobrança encontrada com os filtros atuais.
                       </td>
                   </tr>
               ) : (
                 filtered.map((trx) => {
-                    // Recalcula status visual se estiver aberto e vencido
-                    let displayStatus = trx.status;
-                    let isCalculatedLate = false;
-                    
-                    if (trx.status === 'Aberto') {
-                        const d = parseDate(trx.vencimento);
-                        if (d < new Date()) {
-                            displayStatus = 'Atrasado';
-                            isCalculatedLate = true;
-                        }
-                    }
+                    // Usa o status computado durante o fetch ou calcula se necessário
+                    const displayStatus = (trx as any)._computedStatus || (trx.status === 'Aberto' && parseDate(trx.vencimento) < new Date() ? 'Atrasado' : trx.status);
 
                     return (
                         <tr key={trx.idMensalidade} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 text-sm text-gray-500">#{trx.idMensalidade}</td>
                         <td className="px-6 py-4">
                             <div className="flex flex-col">
                                 <span className="text-sm font-semibold text-gray-900">{trx.nomeCliente}</span>

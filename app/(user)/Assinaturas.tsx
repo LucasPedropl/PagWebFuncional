@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { CheckCircle2, Calendar, CreditCard, Loader2, XCircle, AlertTriangle, Settings, Bell, Mail, MessageSquare, Smartphone, Search, Filter } from 'lucide-react';
+import { CheckCircle2, Calendar, CreditCard, Loader2, XCircle, AlertTriangle, Settings, Bell, Mail, MessageSquare, Smartphone, Search, Filter, FileText } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { ClientSubscription, SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -210,6 +210,10 @@ export const Assinaturas: React.FC = () => {
     }
 
     return matchesSearch && matchesStatus && matchesDate && matchesValue;
+  }).sort((a, b) => {
+    if (a.status === 'Pendente' && b.status !== 'Pendente') return -1;
+    if (b.status === 'Pendente' && a.status !== 'Pendente') return 1;
+    return 0;
   });
 
   return (

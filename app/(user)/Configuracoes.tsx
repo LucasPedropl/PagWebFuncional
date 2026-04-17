@@ -18,12 +18,14 @@ export const Configuracoes: React.FC = () => {
 
   // Form States
   const [profileData, setProfileData] = useState({
+      idUser: 0,
       nome: '',
       sobreNome: '',
       cpf: '',
       telefone: '',
       email: '',
-      fotoPerfil: null as File | null
+      fotoPerfil: null as File | null,
+      fotoPerfilUrl: ''
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -40,18 +42,27 @@ export const Configuracoes: React.FC = () => {
   });
 
   useEffect(() => {
-      const { user } = sessionService.getSession();
-      if (user) {
-          setProfileData({
-              nome: user.nome || '',
-              sobreNome: user.sobreNome || '',
-              cpf: user.cpf || '',
-              telefone: user.telefone || '',
-              email: user.email || ''
-          });
-      }
+      fetchUserProfile();
       fetchNotificationSettings();
   }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+        const data = await userService.getMyAccount();
+        setProfileData({
+            idUser: data.idUser,
+            nome: data.nome || '',
+            sobreNome: data.sobreNome || '',
+            cpf: data.cpf || '',
+            telefone: formatPhone(data.telefone || ''),
+            email: data.email || '',
+            fotoPerfil: null,
+            fotoPerfilUrl: data.fotoPerfilPath || ''
+        });
+    } catch (error: any) {
+        addToast('error', 'Erro', 'Falha ao carregar dados do perfil');
+    }
+  };
 
   const fetchNotificationSettings = async () => {
       try {
@@ -85,30 +96,47 @@ export const Configuracoes: React.FC = () => {
 
   const handleSaveProfile = async () => {
     setIsLoading(true);
-    // Simulação de salvamento (Aqui você conectaria com businessService.updateUser se existisse)
-    setTimeout(() => {
-        setIsLoading(false);
-        // Atualiza sessão local simulada
-        const { user } = sessionService.getSession();
-        if (user) {
-            const updatedUser = { ...user, ...profileData };
-            localStorage.setItem("pagweb_user", JSON.stringify(updatedUser));
-        }
+    try {
+        const cleanPhone = profileData.telefone.replace(/\D/g, '');
+        
+        await userService.updateAccount(profileData.idUser, {
+            nome: profileData.nome,
+            sobreNome: profileData.sobreNome,
+            email: profileData.email,
+            telefone: cleanPhone,
+            fotoPerfil: profileData.fotoPerfil
+        });
+
         addToast('success', 'Sucesso', 'Dados atualizados com sucesso!');
-    }, 1000);
+        await fetchUserProfile(); // Reload to get new photo path
+    } catch (error: any) {
+        addToast('error', 'Erro', error.message || 'Erro ao atualizar perfil');
+    } finally {
+        setIsLoading(false);
+    }
   };
 
   const handleSavePassword = async () => {
+      if (!passwordData.newPassword) {
+          addToast('error', 'Erro', "A nova senha não pode estar vazia.");
+          return;
+      }
       if (passwordData.newPassword !== passwordData.confirmPassword) {
           addToast('error', 'Erro', "As novas senhas não coincidem.");
           return;
       }
       setIsLoading(true);
-      setTimeout(() => {
-        setIsLoading(false);
-        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-        addToast('success', 'Sucesso', 'Senha atualizada!');
-    }, 1000);
+      try {
+          await userService.updateAccount(profileData.idUser, {
+              password: passwordData.newPassword
+          });
+          setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+          addToast('success', 'Sucesso', 'Senha atualizada com sucesso!');
+      } catch (error: any) {
+          addToast('error', 'Erro', error.message || 'Falha ao atualizar senha');
+      } finally {
+          setIsLoading(false);
+      }
   };
 
   const handleSaveNotifications = async () => {
@@ -227,13 +255,22 @@ export const Configuracoes: React.FC = () => {
                             <label className="block text-sm font-medium text-slate-700 mb-1">
                                 Foto de Perfil
                             </label>
-                            <input
-                                type="file"
-                                name="fotoPerfil"
-                                accept="image/*"
-                                onChange={handleFileChange}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-slate-900 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
-                            />
+                            <div className="flex items-center gap-4 mt-2">
+                                <div className="w-16 h-16 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center shrink-0">
+                                    {profileData.fotoPerfilUrl ? (
+                                        <img src={profileData.fotoPerfilUrl} alt="Foto de Perfil" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <UserIcon className="w-8 h-8 text-gray-300" />
+                                    )}
+                                </div>
+                                <input
+                                    type="file"
+                                    name="fotoPerfil"
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                    className="flex-1 text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
+                                />
+                            </div>
                         </div>
                         <div className="pt-4">
                             <Button onClick={handleSaveProfile} isLoading={isLoading}>

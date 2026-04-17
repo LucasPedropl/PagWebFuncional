@@ -36,7 +36,17 @@ export interface CompanyResponse {
   idEmpresa: number;
   nome: string;
   cnpj: string;
-  status: number;
+  telefone?: string;
+  logo?: string | null;
+  statusConexao?: string;
+  status?: number;
+}
+
+export interface CompanyUpdatePayload {
+  nome?: string;
+  cnpj?: string;
+  telefone?: string;
+  logo?: File | null;
 }
 
 export interface ActivatePayload {
@@ -52,6 +62,27 @@ export interface LoginPayload {
 export interface CompanyLoginPayload {
   Email: string;
   Password: string;
+}
+
+export interface UserAccountResponse {
+  idUser: number;
+  nome: string;
+  sobreNome: string;
+  email: string;
+  cpf: string;
+  telefone: string;
+  fotoPerfilPath: string | null;
+  status: number;
+  dataAdesao: string;
+}
+
+export interface UserUpdatePayload {
+  nome?: string;
+  sobreNome?: string;
+  email?: string;
+  password?: string;
+  telefone?: string;
+  fotoPerfil?: File | null;
 }
 
 // Interfaces de Negócio (Planos e Assinaturas)

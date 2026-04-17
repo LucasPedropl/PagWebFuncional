@@ -25,6 +25,7 @@ export const Empresas: React.FC = () => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<ClientConnection | null>(null);
   const [companySubscriptions, setCompanySubscriptions] = useState<ClientSubscription[]>([]);
+  const [companyPlans, setCompanyPlans] = useState<any[]>([]);
   const [isLoadingSubscriptions, setIsLoadingSubscriptions] = useState(false);
   const [activeTab, setActiveTab] = useState<'assinaturas' | 'planos'>('assinaturas');
 
@@ -32,31 +33,6 @@ export const Empresas: React.FC = () => {
   const [isSubscribeModalOpen, setIsSubscribeModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [isSubscribing, setIsSubscribing] = useState(false);
-
-  // Mock Plans Data
-  const mockPlans = [
-    {
-      id: 1,
-      nome: "Plano Básico",
-      descricao: "Acesso aos recursos essenciais da plataforma.",
-      valor: 49.90,
-      beneficios: ["Acesso básico", "Suporte por email", "1 usuário"]
-    },
-    {
-      id: 2,
-      nome: "Plano Profissional",
-      descricao: "Ideal para pequenas e médias empresas.",
-      valor: 99.90,
-      beneficios: ["Todos os recursos básicos", "Suporte prioritário", "Até 5 usuários", "Relatórios avançados"]
-    },
-    {
-      id: 3,
-      nome: "Plano Enterprise",
-      descricao: "Solução completa para grandes operações.",
-      valor: 199.90,
-      beneficios: ["Recursos ilimitados", "Suporte 24/7", "Usuários ilimitados", "API de integração", "Gerente de conta dedicado"]
-    }
-  ];
 
   const [isAccepting, setIsAccepting] = useState<number | null>(null);
 
@@ -99,13 +75,18 @@ export const Empresas: React.FC = () => {
     setIsDetailsModalOpen(true);
     setIsLoadingSubscriptions(true);
     try {
-        const allSubs = await userService.listClientSubscriptions();
+        const [allSubs, plans] = await Promise.all([
+          userService.listClientSubscriptions(),
+          userService.listCompanyPlans(company.idEmpresa)
+        ]);
+        
         // Filter subscriptions by company name
         const filtered = allSubs.filter(sub => sub.nomeEmpresa === company.nomeEmpresa);
         setCompanySubscriptions(filtered);
+        setCompanyPlans(plans);
     } catch (error) {
-        console.error("Erro ao carregar assinaturas", error);
-        addToast('error', 'Erro', 'Não foi possível carregar as assinaturas.');
+        console.error("Erro ao carregar dados", error);
+        addToast('error', 'Erro', 'Não foi possível carregar as informações do estabelecimento.');
     } finally {
         setIsLoadingSubscriptions(false);
     }
@@ -169,6 +150,10 @@ export const Empresas: React.FC = () => {
                           (c.cnpjEmpresa && c.cnpjEmpresa.includes(searchTerm));
     const matchesStatus = statusFilter === 'Todos' || c.status === statusFilter;
     return matchesSearch && matchesStatus;
+  }).sort((a, b) => {
+    if (a.status === 'Pendente' && b.status !== 'Pendente') return -1;
+    if (b.status === 'Pendente' && a.status !== 'Pendente') return 1;
+    return 0;
   });
 
   return (
@@ -372,7 +357,7 @@ export const Empresas: React.FC = () => {
                     <button
                         className={`py-2 px-4 text-sm font-medium border-b-2 transition-colors ${
                             activeTab === 'planos'
-                                ? 'border-blue-600 text-blue-600'
+                                ? 'border-slate-900 text-slate-900'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                         }`}
                         onClick={() => setActiveTab('planos')}
@@ -382,7 +367,7 @@ export const Empresas: React.FC = () => {
                     <button
                         className={`py-2 px-4 text-sm font-medium border-b-2 transition-colors ${
                             activeTab === 'assinaturas'
-                                ? 'border-blue-600 text-blue-600'
+                                ? 'border-slate-900 text-slate-900'
                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                         }`}
                         onClick={() => setActiveTab('assinaturas')}
@@ -399,34 +384,39 @@ export const Empresas: React.FC = () => {
                                 Escolha um plano para assinar
                             </h4>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                {mockPlans.map((plan) => (
-                                    <div key={plan.id} className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col hover:shadow-md transition-shadow relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-bl-full -z-10"></div>
+                                {companyPlans.map((plan) => (
+                                    <div key={plan.idPlano} className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col hover:shadow-md transition-shadow relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 rounded-bl-full -z-10"></div>
                                         <h5 className="text-lg font-bold text-gray-900 mb-1">{plan.nome}</h5>
-                                        <p className="text-sm text-gray-500 mb-4 h-10">{plan.descricao}</p>
+                                        <p className="text-sm text-gray-500 mb-4 h-10">Assine agora para obter acesso ao sistema do estabelecimento.</p>
                                         
                                         <div className="mb-4">
-                                            <span className="text-2xl font-extrabold text-gray-900">R$ {plan.valor.toFixed(2).replace('.', ',')}</span>
+                                            <span className="text-2xl font-extrabold text-gray-900">R$ {(plan.valorMensalidade || 0).toFixed(2).replace('.', ',')}</span>
                                             <span className="text-sm text-gray-500">/mês</span>
                                         </div>
 
                                         <ul className="space-y-2 mb-6 flex-grow">
-                                            {plan.beneficios.map((beneficio, idx) => (
+                                            {plan.funcionalidades?.map((func: string, idx: number) => (
                                                 <li key={idx} className="flex items-start text-sm text-gray-700">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 mr-2 shrink-0"></div>
-                                                    <span>{beneficio}</span>
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-500 mt-1.5 mr-2 shrink-0"></div>
+                                                    <span>{func}</span>
                                                 </li>
                                             ))}
                                         </ul>
 
                                         <Button 
-                                            className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-auto"
+                                            className="w-full bg-slate-900 hover:bg-slate-800 text-white mt-auto"
                                             onClick={() => handleSubscribeClick(plan)}
                                         >
                                             Assinar Agora
                                         </Button>
                                     </div>
                                 ))}
+                                {companyPlans.length === 0 && (
+                                    <div className="col-span-full text-center py-6 text-gray-500">
+                                        Nenhum plano disponível no momento.
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -507,7 +497,7 @@ export const Empresas: React.FC = () => {
             <Button 
                 onClick={confirmSubscription} 
                 isLoading={isSubscribing} 
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-slate-900 hover:bg-slate-800 text-white"
             >
                 Confirmar Assinatura
             </Button>
@@ -517,7 +507,7 @@ export const Empresas: React.FC = () => {
         {selectedPlan && selectedCompany && (
             <div className="space-y-4 p-2">
                 <div className="text-center mb-6">
-                    <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="w-16 h-16 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center mx-auto mb-4">
                         <CreditCard className="w-8 h-8" />
                     </div>
                     <h3 className="text-xl font-bold text-gray-900">Você está quase lá!</h3>
@@ -535,7 +525,7 @@ export const Empresas: React.FC = () => {
                     </div>
                     <div className="flex justify-between items-center pt-1">
                         <span className="text-sm font-semibold text-gray-900">Total Mensal</span>
-                        <span className="text-lg font-bold text-blue-600">R$ {selectedPlan.valor.toFixed(2).replace('.', ',')}</span>
+                        <span className="text-lg font-bold text-slate-900">R$ {(selectedPlan.valorMensalidade || 0).toFixed(2).replace('.', ',')}</span>
                     </div>
                 </div>
 

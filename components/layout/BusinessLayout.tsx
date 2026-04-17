@@ -38,15 +38,34 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [userProfile, setUserProfile] = useState<{nome: string, fotoPerfilPath: string | null} | null>(null);
 
   useEffect(() => {
     localStorage.setItem('pagweb_sidebar_collapsed', JSON.stringify(isCollapsed));
   }, [isCollapsed]);
 
-  // Carrega notificações ao montar
+  // Carrega notificações e perfil ao montar
   useEffect(() => {
       fetchNotifications();
+      fetchProfile();
   }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const data = await userService.getMyAccount();
+      setUserProfile({
+          nome: data.nome,
+          fotoPerfilPath: data.fotoPerfilPath
+      });
+    } catch (error) {
+      console.error("Erro ao carregar perfil no layout business", error);
+      // Fallback para sessão se falhar
+      const { user } = sessionService.getSession();
+      if (user) {
+          setUserProfile({ nome: user.nome, fotoPerfilPath: null });
+      }
+    }
+  };
 
   const fetchNotifications = async () => {
       setLoadingNotifications(true);
@@ -339,11 +358,15 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
 
             <div className="hidden md:flex items-center gap-3 pl-6 border-l border-gray-100 h-8">
               <div className="text-right">
-                <p className="text-sm font-semibold text-gray-900">Admin</p>
-                <p className="text-xs text-gray-500">ERP System</p>
+                <p className="text-sm font-semibold text-gray-900">{userProfile?.nome || 'Admin'}</p>
+                <p className="text-xs text-gray-500">Admin</p>
               </div>
-              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-bold border border-gray-200 shadow-sm">
-                A
+              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-bold border border-gray-200 shadow-sm overflow-hidden">
+                {userProfile?.fotoPerfilPath ? (
+                    <img src={userProfile.fotoPerfilPath} alt="Perfil" className="w-full h-full object-cover" />
+                ) : (
+                    userProfile?.nome?.charAt(0).toUpperCase() || 'A'
+                )}
               </div>
               <button 
                 onClick={handleLogout}
