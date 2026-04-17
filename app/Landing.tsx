@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, ArrowRight, Star, Tag, Building2, User, Search, LayoutGrid, ChevronDown, LogIn } from 'lucide-react';
+import { CreditCard, ArrowRight, Star, Tag, Building2, User, Search, LayoutGrid, ChevronDown, LogIn, MapPin } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { mockCompanies } from '../data/mockCompanies';
 import { motion, AnimatePresence } from 'motion/react';
@@ -18,15 +18,46 @@ const itemVariants = {
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
 };
 
+// Helper: Calculate distance between two points in km (Haversine formula)
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
 export const Landing: React.FC = () => {
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState<string>('Todas');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isLoginMenuOpen, setIsLoginMenuOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [isNearMeFilterActive, setIsNearMeFilterActive] = useState(false);
   const loginMenuRef = useRef<HTMLDivElement>(null);
 
-  // Click outside handler for login menu
+  // Ask for geolocation on mount
   useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+          // Auto-enable filter if location is available? O usuário pediu: "para ja filtrar a localização do usuario"
+          setIsNearMeFilterActive(true);
+        },
+        (error) => {
+          console.error("Erro ao obter localização ou usuário negou:", error);
+        }
+      );
+    }
+
     function handleClickOutside(event: MouseEvent) {
       if (loginMenuRef.current && !loginMenuRef.current.contains(event.target as Node)) {
         setIsLoginMenuOpen(false);
@@ -38,12 +69,32 @@ export const Landing: React.FC = () => {
 
   const categories = ['Todas', ...Array.from(new Set(mockCompanies.map(c => c.category)))];
 
-  const filteredCompanies = mockCompanies.filter(company => {
-    const matchesCategory = activeCategory === 'Todas' || company.category === activeCategory;
-    const matchesSearch = company.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          company.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const filteredCompanies = mockCompanies
+    .map(company => {
+      // Add distance if user location is available
+      let distance = null;
+      if (userLocation) {
+        distance = calculateDistance(userLocation.lat, userLocation.lng, company.location.lat, company.location.lng);
+      }
+      return { ...company, distance };
+    })
+    .filter(company => {
+      const matchesCategory = activeCategory === 'Todas' || company.category === activeCategory;
+      const matchesSearch = company.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            company.description.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Filter by "Near Me" (e.g., within 50km if filter is active)
+      const matchesLocation = !isNearMeFilterActive || (company.distance !== null && company.distance <= 50);
+
+      return matchesCategory && matchesSearch && matchesLocation;
+    })
+    .sort((a, b) => {
+      // If location is active, sort by distance
+      if (isNearMeFilterActive && a.distance !== null && b.distance !== null) {
+        return a.distance - b.distance;
+      }
+      return 0; // Maintain original order otherwise
+    });
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col selection:bg-blue-500/30">
@@ -167,7 +218,7 @@ export const Landing: React.FC = () => {
         <div className="absolute top-0 inset-x-0 h-40 bg-gradient-to-b from-white to-transparent pointer-events-none" />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-8">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-8">
             <div className="max-w-2xl">
               <h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight mb-4">Diretório Oficial</h2>
               <p className="text-lg text-slate-500 font-medium">
@@ -175,17 +226,32 @@ export const Landing: React.FC = () => {
               </p>
             </div>
             
-            <div className="relative min-w-[320px] group">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-500"></div>
-              <div className="relative">
-                <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input 
-                  type="text" 
-                  placeholder="Buscar pelo nome..." 
-                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200/80 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-slate-900 shadow-sm"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+            <div className="flex flex-col sm:flex-row gap-4">
+              {/* Near Me Filter */}
+              <button
+                onClick={() => setIsNearMeFilterActive(!isNearMeFilterActive)}
+                className={`flex items-center gap-2 px-6 py-3.5 rounded-2xl font-bold text-sm transition-all shadow-sm border ${
+                  isNearMeFilterActive 
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-blue-200' 
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                <MapPin className={`w-5 h-5 ${isNearMeFilterActive ? 'text-white' : 'text-blue-500'}`} />
+                Perto de Mim
+              </button>
+
+              <div className="relative min-w-[320px] group">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-500"></div>
+                <div className="relative">
+                  <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input 
+                    type="text" 
+                    placeholder="Buscar pelo nome..." 
+                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200/80 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all text-slate-900 shadow-sm"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -219,8 +285,8 @@ export const Landing: React.FC = () => {
                   <LayoutGrid className="w-8 h-8 text-slate-300" />
                 </div>
                 <h3 className="text-2xl font-bold text-slate-900 mb-2">Nenhum resultado</h3>
-                <p className="text-slate-500 mb-8 max-w-sm mx-auto">Não encontramos estabelecimentos com os filtros aplicados.</p>
-                <Button variant="outline" className="rounded-full px-6 border-slate-200" onClick={() => { setSearchQuery(''); setActiveCategory('Todas'); }}>
+                <p className="text-slate-500 mb-8 max-w-sm mx-auto">Não encontramos estabelecimentos com os filtros aplicados{isNearMeFilterActive ? ' perto da sua localização' : ''}.</p>
+                <Button variant="outline" className="rounded-full px-6 border-slate-200" onClick={() => { setSearchQuery(''); setActiveCategory('Todas'); setIsNearMeFilterActive(false); }}>
                   Limpar Filtros
                 </Button>
               </motion.div>
@@ -245,12 +311,19 @@ export const Landing: React.FC = () => {
                         src={company.image} 
                         alt={company.name} 
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-in-out"
+                        referrerPolicy="no-referrer"
                       />
-                      <div className="absolute top-4 left-4 z-20">
-                         <span className="inline-flex items-center bg-white/90 backdrop-blur-md shadow-sm px-3 py-1.5 rounded-full text-xs font-bold text-slate-800">
+                      <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
+                         <span className="inline-flex items-center bg-white/90 backdrop-blur-md shadow-sm px-3 py-1.5 rounded-full text-xs font-bold text-slate-800 self-start">
                             <Tag className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
                             {company.category}
                          </span>
+                         {company.distance !== null && (
+                            <span className="inline-flex items-center bg-slate-900/80 backdrop-blur-md shadow-sm px-3 py-1.5 rounded-full text-[10px] font-bold text-white self-start">
+                              <MapPin className="w-3 h-3 mr-1 text-blue-400" />
+                              {company.distance.toFixed(1)} km
+                            </span>
+                         )}
                       </div>
                     </div>
                     <div className="p-6 flex flex-col flex-1">
@@ -264,6 +337,12 @@ export const Landing: React.FC = () => {
                       <p className="text-sm text-slate-500 mb-6 line-clamp-2 leading-relaxed">
                         {company.description}
                       </p>
+                      
+                      <div className="flex items-center gap-1.5 mb-6 text-xs text-slate-400 font-medium">
+                        <MapPin size={14} className="text-slate-300" />
+                        {company.location.city}, {company.location.state}
+                      </div>
+
                       <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between">
                         <div className="text-sm text-slate-500 font-semibold flex items-center bg-slate-50 px-3 py-1 rounded-full">
                           {company.plans.length} plan{company.plans.length > 1 ? 'os' : 'o'}
@@ -276,7 +355,7 @@ export const Landing: React.FC = () => {
                   </motion.div>
                 ))}
               </motion.div>
-             )}
+            )}
           </AnimatePresence>
         </div>
       </section>

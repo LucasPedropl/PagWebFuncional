@@ -1,5 +1,5 @@
 {
   "name": "PagWeb",
   "description": "Subscription management system for Clients and Establishments",
-  "requestFramePermissions": []
+  "requestFramePermissions": ["geolocation"]
 }
