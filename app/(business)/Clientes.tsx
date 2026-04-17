@@ -258,10 +258,22 @@ export const Clientes: React.FC = () => {
                         {client.email}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800`}>
-                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 bg-green-600`}></span>
-                        Ativo
-                      </span>
+                      {client.status === 'Pendente' ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                          <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-amber-500 animate-pulse"></span>
+                          Pendente
+                        </span>
+                      ) : client.status === 'Inativo' ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                          <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-gray-500"></span>
+                          Inativo
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                          <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-green-600"></span>
+                          Ativo
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
@@ -309,11 +321,30 @@ export const Clientes: React.FC = () => {
                     <UserIcon className="w-8 h-8 text-slate-500" />
                  </div>
                  <div className="flex-1 space-y-3">
-                    <div>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div>
                         <h2 className="text-xl font-bold text-gray-900">{selectedClient?.nome} {selectedClient?.sobreNome}</h2>
                         <p className="text-gray-500 flex items-center gap-2">
                             <Mail className="w-4 h-4" /> {selectedClient?.email}
                         </p>
+                      </div>
+
+                      {selectedClient?.status === 'Pendente' ? (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 self-start">
+                          <span className="w-2 h-2 rounded-full mr-2 bg-amber-500 animate-pulse"></span>
+                          Pendente de Aceite
+                        </span>
+                      ) : selectedClient?.status === 'Inativo' ? (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-800 border border-gray-200 self-start">
+                          <span className="w-2 h-2 rounded-full mr-2 bg-gray-500"></span>
+                          Conta Inativa
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200 self-start">
+                          <span className="w-2 h-2 rounded-full mr-2 bg-green-600"></span>
+                          Cliente Ativo
+                        </span>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
