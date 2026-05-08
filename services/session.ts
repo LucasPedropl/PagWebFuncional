@@ -6,6 +6,19 @@ export const sessionService = {
     localStorage.setItem("pagweb_user", JSON.stringify(data.user));
   },
 
+  saveCredentials(email: string, password: string, type: 'client' | 'admin') {
+    sessionStorage.setItem("pagweb_creds", JSON.stringify({ email, password, type }));
+  },
+
+  getCredentials() {
+    const creds = sessionStorage.getItem("pagweb_creds");
+    return creds ? JSON.parse(creds) : null;
+  },
+
+  clearCredentials() {
+    sessionStorage.removeItem("pagweb_creds");
+  },
+
   getSession() {
     const token = localStorage.getItem("pagweb_token");
     const userStr = localStorage.getItem("pagweb_user");
@@ -22,6 +35,7 @@ export const sessionService = {
 
     localStorage.removeItem("pagweb_token");
     localStorage.removeItem("pagweb_user");
+    this.clearCredentials();
     
     // Redirecionamento contextual
     if (isBusinessRoute) {

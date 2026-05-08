@@ -5,11 +5,11 @@ import { parseApiError } from "../utils/formatters";
 
 const BASE_URL = "https://lojas.vlks.com.br/api/v1";
 
-// Helper privado para requisições autenticadas
-const authRequest = async (endpoint: string, options: RequestInit = {}) => {
+// Helper privado para requisições autenticadas com renovação automática
+const authRequest = async (endpoint: string, options: RequestInit = {}, isRetry = false): Promise<Response> => {
   const { token } = sessionService.getSession();
   
-  if (!token) {
+  if (!token && !isRetry) {
     sessionService.logout();
     throw new Error("Sessão inválida. Faça login novamente.");
   }
@@ -23,12 +23,41 @@ const authRequest = async (endpoint: string, options: RequestInit = {}) => {
     headers: {
       "Content-Type": "application/json",
       "accept": "*/*",
-      "Authorization": `Bearer ${token}`,
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
       ...options.headers
     }
   });
 
-  if (response.status === 401) {
+  // Se o token expirou (401), tentamos renovar usando as credenciais salvas
+  if (response.status === 401 && !isRetry) {
+    const creds = sessionService.getCredentials();
+    if (creds) {
+      try {
+        if (creds.type === 'client') {
+            await userService.login(creds.email, creds.password);
+        } else {
+            // Login administrativo direto para evitar dependência circular
+            const loginRes = await fetch(`${BASE_URL}/User/login-admin`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
+                body: JSON.stringify({ email: creds.email, password: creds.password })
+            });
+            if (loginRes.ok) {
+                const data = await loginRes.json();
+                if (data.user) data.user.tipo = 'Empresa';
+                sessionService.setSession(data);
+            } else {
+                throw new Error("Falha na renovação silenciosa");
+            }
+        }
+        // Tenta a requisição original novamente
+        return authRequest(endpoint, options, true);
+      } catch (err) {
+        console.error("Erro na renovação automática de token:", err);
+        sessionService.logout();
+        throw new Error("Sessão expirada. Por favor, faça login novamente.");
+      }
+    }
     sessionService.logout();
     throw new Error("Sessão expirada. Por favor, faça login novamente.");
   }
@@ -112,6 +141,7 @@ export const userService = {
     }
 
     sessionService.setSession(data);
+    sessionService.saveCredentials(email, password, 'client');
     return data;
   },
 

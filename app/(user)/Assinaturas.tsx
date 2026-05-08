@@ -171,6 +171,13 @@ export const Assinaturas: React.FC = () => {
     setIsDetailsModalOpen(true);
   };
 
+  const handleDownloadContract = (path: string) => {
+    if (!path) return;
+    const normalizedPath = path.replace(/\\/g, '/');
+    const fullUrl = `https://lojas.vlks.com.br/${normalizedPath}`;
+    window.open(fullUrl, '_blank');
+  };
+
   const formatDate = (isoStr: string) => {
     try {
         return new Date(isoStr).toLocaleDateString('pt-BR');
@@ -391,7 +398,7 @@ export const Assinaturas: React.FC = () => {
                                 <Button 
                                     variant="outline" 
                                     className="text-slate-600 hover:bg-slate-50 border-gray-200"
-                                    onClick={() => window.open(sub.contratoPath as string, '_blank')}
+                                    onClick={() => handleDownloadContract(sub.contratoPath as string)}
                                     title="Baixar Contrato"
                                 >
                                     <FileText className="w-4 h-4" />
@@ -774,6 +781,23 @@ export const Assinaturas: React.FC = () => {
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {selectedSubForDetails.contratoPath && (
+              <div className="pt-4 border-t border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center">
+                  <FileText className="w-4 h-4 mr-2 text-slate-500" />
+                  Contrato do Plano
+                </h3>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start text-slate-700 border-slate-200 hover:bg-slate-50"
+                  onClick={() => handleDownloadContract(selectedSubForDetails.contratoPath as string)}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Baixar Contrato PDF
+                </Button>
               </div>
             )}
           </div>

@@ -208,7 +208,14 @@ export const Register: React.FC = () => {
       navigate('/activate', { state: navigationState });
 
     } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro ao tentar registrar.');
+      const msg = err.message || '';
+      if (msg.includes('IX_User_Cpf') || msg.includes('duplicate key') && msg.includes('Cpf')) {
+        setError('Este CPF já está cadastrado no sistema.');
+      } else if (msg.includes('IX_User_Email') || (msg.includes('duplicate key') && msg.includes('Email'))) {
+        setError('Este e-mail já está em uso.');
+      } else {
+        setError(msg || 'Ocorreu um erro ao tentar registrar.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -242,15 +249,16 @@ export const Register: React.FC = () => {
             className="w-full text-xs bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100"
             onClick={() => {
               const random = Math.floor(Math.random() * 10000);
+              const randomCPF = `${Math.floor(Math.random() * 900 + 100)}.${Math.floor(Math.random() * 900 + 100)}.${Math.floor(Math.random() * 900 + 100)}-${Math.floor(Math.random() * 90 + 10)}`;
               setFormData(prev => ({
                 ...prev,
                 nome: `Teste ${random}`,
                 sobreNome: `User ${random}`,
-                cpf: '123.456.789-00',
+                cpf: randomCPF,
                 email: `teste${random}@example.com`,
                 password: isBusiness ? '123123' : 'password123',
                 confirmPassword: isBusiness ? '123123' : 'password123',
-                telefone: '(11) 99999-9999',
+                telefone: `(11) 9${Math.floor(Math.random() * 8999 + 1000)}-${Math.floor(Math.random() * 8999 + 1000)}`,
                 companyNome: `Empresa ${random}`,
                 companyCnpj: '12.345.678/0001-00',
                 companyTelefone: '(11) 98888-8888'

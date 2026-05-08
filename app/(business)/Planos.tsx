@@ -156,6 +156,13 @@ export const Planos: React.FC = () => {
     }
   };
 
+  const handleDownloadContract = (path: string) => {
+    if (!path) return;
+    const normalizedPath = path.replace(/\\/g, '/');
+    const fullUrl = `https://lojas.vlks.com.br/${normalizedPath}`;
+    window.open(fullUrl, '_blank');
+  };
+
   return (
     <BusinessLayout>
       <div className="flex justify-between items-start mb-8">
@@ -194,6 +201,15 @@ export const Planos: React.FC = () => {
                         {plan.nome}
                     </h3>
                     <div className="flex gap-2">
+                      {plan.contratoPath && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleDownloadContract(plan.contratoPath!); }}
+                          className="text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors p-1"
+                          title="Baixar Contrato"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                      )}
                       <button 
                         onClick={(e) => openEditModal(plan, e)}
                         className="text-gray-400 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors p-1"
@@ -348,7 +364,7 @@ export const Planos: React.FC = () => {
                     <Button 
                         variant="outline" 
                         className="w-full justify-start text-slate-700 border-slate-200 hover:bg-slate-50"
-                        onClick={() => window.open(selectedPlan.contratoPath as string, '_blank')}
+                        onClick={() => handleDownloadContract(selectedPlan.contratoPath as string)}
                     >
                         <Download className="w-4 h-4 mr-2" />
                         Baixar Contrato PDF

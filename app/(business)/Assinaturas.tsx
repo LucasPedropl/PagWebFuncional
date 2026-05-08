@@ -47,8 +47,7 @@ export const Assinaturas: React.FC = () => {
     idUser: '',
     idPlano: '',
     periodo: '12',
-    dataInicio: new Date().toISOString().split('T')[0], // YYYY-MM-DD
-    dataFim: '',
+    diaPagamento: new Date().getDate().toString(),
     desconto: '0',
     observacao: ''
   });
@@ -106,75 +105,13 @@ export const Assinaturas: React.FC = () => {
   // Lógica para Recorrência: Se for recorrente, período deve ser 0
   useEffect(() => {
       if (isRecurring) {
-          setFormData(prev => ({ ...prev, periodo: '0', dataFim: '' }));
+          setFormData(prev => ({ ...prev, periodo: '0' }));
       } else {
-          // Se desmarcar e estiver 0, volta para o padrão 12
           if (formData.periodo === '0') {
               setFormData(prev => ({ ...prev, periodo: '12' }));
           }
       }
   }, [isRecurring]);
-
-  // Calcula data fim e valida data inicio
-  useEffect(() => {
-    // Se não tiver data ou ela for inválida (ex: usuario limpou o campo)
-    if (!formData.dataInicio) {
-        setFormData(prev => ({ ...prev, dataFim: '' }));
-        setDateWarning(null);
-        return;
-    }
-
-    // 1. Parsing Seguro da Data (YYYY-MM-DD para Data Local)
-    const [year, month, day] = formData.dataInicio.split('-').map(Number);
-    const checkDate = new Date(year, month - 1, day);
-
-    // Validação de Data Inválida (ex: 30 de Fevereiro)
-    if (isNaN(checkDate.getTime()) || checkDate.getMonth() !== month - 1) {
-        setDateWarning({ type: 'warning', message: 'Data inválida.' });
-        setFormData(prev => ({ ...prev, dataFim: '' }));
-        return;
-    }
-
-    // 2. Comparações
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Zerar hora para comparar apenas dias
-
-    const diffTime = checkDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    // Lógica de Aviso
-    if (diffDays < 0) {
-        setDateWarning({ 
-            type: 'error', 
-            message: 'A data inicial não pode ser anterior a hoje.' 
-        });
-    } else if (diffDays > 31) {
-        setDateWarning({ 
-            type: 'warning', 
-            message: 'Atenção: A data selecionada é superior a 31 dias.' 
-        });
-    } else {
-        setDateWarning(null);
-    }
-
-    // 3. Calcular Data Fim (Baseado na Data Inicio Validada e Periodo)
-    // Se for recorrente (periodo 0), não calcula data fim visualmente (backend trata)
-    if (isRecurring || formData.periodo === '0') {
-        setFormData(prev => ({ ...prev, dataFim: '' }));
-        return;
-    }
-
-    const months = parseInt(formData.periodo);
-    if (!isNaN(months) && months > 0) {
-        const end = new Date(checkDate); // Clone da data inicio validada
-        end.setMonth(end.getMonth() + months);
-        
-        // Verifica se a data final é válida
-        if (!isNaN(end.getTime())) {
-            setFormData(prev => ({ ...prev, dataFim: end.toISOString().split('T')[0] }));
-        }
-    }
-  }, [formData.dataInicio, formData.periodo, isRecurring]);
 
   const fetchData = async () => {
     try {
@@ -302,80 +239,34 @@ export const Assinaturas: React.FC = () => {
         return;
     }
 
-    if (!formData.dataInicio) {
-        addToast('error', 'Data Obrigatória', 'Informe a data do primeiro pagamento.');
-        return;
-    }
-
-    // Validação Estrita de Data Passada
-    const [y, m, d] = formData.dataInicio.split('-').map(Number);
-    const selectedDate = new Date(y, m - 1, d);
-    const today = new Date();
-    today.setHours(0,0,0,0);
-
-    if (selectedDate < today) {
-         addToast('error', 'Data Inválida', 'A data inicial não pode ser anterior à data de hoje.');
-         return;
-    }
-
     try {
         setIsSaving(true);
         
-        // Para envio, convertemos para ISO
-        // Re-parsing manual para garantir
-        const [year, month, day] = formData.dataInicio.split('-').map(Number);
-        const startDateObj = new Date(year, month - 1, day);
-        const startIso = startDateObj.toISOString();
-
-        // Data fim
-        let endIso = startIso;
-        
-        if (formData.dataFim && !isRecurring && formData.periodo !== '0') {
-             const [endYear, endMonth, endDay] = formData.dataFim.split('-').map(Number);
-             endIso = new Date(endYear, endMonth - 1, endDay).toISOString();
-        } else if (isRecurring || formData.periodo === '0') {
-             // CORREÇÃO: Para assinaturas recorrentes, o backend exige DataFim > DataInicio.
-             // Definimos uma data distante (100 anos) para representar "indeterminado".
-             const futureDate = new Date(startDateObj);
-             futureDate.setFullYear(futureDate.getFullYear() + 100);
-             endIso = futureDate.toISOString();
-        } else {
-             // Fallback caso não seja recorrente e não tenha data fim (segurança)
-             const nextDay = new Date(startDateObj);
-             nextDay.setDate(nextDay.getDate() + 1);
-             endIso = nextDay.toISOString();
-        }
-
         await businessService.createSubscription({
             idUser: parseInt(formData.idUser),
             idPlano: parseInt(formData.idPlano),
             periodo: parseInt(formData.periodo),
-            dataInicio: startIso,
-            dataFim: endIso,
+            diaPagamento: parseInt(formData.diaPagamento),
             desconto: parseFloat(formData.desconto || '0'),
             observacao: formData.observacao + (isRecurring ? ' [Recorrente]' : '')
         });
 
         addToast('success', 'Sucesso!', 'Assinatura criada com sucesso.');
 
-        // 1. Fecha o modal imediatamente após o sucesso
         setIsModalOpen(false);
 
-        // 2. Limpa o form e o warning
         setFormData({
             idUser: '',
             idPlano: '',
             periodo: '12',
-            dataInicio: new Date().toISOString().split('T')[0],
-            dataFim: '',
+            diaPagamento: new Date().getDate().toString(),
             desconto: '0',
             observacao: ''
         });
         setIsRecurring(false);
-        setClientSearch(''); // Limpa busca de cliente
-        setDateWarning(null); // Garante que o warning suma
+        setClientSearch(''); 
+        setPlanSearch('');
 
-        // 3. Atualiza a lista em background
         await fetchData(); 
 
     } catch (error: any) {
@@ -874,36 +765,26 @@ export const Assinaturas: React.FC = () => {
             </div>
           </div>
 
-          {/* Datas e Desconto (Combinados) */}
+          {/* Dia de Pagamento e Desconto */}
           <div className="grid grid-cols-2 gap-4">
-             <div className="flex flex-col gap-1.5 relative">
-                <label className="text-sm font-medium text-gray-700">Primeiro Pagamento</label>
+             <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-gray-700">Dia de Vencimento</label>
                 <div className="relative">
-                    <input
-                        ref={dateInputRef}
-                        type="date"
-                        name="dataInicio"
-                        value={formData.dataInicio}
-                        min={new Date().toISOString().split('T')[0]} // Impede seleção anterior a hoje
+                    <select
+                        name="diaPagamento"
+                        value={formData.diaPagamento}
                         onChange={handleInputChange}
-                        className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 ${
-                            dateWarning?.type === 'error' ? 'border-red-500 focus:ring-red-200' : 
-                            dateWarning?.type === 'warning' ? 'border-amber-500 focus:ring-amber-200' : 'border-gray-300'
-                        }`}
-                    />
-                    <Calendar 
-                        className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 cursor-pointer" 
-                        onClick={() => dateInputRef.current?.showPicker()}
-                    />
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900"
+                    >
+                        {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                            <option key={day} value={day}>{day}</option>
+                        ))}
+                    </select>
                 </div>
-                {/* Date Warnings */}
-                {dateWarning && (
-                    <div className={`text-xs p-2 rounded flex items-start gap-1.5 ${
-                        dateWarning.type === 'error' ? 'bg-red-50 text-red-700' : 
-                        dateWarning.type === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'
-                    }`}>
-                        <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                        <span>{dateWarning.message}</span>
+                {parseInt(formData.diaPagamento) > 28 && (
+                    <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-amber-600 bg-amber-50 p-2 rounded-md animate-in fade-in slide-in-from-top-1">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>Como você selecionou o dia <strong>{formData.diaPagamento}</strong>, em meses que não possuem esse dia (ex: Fevereiro), o vencimento será ajustado automaticamente para o último dia disponível do mês.</span>
                     </div>
                 )}
              </div>

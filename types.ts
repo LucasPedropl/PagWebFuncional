@@ -110,8 +110,7 @@ export interface SubscriptionPayload {
   idUser: number;
   idPlano: number;
   periodo: number; // em meses
-  dataInicio: string; // ISO String (Corrigido de dataInicial)
-  dataFim: string; // ISO String (Corrigido de dataFinal)
+  diaPagamento: number; // Novo campo: Dia do mês para vencimento
   desconto: number;
   observacao: string;
 }
