@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { Store, MapPin, Mail, FileText, Loader2, LogOut, AlertTriangle, Calendar, CreditCard, Filter, Search } from 'lucide-react';
+import { Store, MapPin, Mail, FileText, Loader2, LogOut, AlertTriangle, Calendar, CreditCard, Filter, Search, Download } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { ClientConnection, ClientSubscription } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -98,15 +98,27 @@ export const Empresas: React.FC = () => {
   };
 
   const confirmSubscription = async () => {
+    if (!selectedPlan) return;
+    
     setIsSubscribing(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubscribing(false);
-      setIsSubscribeModalOpen(false);
+    try {
+      await userService.assinarPlano(selectedPlan.idPlano);
       addToast('success', 'Assinatura Realizada', `Você assinou o ${selectedPlan?.nome} com sucesso!`);
-      // Optionally switch to subscriptions tab to show it (mocked)
+      setIsSubscribeModalOpen(false);
+      
+      // Atualiza os dados para refletir a nova assinatura
+      if (selectedCompany) {
+        const allSubs = await userService.listClientSubscriptions();
+        const filtered = allSubs.filter(sub => sub.nomeEmpresa === selectedCompany.nomeEmpresa);
+        setCompanySubscriptions(filtered);
+      }
+      
       setActiveTab('assinaturas');
-    }, 1500);
+    } catch (error: any) {
+      addToast('error', 'Erro ao assinar', error.message);
+    } finally {
+      setIsSubscribing(false);
+    }
   };
 
   const confirmUnlink = async () => {
@@ -143,6 +155,16 @@ export const Empresas: React.FC = () => {
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  };
+
+  const handleDownloadContract = (path: string) => {
+    if (!path) {
+        addToast('error', 'Indisponível', 'Este plano não possui um contrato digital anexado.');
+        return;
+    }
+    const normalizedPath = path.replace(/\\/g, '/');
+    const fullUrl = `https://lojas.vlks.com.br/${normalizedPath.startsWith('/') ? normalizedPath.substring(1) : normalizedPath}`;
+    window.open(fullUrl, '_blank');
   };
 
   const filteredCompanies = companies.filter(c => {
@@ -404,12 +426,25 @@ export const Empresas: React.FC = () => {
                                             ))}
                                         </ul>
 
-                                        <Button 
-                                            className="w-full bg-slate-900 hover:bg-slate-800 text-white mt-auto"
-                                            onClick={() => handleSubscribeClick(plan)}
-                                        >
-                                            Assinar Agora
-                                        </Button>
+                                         <div className="mt-auto flex flex-col gap-2">
+                                            <Button 
+                                                className="w-full bg-slate-900 hover:bg-slate-800 text-white"
+                                                onClick={() => handleSubscribeClick(plan)}
+                                            >
+                                                Assinar Agora
+                                            </Button>
+                                            
+                                            {plan.contratoPath && (
+                                                <Button 
+                                                    variant="outline" 
+                                                    className="w-full text-slate-600 flex items-center justify-center gap-2"
+                                                    onClick={() => handleDownloadContract(plan.contratoPath)}
+                                                >
+                                                    <Download className="w-4 h-4" />
+                                                    Baixar Contrato
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                                 {companyPlans.length === 0 && (

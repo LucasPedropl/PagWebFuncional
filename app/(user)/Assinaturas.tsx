@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { CheckCircle2, Calendar, CreditCard, Loader2, XCircle, AlertTriangle, Settings, Bell, Mail, MessageSquare, Smartphone, Search, Filter, FileText } from 'lucide-react';
+import { CheckCircle2, Calendar, CreditCard, Loader2, XCircle, AlertTriangle, Settings, Bell, Mail, MessageSquare, Smartphone, Search, Filter, FileText, Download } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { ClientSubscription, SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -401,7 +401,7 @@ export const Assinaturas: React.FC = () => {
                                     onClick={() => handleDownloadContract(sub.contratoPath as string)}
                                     title="Baixar Contrato"
                                 >
-                                    <FileText className="w-4 h-4" />
+                                    <Download className="w-4 h-4" />
                                 </Button>
                             )}
                             <Button 

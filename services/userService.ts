@@ -469,5 +469,16 @@ export const userService = {
           const msg = await parseApiError(response);
           throw new Error(msg || "Falha ao processar pagamento.");
       }
+  },
+
+  async assinarPlano(idPlano: number): Promise<void> {
+    const response = await authRequest(`/User/assinar-plano/${idPlano}`, {
+      method: 'POST'
+    });
+
+    if (!response.ok) {
+      const msg = await parseApiError(response);
+      throw new Error(msg || "Falha ao assinar plano.");
+    }
   }
 };

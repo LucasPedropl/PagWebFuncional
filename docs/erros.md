@@ -4,20 +4,29 @@ Este documento lista os problemas identificados no sistema que precisam de corre
 
 ## Pendentes
 
-### 1. NullReferenceException na Criação de Assinaturas (Backend)
+### 1. Falso Sucesso na Ativação de Assinatura (Backend)
 - **Arquivo:** `api/PagWebV1/Services/UserService.cs`
-- **Método:** `CreateAssinaturaAsync`
-- **Sintoma:** Erro 500 ao tentar cadastrar assinaturas quando o dia de pagamento está próximo (dentro de 7 dias) da data atual.
+- **Método:** `UpdateStatusAssinaturaClienteAsync`
+- **Sintoma:** Ao tentar ativar uma assinatura pendente via PATCH, a API retorna "Status atualizado com sucesso", mas o status permanece "Pendente".
 - **Causa Raiz:** 
-    - O código tenta acessar `assinatura.Plano.ValorMensalidade`. Como o objeto `assinatura` foi recém-criado, a propriedade de navegação `Plano` é nula.
-    - Existe também um acesso prematuro a `userconfig.Notificacoes` na linha ~1867 antes da verificação de nulidade na linha ~1872.
-- **Como Resolver:**
-    - Substituir as chamadas de `assinatura.Plano.ValorMensalidade` pela variável local `plano.ValorMensalidade` (que já possui os dados carregados).
-    - Mover a lógica das variáveis `deveNotificarGeral`, `deveEnviarEmail` e `deveEnviarWhats` para depois do check `if (userconfig == null)`.
+    - Existe uma trava: `if (hojeSete.Date >= dataInicio)`. Se a assinatura começa em mais de 7 dias, a condição falha e o status não é alterado.
+    - O método não possui um `else` para essa condição e retorna `true` no final de qualquer maneira.
+- **Como Resolver:** Retornar `false` caso a condição de data não seja atendida, ou permitir a ativação imediata ignorando a trava de 7 dias. No Controller, tratar o retorno `false` com uma mensagem explicativa (ex: "Assinatura só pode ser ativada 7 dias antes do início").
 
-### 2. Funcionalidades do Plano não são salvas (Backend)
+### 2. Data Final Inválida (0001-01-01) em Assinaturas
 - **Arquivo:** `api/PagWebV1/Services/UserService.cs`
-- **Método:** `CreatePlanoAsync`
-- **Sintoma:** Ao criar um plano, a lista de funcionalidades enviada no DTO é ignorada e o plano é salvo com uma lista vazia.
-- **Causa Raiz:** O método `CreatePlanoAsync` recebe a lista no DTO, mas não faz a atribuição `plano.Funcionalidades = dto.Funcionalidades` antes de salvar.
-- **Como Resolver:** Adicionar a atribuição da lista de funcionalidades ao objeto `Plano` antes do `_context.SaveChangesAsync()`.
+- **Método:** `CreateAssinaturaAsync` / `GetAssinaturasPorClienteAsync`
+- **Sintoma:** O GET de assinaturas retorna `"dataFim": "0001-01-01T00:00:00"`.
+- **Causa Raiz:** 
+    - No método de criação, a `DataFim` só é calculada `if (dto.Periodo > 0)`. 
+    - Se o usuário envia `periodo: 0`, a data permanece como o valor mínimo do sistema.
+- **Como Resolver:** 
+    - No `CreateAssinaturaAsync`, definir um comportamento padrão para `periodo: 0` (ex: considerar como assinatura contínua e definir uma data distante ou nula, se o banco permitir).
+    - No `GetAssinaturasPorClienteAsync`, tratar datas mínimas para exibir algo amigável no frontend (ex: "Recorrente").
+
+### 3. Impossibilidade de Cancelar Assinatura Pendente (Cliente)
+- **Arquivo:** `api/PagWebV1/Services/UserService.cs`
+- **Método:** `UpdateStatusAssinaturaClienteAsync`
+- **Sintoma:** Um cliente não consegue cancelar uma assinatura que ainda está com status "Pendente" através do endpoint de toggle.
+- **Causa Raiz:** A lógica de cancelamento (`assinatura.Status = AssinaturaStatus.Cancelado`) está restrita ao bloco `if (assinatura.Status == AssinaturaStatus.Ativo)`. Se o status for `Pendente`, o código tenta apenas ativar.
+- **Como Resolver:** Expandir a lógica de toggle para permitir que assinaturas no estado `Pendente` também possam ser movidas para `Cancelado`.
