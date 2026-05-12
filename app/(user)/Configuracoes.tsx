@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { formatPhone } from '../../utils/formatters';
 import { useToast } from '../../context/ToastContext';
 import { NotificationSettings } from '../../types';
+import { getImageUrl } from '../../utils/api';
 
 export const Configuracoes: React.FC = () => {
   const { addToast } = useToast();
@@ -258,7 +259,7 @@ export const Configuracoes: React.FC = () => {
                             <div className="flex items-center gap-4 mt-2">
                                 <div className="w-16 h-16 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center shrink-0">
                                     {profileData.fotoPerfilUrl ? (
-                                        <img src={profileData.fotoPerfilUrl} alt="Foto de Perfil" className="w-full h-full object-cover" />
+                                        <img src={getImageUrl(profileData.fotoPerfilUrl)} alt="Foto de Perfil" className="w-full h-full object-cover" />
                                     ) : (
                                         <UserIcon className="w-8 h-8 text-gray-300" />
                                     )}

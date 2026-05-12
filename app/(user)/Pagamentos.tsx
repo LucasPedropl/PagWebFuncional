@@ -225,6 +225,9 @@ export const Pagamentos: React.FC = () => {
           setPaymentSuccess(true);
           addToast('success', 'Pagamento Confirmado', 'Sua fatura foi quitada com sucesso!');
           
+          // Notificar Sidebar para atualizar badges
+          window.dispatchEvent(new CustomEvent('pagweb:refresh-counts'));
+          
           // Atualiza lista em background
           await fetchInvoices();
       } catch (error: any) {

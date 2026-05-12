@@ -85,6 +85,10 @@ export const Assinaturas: React.FC = () => {
       setIsAccepting(idAssinatura);
       await userService.acceptSubscription(idAssinatura);
       addToast('success', 'Sucesso', 'Assinatura aceita com sucesso.');
+      
+      // Notificar Sidebar para atualizar badges
+      window.dispatchEvent(new CustomEvent('pagweb:refresh-counts'));
+      
       await fetchSubscriptions();
     } catch (error: any) {
       addToast('error', 'Erro', error.message);
@@ -104,6 +108,10 @@ export const Assinaturas: React.FC = () => {
           setIsProcessing(true);
           await userService.cancelSubscription(subToCancel.idAssinatura);
           addToast('success', 'Assinatura Cancelada', 'Sua assinatura foi cancelada com sucesso.');
+          
+          // Notificar Sidebar para atualizar badges
+          window.dispatchEvent(new CustomEvent('pagweb:refresh-counts'));
+          
           await fetchSubscriptions();
           setIsCancelModalOpen(false);
           setSubToCancel(null);
@@ -362,11 +370,11 @@ export const Assinaturas: React.FC = () => {
                     <div>
                         <h3 className="text-lg font-bold text-gray-900">{sub.nomePlano}</h3>
                         <p className="text-sm text-gray-500">{sub.nomeEmpresa}</p>
-                        <div className="flex items-center gap-3 mt-2 text-sm">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm">
                             <span className={`flex items-center font-medium ${sub.status === 'Ativo' ? 'text-green-600' : 'text-gray-600'}`}>
                                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> {sub.status}
                             </span>
-                            <span className="text-gray-400">•</span>
+                            <span className="text-gray-400 hidden sm:inline">•</span>
                             <span className="text-gray-600 flex items-center gap-1">
                                 <Calendar className="w-3.5 h-3.5" /> 
                                 {sub.dataFim && sub.dataFim.startsWith('0001-01-01') 
@@ -374,6 +382,11 @@ export const Assinaturas: React.FC = () => {
                                     : `Expira em ${formatDate(sub.dataFim)}`
                                 }
                             </span>
+                            {/* Ícones de Notificação */}
+                            <div className="flex items-center gap-2 ml-auto sm:ml-0 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+                                <Mail className={`w-3 h-3 ${sub.status === 'Ativo' ? 'text-blue-500' : 'text-gray-300'}`} title="Notificações por E-mail ativas" />
+                                <MessageSquare className={`w-3 h-3 ${sub.status === 'Ativo' ? 'text-green-500' : 'text-gray-300'}`} title="Notificações por WhatsApp ativas" />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -659,9 +672,14 @@ export const Assinaturas: React.FC = () => {
                 )}
                 
                 {savedCards.length === 0 && (
-                  <div className="p-4 border border-dashed border-gray-300 rounded-lg text-center">
-                    <p className="text-sm text-gray-500 mb-2">Nenhum cartão de crédito salvo.</p>
-                    <Button variant="outline" size="sm" onClick={() => window.location.href = '/user/pagamentos/metodos'}>
+                  <div className="p-6 border border-dashed border-gray-300 rounded-lg flex flex-col items-center text-center bg-gray-50/50">
+                    <p className="text-sm text-gray-500 mb-4">Nenhum cartão de crédito salvo.</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => window.location.href = '/#/metodos-pagamento'}
+                      className="px-8"
+                    >
                       Adicionar Cartão
                     </Button>
                   </div>
@@ -770,11 +788,11 @@ export const Assinaturas: React.FC = () => {
               </div>
             </div>
 
-            {selectedSubForDetails.beneficios && selectedSubForDetails.beneficios.length > 0 && (
+            {(selectedSubForDetails.beneficios || (selectedSubForDetails as any).funcionalidades) && (
               <div className="pt-4 border-t border-gray-100">
                 <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3">Benefícios do Plano</h3>
                 <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {selectedSubForDetails.beneficios.map((beneficio, idx) => (
+                  {(selectedSubForDetails.beneficios || (selectedSubForDetails as any).funcionalidades).map((beneficio: any, idx: number) => (
                     <li key={idx} className="flex items-start text-sm text-gray-700">
                       <CheckCircle2 className="w-4 h-4 text-green-500 mr-2 shrink-0 mt-0.5" />
                       <span>{beneficio}</span>

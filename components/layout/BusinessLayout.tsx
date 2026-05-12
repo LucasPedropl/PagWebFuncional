@@ -21,6 +21,7 @@ import {
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
 import { AppNotification } from '../../types';
+import { getImageUrl } from '../../utils/api';
 
 interface BusinessLayoutProps {
   children: React.ReactNode;
@@ -363,7 +364,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
               </div>
               <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 font-bold border border-gray-200 shadow-sm overflow-hidden">
                 {userProfile?.fotoPerfilPath ? (
-                    <img src={userProfile.fotoPerfilPath} alt="Perfil" className="w-full h-full object-cover" />
+                    <img src={getImageUrl(userProfile.fotoPerfilPath)} alt="Perfil" className="w-full h-full object-cover" />
                 ) : (
                     userProfile?.nome?.charAt(0).toUpperCase() || 'A'
                 )}

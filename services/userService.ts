@@ -320,9 +320,8 @@ export const userService = {
   },
 
   async acceptSubscription(idAssinatura: number): Promise<void> {
-    const response = await authRequest(`/User/minha-assinatura/${idAssinatura}`, {
-      method: 'PATCH',
-      body: JSON.stringify("string")
+    const response = await authRequest(`/User/minha-assinatura/${idAssinatura}/true`, {
+      method: 'PATCH'
     });
     if (!response.ok) {
       const msg = await parseApiError(response);
@@ -445,9 +444,8 @@ export const userService = {
   },
 
   async cancelSubscription(idAssinatura: number): Promise<void> {
-    // Nota: Assumindo endpoint de update status ou delete lógico
-    const response = await authRequest(`/Assinatura/${idAssinatura}`, {
-        method: 'DELETE' // Ou PATCH se for apenas mudar status
+    const response = await authRequest(`/User/minha-assinatura/${idAssinatura}/false`, {
+      method: 'PATCH'
     });
     if (!response.ok) {
         const msg = await parseApiError(response);

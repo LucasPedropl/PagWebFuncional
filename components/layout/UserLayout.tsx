@@ -16,11 +16,13 @@ import {
   Check,
   Info,
   AlertTriangle,
-  Compass
+  Compass,
+  BarChart3
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
 import { AppNotification } from '../../types';
+import { getImageUrl } from '../../utils/api';
 
 interface UserLayoutProps {
   children: React.ReactNode;
@@ -59,6 +61,28 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     fetchPendingCounts();
   }, [location.pathname]);
 
+  // Polling e Eventos em tempo real
+  useEffect(() => {
+    // 1. Polling a cada 30 segundos para pegar mudanças externas
+    const interval = setInterval(() => {
+      fetchPendingCounts();
+      fetchNotifications();
+    }, 30000);
+
+    // 2. Listener para eventos manuais de atualização imediata
+    const handleRefresh = () => {
+      fetchPendingCounts();
+      fetchNotifications();
+    };
+
+    window.addEventListener('pagweb:refresh-counts', handleRefresh);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('pagweb:refresh-counts', handleRefresh);
+    };
+  }, []);
+
   const fetchPendingCounts = async () => {
     try {
       const [connections, subs, invoices] = await Promise.all([
@@ -66,9 +90,18 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
         userService.listClientSubscriptions(),
         userService.listClientInvoices()
       ]);
-      setPendingConnectionsCount(connections.filter(c => c.status === 'Pendente').length);
-      setPendingSubscriptionsCount(subs.filter(s => s.status === 'Pendente').length);
-      setPendingInvoicesCount(invoices.filter(i => i.status === 'Aberto' || i.status === 'Atrasado').length);
+      
+      // Filtrar conexões pendentes
+      const connectionsData = Array.isArray(connections) ? connections : [];
+      setPendingConnectionsCount(connectionsData.filter(c => c.status === 'Pendente').length);
+      
+      // Filtrar assinaturas pendentes
+      const subsData = Array.isArray(subs) ? subs : [];
+      setPendingSubscriptionsCount(subsData.filter(s => s.status === 'Pendente').length);
+      
+      // Filtrar faturas em aberto ou atrasadas
+      const invoicesData = Array.isArray(invoices) ? invoices : [];
+      setPendingInvoicesCount(invoicesData.filter(i => i.status === 'Aberto' || i.status === 'Atrasado').length);
     } catch (error) {
       console.error("Erro ao carregar contagens pendentes", error);
     }
@@ -174,6 +207,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: Store, label: 'Estabelecimentos', path: '/empresas', badge: pendingConnectionsCount }, 
     { icon: CreditCard, label: 'Assinaturas', path: '/assinaturas', badge: pendingSubscriptionsCount },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos', badge: pendingInvoicesCount }, 
+    { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
     { icon: CreditCard, label: 'Cartões', path: '/metodos-pagamento' },
   ];
 
@@ -184,6 +218,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: Store, label: 'Estabelec.', path: '/empresas', badge: pendingConnectionsCount },
     { icon: CreditCard, label: 'Assin.', path: '/assinaturas', badge: pendingSubscriptionsCount },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos', badge: pendingInvoicesCount },
+    { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
     { icon: MenuIcon, label: 'Menu', path: '/menu' },
   ];
 
@@ -387,7 +422,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
                </span>
                <div className="w-8 h-8 rounded-full border border-gray-200 overflow-hidden bg-gray-100 flex items-center justify-center shrink-0 shadow-sm">
                   {userProfile?.fotoPerfilPath ? (
-                      <img src={userProfile.fotoPerfilPath} alt="Perfil" className="w-full h-full object-cover" />
+                      <img src={getImageUrl(userProfile.fotoPerfilPath)} alt="Perfil" className="w-full h-full object-cover" />
                   ) : (
                       <span className="text-xs font-bold text-gray-500">
                           {userProfile?.nome?.charAt(0).toUpperCase() || 'U'}

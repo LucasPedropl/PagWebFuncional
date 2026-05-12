@@ -8,6 +8,7 @@ import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, X
 import { businessService } from '../../services/businessService';
 import { PlanResponse, SubscriptionResponse, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
+import { InfoTooltip } from '../../components/ui/InfoTooltip';
 
 export const Assinaturas: React.FC = () => {
   const { addToast } = useToast();
@@ -768,7 +769,10 @@ export const Assinaturas: React.FC = () => {
           {/* Dia de Pagamento e Desconto */}
           <div className="grid grid-cols-2 gap-4">
              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-gray-700">Dia de Vencimento</label>
+                <label className="text-sm font-medium text-gray-700 flex items-center">
+                    Dia do Fechamento
+                    <InfoTooltip text="É o dia em que a fatura fecha. O vencimento dela ocorre 7 dias após a data de fechamento." />
+                </label>
                 <div className="relative">
                     <select
                         name="diaPagamento"
@@ -784,7 +788,7 @@ export const Assinaturas: React.FC = () => {
                 {parseInt(formData.diaPagamento) > 28 && (
                     <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-amber-600 bg-amber-50 p-2 rounded-md animate-in fade-in slide-in-from-top-1">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>Como você selecionou o dia <strong>{formData.diaPagamento}</strong>, em meses que não possuem esse dia (ex: Fevereiro), o vencimento será ajustado automaticamente para o último dia disponível do mês.</span>
+                        <span>Como você selecionou o dia <strong>{formData.diaPagamento}</strong>, em meses que não possuem esse dia (ex: Fevereiro), o fechamento será ajustado automaticamente para o último dia disponível do mês.</span>
                     </div>
                 )}
              </div>

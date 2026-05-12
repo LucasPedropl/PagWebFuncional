@@ -4,7 +4,7 @@ import { UserLayout } from '../../components/layout/UserLayout';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
 import { Button } from '../../components/ui/Button';
-import { Store, CreditCard, Receipt, ArrowRight, Loader2, Calendar, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { Store, CreditCard, Receipt, ArrowRight, Loader2, Calendar, AlertTriangle, CheckCircle2, Clock, BarChart3 } from 'lucide-react';
 import { User, ClientInvoice } from '../../types';
 import { useNavigate } from 'react-router-dom';
 
@@ -118,7 +118,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
          <div 
             className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer group"
             onClick={() => navigate('/assinaturas')}
@@ -172,6 +172,22 @@ export const Dashboard: React.FC = () => {
                 ) : (
                     <span className="flex items-center">Histórico financeiro <ArrowRight className="w-3 h-3 ml-1" /></span>
                 )}
+            </p>
+         </div>
+
+         <div 
+            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer group"
+            onClick={() => navigate('/relatorios')}
+         >
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-gray-500 text-sm font-medium">Análise Financeira</h3>
+                <div className="bg-purple-100 p-2 rounded-lg group-hover:bg-purple-200 transition-colors">
+                    <BarChart3 className="w-5 h-5 text-purple-600" />
+                </div>
+            </div>
+            <div className="text-2xl font-bold text-gray-900">Relatórios</div>
+            <p className="text-xs text-gray-400 mt-2 flex items-center">
+                Ver estatísticas de gastos <ArrowRight className="w-3 h-3 ml-1" />
             </p>
          </div>
       </div>

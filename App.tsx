@@ -8,6 +8,7 @@ import { Dashboard as UserDashboard } from './app/(user)/Dashboard';
 import { Empresas as UserEmpresas } from './app/(user)/Empresas';
 import { Assinaturas as UserAssinaturas } from './app/(user)/Assinaturas';
 import { Pagamentos as UserPagamentos } from './app/(user)/Pagamentos';
+import { Relatorios as UserRelatorios } from './app/(user)/Relatorios';
 import { MetodosPagamento as UserMetodosPagamento } from './app/(user)/MetodosPagamento';
 import { Configuracoes as UserConfiguracoes } from './app/(user)/Configuracoes';
 import { MenuMobile as UserMenuMobile } from './app/(user)/MenuMobile';
@@ -111,6 +112,14 @@ const App: React.FC = () => {
             element={
               <ClientRoute>
                 <UserPagamentos />
+              </ClientRoute>
+            } 
+          />
+          <Route 
+            path="/relatorios" 
+            element={
+              <ClientRoute>
+                <UserRelatorios />
               </ClientRoute>
             } 
           />

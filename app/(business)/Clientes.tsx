@@ -410,11 +410,12 @@ export const Clientes: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         title={successEmail ? "Convite Enviado" : "Conectar Novo Cliente"}
         size="md"
+        onSubmit={!successEmail ? (e) => { e.preventDefault(); handleConnect(); } : undefined}
         footer={
           !successEmail ? (
             <>
-              <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancelar</Button>
-              <Button onClick={handleConnect} isLoading={isSaving} className="bg-slate-900 hover:bg-slate-800">
+              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancelar</Button>
+              <Button type="submit" isLoading={isSaving} className="bg-slate-900 hover:bg-slate-800">
                 <Send className="w-4 h-4 mr-2" />
                 Enviar Convite
               </Button>

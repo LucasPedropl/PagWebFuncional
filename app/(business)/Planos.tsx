@@ -379,10 +379,11 @@ export const Planos: React.FC = () => {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         title={selectedPlan ? "Editar Plano" : "Novo Plano"}
+        onSubmit={(e) => { e.preventDefault(); handleSave(); }}
         footer={
           <>
-            <Button variant="outline" onClick={() => setIsEditModalOpen(false)} disabled={isSaving}>Cancelar</Button>
-            <Button onClick={handleSave} isLoading={isSaving} className="bg-slate-900 hover:bg-slate-800">
+            <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} disabled={isSaving}>Cancelar</Button>
+            <Button type="submit" isLoading={isSaving} className="bg-slate-900 hover:bg-slate-800">
                 {selectedPlan ? "Salvar Alterações" : "Criar Plano"}
             </Button>
           </>
@@ -395,6 +396,7 @@ export const Planos: React.FC = () => {
             name="nome"
             value={formData.nome}
             onChange={handleInputChange}
+            required
           />
           
           <div className="flex items-end gap-4">
@@ -407,6 +409,7 @@ export const Planos: React.FC = () => {
                 name="valorMensalidade"
                 value={formData.valorMensalidade}
                 onChange={handleInputChange}
+                required
               />
             </div>
           </div>
@@ -481,11 +484,12 @@ export const Planos: React.FC = () => {
         onClose={() => setIsDeleteModalOpen(false)}
         title="Excluir Plano"
         size="md"
+        onSubmit={(e) => { e.preventDefault(); confirmDelete(); }}
         footer={
           <>
-            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)} disabled={isSaving}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => setIsDeleteModalOpen(false)} disabled={isSaving}>Cancelar</Button>
             <Button 
-                onClick={confirmDelete} 
+                type="submit"
                 isLoading={isSaving} 
                 className="bg-red-600 hover:bg-red-700 text-white"
             >

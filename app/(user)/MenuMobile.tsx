@@ -11,7 +11,8 @@ import {
   ChevronRight,
   LogOut,
   User,
-  Compass
+  Compass,
+  BarChart3
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 
@@ -24,6 +25,7 @@ export const MenuMobile: React.FC = () => {
     { icon: Store, label: 'Estabelecimentos', path: '/empresas' },
     { icon: CreditCard, label: 'Minhas Assinaturas', path: '/assinaturas' },
     { icon: Receipt, label: 'Minhas Faturas', path: '/pagamentos' }, 
+    { icon: BarChart3, label: 'Relatórios Financeiros', path: '/relatorios' },
     { icon: CreditCard, label: 'Métodos de Pagamento', path: '/metodos-pagamento' },
     { icon: Settings, label: 'Configurações da Conta', path: '/configuracoes' },
   ];

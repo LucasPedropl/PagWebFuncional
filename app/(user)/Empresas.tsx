@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { Store, MapPin, Mail, FileText, Loader2, LogOut, AlertTriangle, Calendar, CreditCard, Filter, Search, Download } from 'lucide-react';
+import { Store, MapPin, Mail, FileText, Loader2, LogOut, AlertTriangle, Calendar, CreditCard, Filter, Search, Download, Info } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { ClientConnection, ClientSubscription } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -56,6 +56,10 @@ export const Empresas: React.FC = () => {
       setIsAccepting(idEmpresa);
       await userService.acceptConnection(idEmpresa);
       addToast('success', 'Sucesso', 'Conexão aceita com sucesso.');
+      
+      // Notificar Sidebar para atualizar badges
+      window.dispatchEvent(new CustomEvent('pagweb:refresh-counts'));
+      
       await fetchConnections();
     } catch (error: any) {
       addToast('error', 'Erro', error.message);
@@ -134,6 +138,10 @@ export const Empresas: React.FC = () => {
           setIsProcessing(true);
           await userService.unlinkCompany(companyToUnlink.idEmpresa);
           addToast('success', 'Sucesso', 'Vínculo com o estabelecimento removido.');
+          
+          // Notificar Sidebar para atualizar badges
+          window.dispatchEvent(new CustomEvent('pagweb:refresh-counts'));
+          
           await fetchConnections();
           setIsUnlinkModalOpen(false);
           setCompanyToUnlink(null);
@@ -353,7 +361,7 @@ export const Empresas: React.FC = () => {
         }
       >
         {selectedCompany && (
-            <div className="space-y-6">
+            <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
                 <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
                     <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center text-slate-700 font-bold text-2xl uppercase border border-gray-200 shadow-sm">
                         {selectedCompany.nomeEmpresa.substring(0,2)}
@@ -407,43 +415,45 @@ export const Empresas: React.FC = () => {
                             </h4>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {companyPlans.map((plan) => (
-                                    <div key={plan.idPlano} className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col hover:shadow-md transition-shadow relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 rounded-bl-full -z-10"></div>
-                                        <h5 className="text-lg font-bold text-gray-900 mb-1">{plan.nome}</h5>
-                                        <p className="text-sm text-gray-500 mb-4 h-10">Assine agora para obter acesso ao sistema do estabelecimento.</p>
+                                    <div key={plan.idPlano} className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col hover:shadow-md transition-shadow relative overflow-hidden h-[300px]">
+                                        <div className="absolute top-0 right-0 w-12 h-12 bg-slate-50 rounded-bl-full -z-10"></div>
                                         
-                                        <div className="mb-4">
-                                            <span className="text-2xl font-extrabold text-gray-900">R$ {(plan.valorMensalidade || 0).toFixed(2).replace('.', ',')}</span>
-                                            <span className="text-sm text-gray-500">/mês</span>
+                                        <div className="flex justify-between items-start">
+                                            <h5 className="text-sm font-bold text-gray-900 leading-tight line-clamp-1">{plan.nome}</h5>
+                                            {plan.contratoPath && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleDownloadContract(plan.contratoPath); }}
+                                                    className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                                                    title="Baixar Contrato PDF"
+                                                >
+                                                    <Download className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
                                         </div>
 
-                                        <ul className="space-y-2 mb-6 flex-grow">
-                                            {plan.funcionalidades?.map((func: string, idx: number) => (
-                                                <li key={idx} className="flex items-start text-sm text-gray-700">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-500 mt-1.5 mr-2 shrink-0"></div>
-                                                    <span>{func}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
+                                        <div className="mt-1 mb-2">
+                                            <span className="text-lg font-extrabold text-gray-900">R$ {(plan.valorMensalidade || 0).toFixed(2).replace('.', ',')}</span>
+                                            <span className="text-[10px] text-gray-500 ml-1">/mês</span>
+                                        </div>
 
-                                         <div className="mt-auto flex flex-col gap-2">
+                                        <div className="flex-grow overflow-y-auto mb-3 pr-1 custom-scrollbar">
+                                            <ul className="space-y-1">
+                                                {plan.funcionalidades?.map((func: string, idx: number) => (
+                                                    <li key={idx} className="flex items-start text-[12px] text-gray-600 leading-tight">
+                                                        <div className="w-1 h-1 rounded-full bg-slate-400 mt-1.5 mr-2 shrink-0"></div>
+                                                        <span>{func}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+
+                                         <div className="mt-auto">
                                             <Button 
-                                                className="w-full bg-slate-900 hover:bg-slate-800 text-white"
+                                                className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs py-2 h-9"
                                                 onClick={() => handleSubscribeClick(plan)}
                                             >
                                                 Assinar Agora
                                             </Button>
-                                            
-                                            {plan.contratoPath && (
-                                                <Button 
-                                                    variant="outline" 
-                                                    className="w-full text-slate-600 flex items-center justify-center gap-2"
-                                                    onClick={() => handleDownloadContract(plan.contratoPath)}
-                                                >
-                                                    <Download className="w-4 h-4" />
-                                                    Baixar Contrato
-                                                </Button>
-                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -563,6 +573,20 @@ export const Empresas: React.FC = () => {
                         <span className="text-lg font-bold text-slate-900">R$ {(selectedPlan.valorMensalidade || 0).toFixed(2).replace('.', ',')}</span>
                     </div>
                 </div>
+
+                {selectedPlan.funcionalidades && selectedPlan.funcionalidades.length > 0 && (
+                    <div className="mt-4">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">O que está incluso:</p>
+                        <ul className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+                            {selectedPlan.funcionalidades.map((func: string, idx: number) => (
+                                <li key={idx} className="flex items-start text-xs text-gray-600">
+                                    <div className="w-1 h-1 rounded-full bg-slate-400 mt-1.5 mr-2 shrink-0"></div>
+                                    <span>{func}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
                 <p className="text-xs text-gray-400 text-center mt-4">
                     Ao confirmar, você concorda com os termos de serviço e autoriza a cobrança recorrente no método de pagamento padrão.

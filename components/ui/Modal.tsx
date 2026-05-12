@@ -8,6 +8,7 @@ interface ModalProps {
   children: React.ReactNode;
   footer?: React.ReactNode;
   size?: 'md' | 'lg' | 'xl' | '2xl' | '3xl';
+  onSubmit?: (e: React.FormEvent) => void;
 }
 
 export const Modal: React.FC<ModalProps> = ({ 
@@ -16,7 +17,8 @@ export const Modal: React.FC<ModalProps> = ({
   title, 
   children, 
   footer,
-  size = 'md' 
+  size = 'md',
+  onSubmit
 }) => {
   useEffect(() => {
     if (isOpen) {
@@ -39,6 +41,8 @@ export const Modal: React.FC<ModalProps> = ({
     '3xl': 'max-w-6xl'
   };
 
+  const ContentWrapper = onSubmit ? 'form' : 'div';
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
@@ -49,13 +53,17 @@ export const Modal: React.FC<ModalProps> = ({
         />
 
         {/* Modal Panel */}
-        <div className={`relative transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all sm:my-8 w-full ${sizeClasses[size]}`}>
+        <ContentWrapper 
+          onSubmit={onSubmit}
+          className={`relative transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all sm:my-8 w-full ${sizeClasses[size]}`}
+        >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <h3 className="text-lg font-semibold leading-6 text-gray-900">
               {title}
             </h3>
             <button
+              type="button"
               onClick={onClose}
               className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none"
             >
@@ -74,7 +82,7 @@ export const Modal: React.FC<ModalProps> = ({
               {footer}
             </div>
           )}
-        </div>
+        </ContentWrapper>
       </div>
     </div>
   );

@@ -206,7 +206,7 @@ export const Landing: React.FC = () => {
             transition={{ duration: 0.7, delay: 0.3 }}
             className="flex flex-col sm:flex-row gap-4 justify-center"
           >
-            <Button size="lg" className="bg-slate-100 hover:bg-white text-slate-900 px-8 text-lg rounded-full h-14 shadow-xl shadow-white/5 transition-all hover:scale-105" onClick={() => { document.getElementById('estabelecimentos')?.scrollIntoView({ behavior: 'smooth' }) }}>
+            <Button size="lg" className="bg-blue-600 hover:bg-blue-500 text-white px-8 text-lg rounded-full h-14 shadow-xl shadow-blue-500/20 transition-all hover:scale-105 border-none" onClick={() => { document.getElementById('estabelecimentos')?.scrollIntoView({ behavior: 'smooth' }) }}>
               Encontrar Empresas <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </motion.div>

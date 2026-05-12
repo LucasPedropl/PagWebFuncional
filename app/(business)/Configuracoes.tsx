@@ -10,6 +10,7 @@ import { NotificationSettings } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../context/ToastContext';
 import { formatCNPJ, formatPhone } from '../../utils/formatters';
+import { getImageUrl } from '../../utils/api';
 
 export const Configuracoes: React.FC = () => {
   const { addToast } = useToast();
@@ -339,7 +340,7 @@ export const Configuracoes: React.FC = () => {
                             <div className="flex items-center gap-4 mt-2">
                                 <div className="w-16 h-16 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center shrink-0">
                                     {profileData.fotoPerfilUrl ? (
-                                        <img src={profileData.fotoPerfilUrl} alt="Foto de Perfil" className="w-full h-full object-cover" />
+                                        <img src={getImageUrl(profileData.fotoPerfilUrl)} alt="Foto de Perfil" className="w-full h-full object-cover" />
                                     ) : (
                                         <UserIcon className="w-8 h-8 text-gray-300" />
                                     )}
@@ -373,7 +374,7 @@ export const Configuracoes: React.FC = () => {
                         <div className="flex items-center gap-6 pb-6 border-b border-gray-100">
                             <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200 overflow-hidden">
                                 {companyData.logoUrl ? (
-                                  <img src={companyData.logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                                  <img src={getImageUrl(companyData.logoUrl)} alt="Logo" className="w-full h-full object-cover" />
                                 ) : (
                                   <Store className="w-8 h-8 text-gray-400" />
                                 )}
