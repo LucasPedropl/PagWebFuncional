@@ -302,6 +302,8 @@ export const Configuracoes: React.FC = () => {
                                 disabled 
                                 className="bg-gray-50 text-gray-500 cursor-not-allowed" 
                             />
+                        </div>
+                        <div className="max-w-md">
                             <PhoneInput 
                                 label="Telefone" 
                                 ddi={profileData.ddi}

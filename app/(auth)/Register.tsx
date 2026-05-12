@@ -6,7 +6,7 @@ import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { formatCNPJ, formatCPF, formatPhone } from '../../utils/formatters';
-import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Store } from 'lucide-react';
 import { PhoneInput } from '../../components/ui/PhoneInput';
 
 export const Register: React.FC = () => {
@@ -41,6 +41,7 @@ export const Register: React.FC = () => {
     companyTelefone: '',
     companyLogo: null as File | null,
     fotoPerfilUrl: '',
+    companyLogoUrl: '',
     ddi: '55',
     companyDdi: '55'
   });
@@ -49,13 +50,21 @@ export const Register: React.FC = () => {
     const name = e.target.name;
     const file = e.target.files?.[0] || null;
     
-    if (file && name === 'fotoPerfil') {
+    if (file) {
         const previewUrl = URL.createObjectURL(file);
-        setFormData(prev => ({
-          ...prev,
-          [name]: file,
-          fotoPerfilUrl: previewUrl
-        }));
+        if (name === 'fotoPerfil') {
+            setFormData(prev => ({
+              ...prev,
+              [name]: file,
+              fotoPerfilUrl: previewUrl
+            }));
+        } else if (name === 'companyLogo') {
+            setFormData(prev => ({
+              ...prev,
+              [name]: file,
+              companyLogoUrl: previewUrl
+            }));
+        }
     } else {
         setFormData(prev => ({
           ...prev,
@@ -328,7 +337,7 @@ export const Register: React.FC = () => {
                   )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                   <Input
                       label="CPF"
                       name="cpf"
@@ -435,7 +444,7 @@ export const Register: React.FC = () => {
                     autoComplete="organization"
                 />
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
                     <Input
                         label="CNPJ"
                         name="companyCnpj"
@@ -456,17 +465,29 @@ export const Register: React.FC = () => {
                     />
                 </div>
 
-                <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                        Logo da Empresa
-                    </label>
-                    <input
-                        type="file"
-                        name="companyLogo"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-slate-900 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
-                    />
+                <div className="flex flex-col sm:flex-row items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <div className="w-20 h-20 rounded-full border-2 border-white shadow-sm overflow-hidden bg-white flex items-center justify-center shrink-0">
+                        {formData.companyLogoUrl ? (
+                            <img src={formData.companyLogoUrl} alt="Logo Preview" className="w-full h-full object-contain p-2" />
+                        ) : (
+                            <div className="text-gray-300">
+                                <Store className="w-10 h-10" />
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex-1 space-y-2">
+                        <label className="block text-xs font-bold text-gray-700 uppercase">
+                            Logo da Empresa
+                        </label>
+                        <input
+                            type="file"
+                            name="companyLogo"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                            className="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+                        />
+                        <p className="text-[10px] text-gray-400">Recomendado: PNG ou SVG com fundo transparente.</p>
+                    </div>
                 </div>
             </div>
         )}
