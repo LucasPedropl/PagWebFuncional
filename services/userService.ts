@@ -18,10 +18,12 @@ const authRequest = async (endpoint: string, options: RequestInit = {}, isRetry 
     ? endpoint 
     : (endpoint.startsWith('/api/') ? `https://lojas.vlks.com.br${endpoint}` : `${BASE_URL}${endpoint}`);
 
+  const isFormData = options.body instanceof FormData;
+
   const response = await fetch(url, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       "accept": "*/*",
       ...(token ? { "Authorization": `Bearer ${token}` } : {}),
       ...options.headers
@@ -78,10 +80,8 @@ export const userService = {
     formData.append('Email', data.email);
     formData.append('Password', data.password);
     formData.append('Telefone', data.telefone);
-    if (data.fotoPerfil) {
+    if (data.fotoPerfil instanceof File) {
       formData.append('FotoPerfil', data.fotoPerfil);
-    } else {
-      formData.append('FotoPerfil', '');
     }
 
     const response = await fetch(url, {
@@ -166,12 +166,8 @@ export const userService = {
     if (data.password) formData.append('Password', data.password);
     if (data.telefone) formData.append('Telefone', data.telefone);
     
-    if (data.fotoPerfil !== undefined) {
-      if (data.fotoPerfil) {
-        formData.append('FotoPerfil', data.fotoPerfil);
-      } else {
-        formData.append('FotoPerfil', '');
-      }
+    if (data.fotoPerfil instanceof File) {
+      formData.append('FotoPerfil', data.fotoPerfil);
     }
 
     const response = await authRequest(`/User/${id}`, {
@@ -234,14 +230,14 @@ export const userService = {
         // Se der 404 ou erro, retorna padrão tudo true (conforme solicitado para implementar mesmo com erro)
         if (response.status === 404) {
             return {
-                notificações: true,
+                notificacoes: true,
                 email: true,
                 whatsApp: true,
                 sms: true
             };
         }
         return {
-            notificações: true,
+            notificacoes: true,
             email: true,
             whatsApp: true,
             sms: true
@@ -251,7 +247,7 @@ export const userService = {
         return await response.json();
     } catch {
         return {
-            notificações: true,
+            notificacoes: true,
             email: true,
             whatsApp: true,
             sms: true

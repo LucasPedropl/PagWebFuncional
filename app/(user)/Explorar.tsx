@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Search, MapPin, Star, Filter, Store, CheckCircle2, ChevronRight, CreditCard, ShieldCheck, Zap, LayoutGrid, List, Scissors } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { SearchSelect } from '../../components/ui/SearchSelect';
 
 // --- MOCK DATA GENERATOR ---
 const CATEGORIES = ['Construção & Obras', 'Manutenção', 'Limpeza', 'Consultoria', 'Software & TI', 'Equipamentos', 'Saúde & Segurança', 'Salão de Beleza', 'Barbearia', 'Estética'];
@@ -179,28 +180,30 @@ export const Explorar: React.FC = () => {
                   <>
                     <div>
                       <label className="block text-xs font-medium text-slate-300 mb-1.5">Avaliação Mínima</label>
-                      <select
+                      <SearchSelect
+                        options={[
+                          { value: '', label: 'Qualquer avaliação' },
+                          { value: '4.5', label: '4.5+ Estrelas' },
+                          { value: '4.0', label: '4.0+ Estrelas' },
+                          { value: '3.5', label: '3.5+ Estrelas' },
+                        ]}
                         value={minRating}
-                        onChange={(e) => setMinRating(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-700 text-white"
-                      >
-                        <option value="">Qualquer avaliação</option>
-                        <option value="4.5">4.5+ Estrelas</option>
-                        <option value="4.0">4.0+ Estrelas</option>
-                        <option value="3.5">3.5+ Estrelas</option>
-                      </select>
+                        onChange={(val) => setMinRating(val.toString())}
+                        className="w-full"
+                      />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-slate-300 mb-1.5">Conexão</label>
-                      <select
+                      <SearchSelect
+                        options={[
+                          { value: 'Todos', label: 'Todos' },
+                          { value: 'Conectados', label: 'Já Conectados' },
+                          { value: 'NaoConectados', label: 'Não Conectados' },
+                        ]}
                         value={connectionStatus}
-                        onChange={(e) => setConnectionStatus(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-slate-700 text-white"
-                      >
-                        <option value="Todos">Todos</option>
-                        <option value="Conectados">Já Conectados</option>
-                        <option value="NaoConectados">Não Conectados</option>
-                      </select>
+                        onChange={(val) => setConnectionStatus(val.toString())}
+                        className="w-full"
+                      />
                     </div>
                   </>
                 )}

@@ -7,6 +7,7 @@ import { Plus, Search, Filter, Loader2, Send, CheckCircle2, Mail, Unplug, AlertT
 import { businessService } from '../../services/businessService';
 import { User, SubscriptionResponse } from '../../types';
 import { useToast } from '../../context/ToastContext';
+import { SearchSelect } from '../../components/ui/SearchSelect';
 
 export const Clientes: React.FC = () => {
   const { addToast } = useToast();
@@ -191,16 +192,16 @@ export const Clientes: React.FC = () => {
               {/* Status */}
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Status</label>
-                <select
+                <SearchSelect
+                  options={[
+                    { value: 'Todos', label: 'Todos os status' },
+                    { value: 'Ativo', label: 'Ativo' },
+                    { value: 'Inativo', label: 'Inativo' },
+                    { value: 'Pendente', label: 'Pendente' },
+                  ]}
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700"
-                >
-                  <option value="Todos">Todos os status</option>
-                  <option value="Ativo">Ativo</option>
-                  <option value="Inativo">Inativo</option>
-                  <option value="Pendente">Pendente</option>
-                </select>
+                  onChange={(val) => setStatusFilter(val.toString())}
+                />
               </div>
             </div>
             

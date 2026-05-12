@@ -2,22 +2,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  CreditCard, 
-  PieChart, 
-  Loader2, 
-  Calendar, 
-  Minus, 
-  AlertCircle,
-  Clock,
   CheckCircle2,
-  Building2
+  Building2,
+  FileText,
+  Loader2,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  CreditCard,
+  PieChart,
+  Calendar,
+  Minus,
+  AlertCircle,
+  Clock
 } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { ClientInvoice, ClientSubscription } from '../../types';
 import { InfoTooltip } from '../../components/ui/InfoTooltip';
+import { SearchSelect } from '../../components/ui/SearchSelect';
+import { jsPDF } from 'jspdf';
+import { Button } from '../../components/ui/Button';
 
 // Helper para formatar moeda
 const formatCurrency = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
@@ -31,6 +35,7 @@ const parseDateBR = (dateStr: string) => {
 export const Relatorios: React.FC = () => {
   const [dateRange, setDateRange] = useState('30');
   const [isLoading, setIsLoading] = useState(true);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
   
   const [invoices, setInvoices] = useState<ClientInvoice[]>([]);
   const [subscriptions, setSubscriptions] = useState<ClientSubscription[]>([]);
@@ -161,6 +166,118 @@ export const Relatorios: React.FC = () => {
       };
 
   }, [dateRange, invoices, subscriptions]);
+  
+  const handleExportPDF = async () => {
+    try {
+        setIsExportingPDF(true);
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const dateNow = new Date().toLocaleDateString('pt-BR');
+        
+        // 1. Cabeçalho
+        doc.setFontSize(18);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 23, 42); // slate-900
+        doc.text('Relatório de Gastos Pessoais', 15, 20);
+        
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139); // slate-500
+        doc.text(`Gerado em: ${dateNow}`, pageWidth - 15, 20, { align: 'right' });
+        doc.text(`Período: Últimos ${dateRange} dias`, pageWidth - 15, 25, { align: 'right' });
+
+        doc.setDrawColor(241, 245, 249); // slate-100
+        doc.line(15, 30, pageWidth - 15, 30);
+
+        let yPos = 45;
+
+        // 2. Resumo (KPIs)
+        const drawKPI = (x: number, y: number, label: string, value: string, subtext?: string) => {
+            const width = (pageWidth - 40) / 2;
+            doc.setFillColor(248, 250, 252); // slate-50
+            doc.roundedRect(x, y, width, 25, 2, 2, 'F');
+            doc.setFontSize(8);
+            doc.setTextColor(100, 116, 139);
+            doc.text(label, x + 5, y + 8);
+            doc.setFontSize(12);
+            doc.setTextColor(15, 23, 42);
+            doc.text(value, x + 5, y + 18);
+            if (subtext) {
+                doc.setFontSize(7);
+                doc.setTextColor(148, 163, 184);
+                doc.text(subtext, x + 5, y + 22);
+            }
+        };
+
+        drawKPI(15, yPos, 'Total Gasto no Período', formatCurrency(metrics.currentSpending));
+        drawKPI(pageWidth / 2 + 5, yPos, 'Compromisso Mensal', formatCurrency(metrics.monthlyCommitment), `${metrics.activeSubsCount} assinaturas ativas`);
+        yPos += 30;
+        drawKPI(15, yPos, 'Pendências Financeiras', formatCurrency(metrics.totalPendingValue), `${metrics.overdueCount} faturas atrasadas`);
+        drawKPI(pageWidth / 2 + 5, yPos, 'Diversificação', `${metrics.topCompanies.length} Empresas`, 'Estabelecimentos parceiros');
+        yPos += 45;
+
+        // 3. Gastos por Empresa
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 23, 42);
+        doc.text('Distribuição de Gastos por Empresa', 15, yPos);
+        yPos += 8;
+
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        metrics.topCompanies.forEach((item) => {
+            if (yPos > 270) { doc.addPage(); yPos = 20; }
+            doc.setFillColor(15, 23, 42);
+            doc.rect(15, yPos - 3, 2, 2, 'F');
+            doc.text(`${item.name}: ${formatCurrency(item.value)} (${item.percent.toFixed(1)}%)`, 20, yPos);
+            yPos += 7;
+        });
+        yPos += 15;
+
+        // 4. Últimos Pagamentos Realizados
+        if (yPos > 240) { doc.addPage(); yPos = 20; }
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Pagamentos Recentes', 15, yPos);
+        yPos += 8;
+
+        // Cabeçalho Tabela
+        doc.setFillColor(15, 23, 42);
+        doc.rect(15, yPos, pageWidth - 30, 8, 'F');
+        doc.setTextColor(255);
+        doc.setFontSize(8);
+        doc.text('Data', 20, yPos + 5.5);
+        doc.text('Empresa', 45, yPos + 5.5);
+        doc.text('Valor', pageWidth - 20, yPos + 5.5, { align: 'right' });
+        yPos += 12;
+
+        doc.setTextColor(15, 23, 42);
+        metrics.recentPaid.forEach((trx) => {
+            if (yPos > 280) { doc.addPage(); yPos = 20; }
+            doc.text(trx.vencimento, 20, yPos);
+            doc.text(trx.nomeEmpresa, 45, yPos);
+            doc.text(formatCurrency(trx.valor), pageWidth - 20, yPos, { align: 'right' });
+            yPos += 8;
+            doc.setDrawColor(241, 245, 249);
+            doc.line(15, yPos - 4, pageWidth - 15, yPos - 4);
+        });
+
+        // Rodapé
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(148, 163, 184);
+            doc.text(`Página ${i} de ${totalPages} | Relatório de Gastos PagWeb`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
+        }
+
+        doc.save(`Relatorio_Gastos_${dateNow.replace(/\//g, '-')}.pdf`);
+    } catch (error) {
+        console.error("Erro ao exportar PDF:", error);
+    } finally {
+        setIsExportingPDF(false);
+    }
+  };
 
   const renderTrend = (diff: number, pct: number) => {
      if (diff === 0) return <span className="text-gray-400 ml-2 flex items-center"><Minus className="w-3 h-3 mr-1"/> Estável</span>;
@@ -267,16 +384,28 @@ export const Relatorios: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Meus Relatórios Financeiros</h1>
           <p className="text-gray-500 mt-1">Visão detalhada dos seus gastos e compromissos mensais.</p>
         </div>
-        <select 
-            className="bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-slate-900 focus:border-slate-900 block p-2.5 cursor-pointer outline-none shadow-sm"
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-        >
-            <option value="7">Últimos 7 dias</option>
-            <option value="30">Últimos 30 dias</option>
-            <option value="90">Últimos 90 dias</option>
-            <option value="365">Último ano</option>
-        </select>
+        <div className="flex flex-wrap gap-3">
+            <SearchSelect
+                options={[
+                    { value: '7', label: 'Últimos 7 dias' },
+                    { value: '30', label: 'Últimos 30 dias' },
+                    { value: '90', label: 'Últimos 90 dias' },
+                    { value: '365', label: 'Último ano' },
+                ]}
+                value={dateRange}
+                onChange={(val) => setDateRange(val.toString())}
+                className="w-48"
+            />
+            <Button 
+                variant="outline" 
+                className="bg-white text-gray-600 border-gray-300"
+                onClick={handleExportPDF}
+                isLoading={isExportingPDF}
+            >
+                <FileText className="w-4 h-4 mr-2" />
+                Exportar PDF
+            </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}

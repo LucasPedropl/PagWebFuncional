@@ -3,6 +3,7 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Save, Lock, Bell, Store, LogOut, User as UserIcon } from 'lucide-react';
+import { PhoneInput } from '../../components/ui/PhoneInput';
 import { sessionService } from '../../services/session';
 import { companyService } from '../../services/companyService';
 import { userService } from '../../services/userService';
@@ -24,6 +25,7 @@ export const Configuracoes: React.FC = () => {
     nome: '',
     cnpj: '',
     telefone: '',
+    ddi: '55',
     logo: null as File | null,
     logoUrl: ''
   });
@@ -34,6 +36,7 @@ export const Configuracoes: React.FC = () => {
       sobreNome: '',
       cpf: '',
       telefone: '',
+      ddi: '55',
       email: '',
       fotoPerfil: null as File | null,
       fotoPerfilUrl: ''
@@ -46,7 +49,7 @@ export const Configuracoes: React.FC = () => {
   });
 
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
-      notificações: true,
+      notificacoes: true,
       email: true,
       whatsApp: true,
       sms: true
@@ -61,12 +64,21 @@ export const Configuracoes: React.FC = () => {
   const fetchUserProfile = async () => {
     try {
         const data = await userService.getMyAccount();
+        const fullPhone = data.telefone || '';
+        let ddi = '55';
+        let phone = fullPhone;
+        if (fullPhone.startsWith('55')) {
+            ddi = '55';
+            phone = fullPhone.substring(2);
+        }
+
         setProfileData({
             idUser: data.idUser,
             nome: data.nome || '',
             sobreNome: data.sobreNome || '',
             cpf: data.cpf || '',
-            telefone: formatPhone(data.telefone || ''),
+            telefone: formatPhone(phone),
+            ddi: ddi,
             email: data.email || '',
             fotoPerfil: null,
             fotoPerfilUrl: data.fotoPerfilPath || ''
@@ -89,11 +101,20 @@ export const Configuracoes: React.FC = () => {
     setIsFetching(true);
     try {
       const data = await companyService.getMyCompany();
+      const fullPhone = data.telefone || '';
+      let ddi = '55';
+      let phone = fullPhone;
+      if (fullPhone.startsWith('55')) {
+          ddi = '55';
+          phone = fullPhone.substring(2);
+      }
+
       setCompanyData({
         idEmpresa: data.idEmpresa,
         nome: data.nome || '',
         cnpj: formatCNPJ(data.cnpj || ''),
-        telefone: formatPhone(data.telefone || ''),
+        telefone: formatPhone(phone),
+        ddi: ddi,
         logo: null,
         logoUrl: data.logo || ''
       });
@@ -104,29 +125,58 @@ export const Configuracoes: React.FC = () => {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let { name, value } = e.target;
-    if (name === 'cnpj') value = formatCNPJ(value);
-    if (name === 'telefone') value = formatPhone(value);
-    
+  const handleCompanyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
     setCompanyData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleCompanyPhoneChange = (value: string) => {
+    setCompanyData(prev => ({ ...prev, telefone: formatPhone(value) }));
+  };
+
+  const handleCompanyDdiChange = (value: string) => {
+    setCompanyData(prev => ({ ...prev, ddi: value }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
-    setCompanyData(prev => ({ ...prev, logo: file }));
+    if (file) {
+      const previewUrl = URL.createObjectURL(file);
+      setCompanyData(prev => ({ 
+        ...prev, 
+        logo: file,
+        logoUrl: previewUrl 
+      }));
+    } else {
+      setCompanyData(prev => ({ ...prev, logo: null }));
+    }
   };
 
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      let { name, value } = e.target;
-      if (name === 'telefone') value = formatPhone(value);
-      
+      const { name, value } = e.target;
       setProfileData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleProfilePhoneChange = (value: string) => {
+    setProfileData(prev => ({ ...prev, telefone: formatPhone(value) }));
+  };
+
+  const handleProfileDdiChange = (value: string) => {
+    setProfileData(prev => ({ ...prev, ddi: value }));
   };
 
   const handleProfileFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0] || null;
-      setProfileData(prev => ({ ...prev, fotoPerfil: file }));
+      if (file) {
+        const previewUrl = URL.createObjectURL(file);
+        setProfileData(prev => ({ 
+          ...prev, 
+          fotoPerfil: file,
+          fotoPerfilUrl: previewUrl
+        }));
+      } else {
+        setProfileData(prev => ({ ...prev, fotoPerfil: null }));
+      }
   };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,7 +193,7 @@ export const Configuracoes: React.FC = () => {
             nome: profileData.nome,
             sobreNome: profileData.sobreNome,
             email: profileData.email,
-            telefone: cleanPhone,
+            telefone: profileData.ddi + cleanPhone,
             fotoPerfil: profileData.fotoPerfil
         });
 
@@ -204,7 +254,7 @@ export const Configuracoes: React.FC = () => {
       await companyService.update(companyData.idEmpresa, {
         nome: companyData.nome,
         cnpj: cleanCNPJ,
-        telefone: cleanPhone,
+        telefone: companyData.ddi + cleanPhone,
         logo: companyData.logo
       });
 
@@ -298,6 +348,40 @@ export const Configuracoes: React.FC = () => {
                 {activeTab === 'perfil' && (
                     <div className="space-y-6 animate-fadeIn">
                         <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-4">Dados Pessoais</h2>
+                        
+                        {/* Foto de Perfil no Topo */}
+                        <div className="flex flex-col sm:flex-row items-center gap-8 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                            <div className="relative group">
+                                <div className="w-32 h-32 rounded-full border-4 border-white overflow-hidden bg-white shadow-xl flex items-center justify-center shrink-0 transition-all group-hover:scale-105 duration-300">
+                                     {profileData.fotoPerfilUrl ? (
+                                         <img src={getImageUrl(profileData.fotoPerfilUrl)} alt="Foto de Perfil" className="w-full h-full object-cover" />
+                                     ) : (
+                                         <UserIcon className="w-16 h-16 text-gray-200" />
+                                     )}
+                                 </div>
+                                 <div className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none" />
+                            </div>
+                            <div className="flex-1 space-y-3 text-center sm:text-left">
+                                <div className="space-y-1">
+                                    <label className="block text-base font-black text-slate-800">
+                                        Sua Foto de Perfil
+                                    </label>
+                                    <p className="text-xs text-slate-400">Esta foto será visível internamente no sistema.</p>
+                                </div>
+                                <input
+                                    type="file"
+                                    name="fotoPerfil"
+                                    accept="image/*"
+                                    onChange={handleProfileFileChange}
+                                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-slate-900 file:text-white hover:file:bg-slate-800 file:transition-all file:cursor-pointer shadow-sm"
+                                />
+                                <div className="flex items-center justify-center sm:justify-start gap-2">
+                                    <span className="text-[10px] font-bold text-slate-400 bg-slate-200/50 px-2 py-0.5 rounded">PNG ou JPG</span>
+                                    <span className="text-[10px] font-bold text-slate-400 bg-slate-200/50 px-2 py-0.5 rounded">Máx. 2MB</span>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Input 
                                 label="Nome" 
@@ -318,12 +402,12 @@ export const Configuracoes: React.FC = () => {
                                 disabled 
                                 className="bg-gray-50 text-gray-500 cursor-not-allowed" 
                             />
-                            <Input 
+                            <PhoneInput 
                                 label="Telefone" 
-                                name="telefone"
-                                value={profileData.telefone}
-                                onChange={handleProfileChange}
-                                maxLength={15}
+                                ddi={profileData.ddi}
+                                onDdiChange={handleProfileDdiChange}
+                                phoneNumber={profileData.telefone}
+                                onPhoneChange={handleProfilePhoneChange}
                             />
                         </div>
                         <Input 
@@ -333,27 +417,6 @@ export const Configuracoes: React.FC = () => {
                             disabled 
                             className="bg-gray-50 text-gray-500 cursor-not-allowed" 
                         />
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                                Foto de Perfil
-                            </label>
-                            <div className="flex items-center gap-4 mt-2">
-                                <div className="w-16 h-16 rounded-full border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center shrink-0">
-                                    {profileData.fotoPerfilUrl ? (
-                                        <img src={getImageUrl(profileData.fotoPerfilUrl)} alt="Foto de Perfil" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <UserIcon className="w-8 h-8 text-gray-300" />
-                                    )}
-                                </div>
-                                <input
-                                    type="file"
-                                    name="fotoPerfil"
-                                    accept="image/*"
-                                    onChange={handleProfileFileChange}
-                                    className="flex-1 text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
-                                />
-                            </div>
-                        </div>
                         <div className="pt-4">
                             <Button onClick={handleSaveProfile} isLoading={isLoading}>
                                 <Save className="w-4 h-4 mr-2" />
@@ -366,56 +429,69 @@ export const Configuracoes: React.FC = () => {
                 {/* TAB: GERAL */}
                 {activeTab === 'geral' && (
                     <div className="space-y-6 animate-fadeIn">
-                        <div className="border-b border-gray-100 pb-4">
-                            <h2 className="text-lg font-bold text-gray-900">Informações da Empresa</h2>
+                        <div className="mb-4">
+                            <h2 className="text-lg font-bold text-gray-900">Dados da Empresa</h2>
                             <p className="text-sm text-gray-500">Dados visíveis para seus clientes nas faturas.</p>
                         </div>
 
-                        <div className="flex items-center gap-6 pb-6 border-b border-gray-100">
-                            <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200 overflow-hidden">
-                                {companyData.logoUrl ? (
-                                  <img src={getImageUrl(companyData.logoUrl)} alt="Logo" className="w-full h-full object-cover" />
-                                ) : (
-                                  <Store className="w-8 h-8 text-gray-400" />
-                                )}
+                        {/* Logo da Empresa no Topo - Mesmo estilo da Foto de Perfil */}
+                        <div className="flex flex-col sm:flex-row items-center gap-8 p-6 bg-slate-50 rounded-2xl border border-slate-100 mb-8">
+                            <div className="relative group">
+                                <div className="w-32 h-32 rounded-full border-4 border-white overflow-hidden bg-white shadow-xl flex items-center justify-center shrink-0 transition-all group-hover:scale-105 duration-300">
+                                    {companyData.logoUrl ? (
+                                      <img src={getImageUrl(companyData.logoUrl)} alt="Logo" className="w-full h-full object-contain p-2" />
+                                    ) : (
+                                      <Store className="w-16 h-16 text-gray-200" />
+                                    )}
+                                </div>
+                                <div className="absolute inset-0 rounded-full bg-slate-900/0 group-hover:bg-slate-900/5 transition-colors pointer-events-none" />
                             </div>
-                            <div className="flex-1">
-                                <label className="block text-sm font-medium text-slate-700 mb-1">
-                                    Logo da Empresa
-                                </label>
+                            
+                            <div className="flex-1 space-y-3 text-center sm:text-left">
+                                <div className="space-y-1">
+                                    <label className="block text-base font-black text-slate-900">
+                                        Logo da Empresa
+                                    </label>
+                                    <p className="text-xs text-slate-500 leading-relaxed">
+                                        Esta logo aparecerá nas faturas e no painel do seu cliente.
+                                    </p>
+                                </div>
                                 <input
                                     type="file"
                                     name="companyLogo"
                                     accept="image/*"
                                     onChange={handleFileChange}
-                                    className="w-full max-w-sm px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-slate-900 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
+                                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:transition-all file:cursor-pointer shadow-sm shadow-blue-200"
                                 />
-                                <p className="text-xs text-gray-400 mt-2">JPG, GIF ou PNG. Max 1MB.</p>
+                                <div className="flex items-center justify-center sm:justify-start gap-3">
+                                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded uppercase">PNG ou SVG</span>
+                                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded uppercase">Máx. 2MB</span>
+                                </div>
                             </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Input 
-                              label="Nome da Empresa" 
-                              name="nome"
-                              value={companyData.nome}
-                              onChange={handleChange}
+                                label="Razão Social" 
+                                name="nome"
+                                value={companyData.nome}
+                                onChange={handleCompanyChange}
                             />
                             <Input 
-                              label="CNPJ" 
-                              name="cnpj"
-                              value={companyData.cnpj}
-                              disabled 
-                              className="bg-gray-50 text-gray-500 cursor-not-allowed" 
-                            />
-                            <Input 
-                              label="Telefone de Contato" 
-                              name="telefone"
-                              value={companyData.telefone}
-                              onChange={handleChange}
-                              maxLength={15}
+                                label="CNPJ" 
+                                name="cnpj"
+                                value={companyData.cnpj}
+                                onChange={handleCompanyChange}
+                                maxLength={18}
                             />
                         </div>
+                        <PhoneInput 
+                            label="Telefone Comercial" 
+                            ddi={companyData.ddi}
+                            onDdiChange={handleCompanyDdiChange}
+                            phoneNumber={companyData.telefone}
+                            onPhoneChange={handleCompanyPhoneChange}
+                        />
                         
                         <div className="pt-4">
                             <Button onClick={handleSave} isLoading={isLoading}>
@@ -444,8 +520,8 @@ export const Configuracoes: React.FC = () => {
                                     <input 
                                         type="checkbox" 
                                         className="sr-only peer" 
-                                        checked={notificationSettings.notificações} 
-                                        onChange={() => handleNotificationChange('notificações')}
+                                        checked={notificationSettings.notificacoes} 
+                                        onChange={() => handleNotificationChange('notificacoes')}
                                     />
                                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
                                 </label>
@@ -470,7 +546,7 @@ export const Configuracoes: React.FC = () => {
                             <div className="flex items-center justify-between py-3 border-b border-gray-50">
                                 <div>
                                     <h4 className="text-sm font-medium text-gray-900">WhatsApp</h4>
-                                    <p className="text-xs text-gray-500">Receber notificações no seu celular cadastrado.</p>
+                                    <p className="text-xs text-gray-500">Receber notificações celular cadastrado.</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                     <input 

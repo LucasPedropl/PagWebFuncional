@@ -7,6 +7,7 @@ import { CheckCircle2, Calendar, CreditCard, Loader2, XCircle, AlertTriangle, Se
 import { userService } from '../../services/userService';
 import { ClientSubscription, SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
+import { SearchSelect } from '../../components/ui/SearchSelect';
 
 export const Assinaturas: React.FC = () => {
   const { addToast } = useToast();
@@ -180,9 +181,12 @@ export const Assinaturas: React.FC = () => {
   };
 
   const handleDownloadContract = (path: string) => {
-    if (!path) return;
+    if (!path) {
+        addToast('error', 'Indisponível', 'Este plano não possui um contrato digital anexado.');
+        return;
+    }
     const normalizedPath = path.replace(/\\/g, '/');
-    const fullUrl = `https://lojas.vlks.com.br/${normalizedPath}`;
+    const fullUrl = `https://lojas.vlks.com.br/${normalizedPath.startsWith('/') ? normalizedPath.substring(1) : normalizedPath}`;
     window.open(fullUrl, '_blank');
   };
 
@@ -266,16 +270,16 @@ export const Assinaturas: React.FC = () => {
               {/* Status */}
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Status</label>
-                <select
+                <SearchSelect
+                  options={[
+                    { value: 'Todos', label: 'Todos os status' },
+                    { value: 'Ativo', label: 'Ativo' },
+                    { value: 'Pendente', label: 'Pendente' },
+                    { value: 'Cancelada', label: 'Cancelada' },
+                  ]}
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700"
-                >
-                  <option value="Todos">Todos os status</option>
-                  <option value="Ativo">Ativo</option>
-                  <option value="Pendente">Pendente</option>
-                  <option value="Cancelada">Cancelada</option>
-                </select>
+                  onChange={(val) => setStatusFilter(val.toString())}
+                />
               </div>
               
               {/* Date Range */}
@@ -368,7 +372,18 @@ export const Assinaturas: React.FC = () => {
                         <CreditCard className="w-6 h-6" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold text-gray-900">{sub.nomePlano}</h3>
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-bold text-gray-900">{sub.nomePlano}</h3>
+                            {sub.contratoPath && (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); handleDownloadContract(sub.contratoPath as string); }}
+                                    className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                                    title="Baixar Contrato PDF"
+                                >
+                                    <Download className="w-3.5 h-3.5" />
+                                </button>
+                            )}
+                        </div>
                         <p className="text-sm text-gray-500">{sub.nomeEmpresa}</p>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm">
                             <span className={`flex items-center font-medium ${sub.status === 'Ativo' ? 'text-green-600' : 'text-gray-600'}`}>

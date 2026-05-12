@@ -212,7 +212,7 @@ export interface AppNotification {
 }
 
 export interface NotificationSettings {
-  notificações: boolean;
+  notificacoes: boolean;
   email: boolean;
   whatsApp: boolean;
   sms: boolean;

@@ -7,6 +7,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { formatCNPJ, formatCPF, formatPhone } from '../../utils/formatters';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { PhoneInput } from '../../components/ui/PhoneInput';
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
@@ -38,16 +39,29 @@ export const Register: React.FC = () => {
     companyNome: '',
     companyCnpj: '',
     companyTelefone: '',
-    companyLogo: null as File | null
+    companyLogo: null as File | null,
+    fotoPerfilUrl: '',
+    ddi: '55',
+    companyDdi: '55'
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.name;
     const file = e.target.files?.[0] || null;
-    setFormData(prev => ({
-      ...prev,
-      [name]: file
-    }));
+    
+    if (file && name === 'fotoPerfil') {
+        const previewUrl = URL.createObjectURL(file);
+        setFormData(prev => ({
+          ...prev,
+          [name]: file,
+          fotoPerfilUrl: previewUrl
+        }));
+    } else {
+        setFormData(prev => ({
+          ...prev,
+          [name]: file
+        }));
+    }
   };
 
   // Effect para processar a URL de convite (incluindo formato com duplo ?)
@@ -103,6 +117,20 @@ export const Register: React.FC = () => {
     if (name === 'companyCnpj') value = formatCNPJ(value);
     if (name === 'telefone' || name === 'companyTelefone') value = formatPhone(value);
 
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handlePhoneChange = (name: 'telefone' | 'companyTelefone', value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: formatPhone(value)
+    }));
+  };
+
+  const handleDdiChange = (name: 'ddi' | 'companyDdi', value: string) => {
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -180,7 +208,7 @@ export const Register: React.FC = () => {
         cpf: cleanCPF,
         email: formData.email,
         password: formData.password,
-        telefone: cleanPhone,
+        telefone: formData.ddi + cleanPhone,
         fotoPerfil: formData.fotoPerfil
       }, inviteCompanyId || undefined);
 
@@ -200,7 +228,7 @@ export const Register: React.FC = () => {
         companyData: isBusiness ? {
           nome: formData.companyNome,
           cnpj: cleanCNPJ,
-          telefone: cleanCompPhone,
+          telefone: formData.companyDdi + cleanCompPhone,
           logo: formData.companyLogo
         } : null
       };
@@ -259,9 +287,11 @@ export const Register: React.FC = () => {
                 password: isBusiness ? '123123' : 'password123',
                 confirmPassword: isBusiness ? '123123' : 'password123',
                 telefone: `(11) 9${Math.floor(Math.random() * 8999 + 1000)}-${Math.floor(Math.random() * 8999 + 1000)}`,
+                ddi: '55',
                 companyNome: `Empresa ${random}`,
                 companyCnpj: '12.345.678/0001-00',
-                companyTelefone: '(11) 98888-8888'
+                companyTelefone: '(11) 98888-8888',
+                companyDdi: '55'
               }));
             }}
           >
@@ -309,30 +339,38 @@ export const Register: React.FC = () => {
                       maxLength={14}
                       autoComplete="off"
                   />
-                  <Input
-                      label="Telefone Pessoal"
-                      name="telefone"
-                      type="tel"
-                      value={formData.telefone}
-                      onChange={handleChange}
-                      required
-                      placeholder="(00) 00000-0000"
-                      maxLength={15}
-                      autoComplete="off"
+                  <PhoneInput
+                      label={isBusiness ? "Telefone Pessoal" : "Seu Telefone"}
+                      ddi={formData.ddi}
+                      onDdiChange={(val) => handleDdiChange('ddi', val)}
+                      phoneNumber={formData.telefone}
+                      onPhoneChange={(val) => handlePhoneChange('telefone', val)}
+                      error={error?.includes('Telefone') ? error : undefined}
                   />
               </div>
 
-              <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Foto de Perfil
-                  </label>
-                  <input
-                      type="file"
-                      name="fotoPerfil"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-slate-900 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-50 file:text-slate-700 hover:file:bg-slate-100"
-                  />
+              <div className="flex flex-col sm:flex-row items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                  <div className="w-20 h-20 rounded-full border-2 border-white shadow-sm overflow-hidden bg-white flex items-center justify-center shrink-0">
+                      {formData.fotoPerfilUrl ? (
+                          <img src={formData.fotoPerfilUrl} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                          <div className="text-gray-300">
+                              <svg className="w-10 h-10" fill="currentColor" viewBox="0 0 24 24"><path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                          </div>
+                      )}
+                  </div>
+                  <div className="flex-1 space-y-2">
+                      <label className="block text-xs font-bold text-gray-700 uppercase">
+                          Foto de Perfil (Opcional)
+                      </label>
+                      <input
+                          type="file"
+                          name="fotoPerfil"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          className="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-slate-900 file:text-white hover:file:bg-slate-800"
+                      />
+                  </div>
               </div>
           </div>
         )}
@@ -408,15 +446,13 @@ export const Register: React.FC = () => {
                         maxLength={18}
                         autoComplete="off"
                     />
-                    <Input
+                    <PhoneInput
                         label="Telefone Comercial"
-                        name="companyTelefone"
-                        value={formData.companyTelefone}
-                        onChange={handleChange}
-                        required={isBusiness}
-                        placeholder="(00) 00000-0000"
-                        maxLength={15}
-                        autoComplete="tel"
+                        ddi={formData.companyDdi}
+                        onDdiChange={(val) => handleDdiChange('companyDdi', val)}
+                        phoneNumber={formData.companyTelefone}
+                        onPhoneChange={(val) => handlePhoneChange('companyTelefone', val)}
+                        error={error?.includes('Telefone Comercial') ? error : undefined}
                     />
                 </div>
 

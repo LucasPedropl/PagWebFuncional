@@ -8,6 +8,7 @@ import { Search, Filter, Download, Calendar, MoreHorizontal, ArrowUpRight, Arrow
 import { businessService } from '../../services/businessService';
 import { Mensalidade } from '../../types';
 import { useToast } from '../../context/ToastContext';
+import { SearchSelect } from '../../components/ui/SearchSelect';
 
 // Componente de Tooltip Interno (Reutilizado)
 const InfoTooltip = ({ text }: { text: string }) => (
@@ -249,16 +250,16 @@ export const Pagamentos: React.FC = () => {
               {/* Status */}
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Status</label>
-                <select
+                <SearchSelect
+                  options={[
+                    { value: 'Todos', label: 'Todos os status' },
+                    { value: 'Aberto', label: 'Aberto' },
+                    { value: 'Pago', label: 'Pago' },
+                    { value: 'Atrasado', label: 'Atrasado' },
+                  ]}
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700"
-                >
-                  <option value="Todos">Todos os status</option>
-                  <option value="Aberto">Aberto</option>
-                  <option value="Pago">Pago</option>
-                  <option value="Atrasado">Atrasado</option>
-                </select>
+                  onChange={(val) => setStatusFilter(val.toString())}
+                />
               </div>
               
               {/* Date Range */}
@@ -423,17 +424,11 @@ export const Pagamentos: React.FC = () => {
         isOpen={isCancelModalOpen}
         onClose={() => !isCanceling && setIsCancelModalOpen(false)}
         title="Cancelar Pagamento"
-      >
-        <div className="p-6">
-          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4">
-            <XCircle className="w-6 h-6 text-red-600" />
-          </div>
-          <h3 className="text-lg font-medium text-gray-900 text-center mb-2">Confirmar Cancelamento</h3>
-          <p className="text-sm text-gray-500 text-center mb-6">
-            Tem certeza que deseja cancelar o pagamento <strong>#{paymentToCancel?.idMensalidade}</strong> do cliente <strong>{paymentToCancel?.nomeCliente}</strong> no valor de <strong>R$ {paymentToCancel?.valor.toFixed(2).replace('.', ',')}</strong>? Esta ação não pode ser desfeita.
-          </p>
-          <div className="flex justify-end gap-3">
+        onSubmit={(e) => { e.preventDefault(); confirmCancelPayment(); }}
+        footer={
+          <>
             <Button
+              type="button"
               variant="outline"
               onClick={() => setIsCancelModalOpen(false)}
               disabled={isCanceling}
@@ -441,7 +436,7 @@ export const Pagamentos: React.FC = () => {
               Voltar
             </Button>
             <Button
-              onClick={confirmCancelPayment}
+              type="submit"
               disabled={isCanceling}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
@@ -454,7 +449,18 @@ export const Pagamentos: React.FC = () => {
                 'Sim, Cancelar'
               )}
             </Button>
+          </>
+        }
+      >
+        <div className="p-4">
+          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 mx-auto mb-4">
+            <XCircle className="w-6 h-6 text-red-600" />
           </div>
+          <h3 className="text-lg font-medium text-gray-900 text-center mb-2">Confirmar Cancelamento</h3>
+          <p className="text-sm text-gray-500 text-center mb-2">
+            Tem certeza que deseja cancelar o pagamento <strong>#{paymentToCancel?.idMensalidade}</strong> do cliente <strong>{paymentToCancel?.nomeCliente}</strong> no valor de <strong>R$ {paymentToCancel?.valor.toFixed(2).replace('.', ',')}</strong>? 
+          </p>
+          <p className="text-xs text-red-500 text-center font-medium">Esta ação não pode ser desfeita.</p>
         </div>
       </Modal>
 

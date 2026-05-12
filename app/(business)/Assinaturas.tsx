@@ -4,11 +4,12 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle, UserPlus, ChevronsUpDown, Check, Send, Mail, Repeat, FileText } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle, UserPlus, ChevronsUpDown, Check, Send, Mail, Repeat, FileText, Download } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { PlanResponse, SubscriptionResponse, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { InfoTooltip } from '../../components/ui/InfoTooltip';
+import { SearchSelect } from '../../components/ui/SearchSelect';
 
 export const Assinaturas: React.FC = () => {
   const { addToast } = useToast();
@@ -329,6 +330,16 @@ export const Assinaturas: React.FC = () => {
     }
   };
 
+  const handleDownloadContract = (path: string) => {
+    if (!path) {
+        addToast('error', 'Indisponível', 'Esta assinatura não possui um contrato anexado.');
+        return;
+    }
+    const normalizedPath = path.replace(/\\/g, '/');
+    const fullUrl = `https://lojas.vlks.com.br/${normalizedPath.startsWith('/') ? normalizedPath.substring(1) : normalizedPath}`;
+    window.open(fullUrl, '_blank');
+  };
+
   // Filtragem local
   const filteredSubs = subscriptions.filter(sub => {
     const searchLower = searchTerm.toLowerCase();
@@ -411,16 +422,16 @@ export const Assinaturas: React.FC = () => {
               {/* Status */}
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Status</label>
-                <select
+                <SearchSelect
+                  options={[
+                    { value: 'Todos', label: 'Todos os status' },
+                    { value: 'Ativa', label: 'Ativa' },
+                    { value: 'Cancelada', label: 'Cancelada' },
+                    { value: 'Pendente', label: 'Pendente' },
+                  ]}
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700"
-                >
-                  <option value="Todos">Todos os status</option>
-                  <option value="Ativa">Ativa</option>
-                  <option value="Cancelada">Cancelada</option>
-                  <option value="Pendente">Pendente</option>
-                </select>
+                  onChange={(val) => setStatusFilter(val.toString())}
+                />
               </div>
               
               {/* Date Range */}
@@ -527,9 +538,20 @@ export const Assinaturas: React.FC = () => {
                         </td>
                         <td className="px-6 py-4">
                             <div className="flex flex-col">
-                                <span className="text-sm font-medium text-gray-900">
-                                    {sub.nomePlano || 'Plano Personalizado'}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-gray-900">
+                                        {sub.nomePlano || 'Plano Personalizado'}
+                                    </span>
+                                    {sub.contratoPath && (
+                                        <button 
+                                            onClick={() => handleDownloadContract(sub.contratoPath as string)}
+                                            className="p-1 text-gray-400 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors"
+                                            title="Baixar Contrato PDF"
+                                        >
+                                            <Download className="w-3.5 h-3.5" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </td>
                         <td className="px-6 py-4">
@@ -569,11 +591,11 @@ export const Assinaturas: React.FC = () => {
                             <div className="flex justify-end gap-2">
                                 {sub.contratoPath && (
                                     <button 
-                                        onClick={() => window.open(sub.contratoPath as string, '_blank')}
+                                        onClick={() => handleDownloadContract(sub.contratoPath as string)}
                                         className="p-1.5 text-gray-400 hover:text-slate-900 hover:bg-slate-100 rounded transition-colors"
                                         title="Baixar Contrato"
                                     >
-                                        <FileText className="w-4 h-4" />
+                                        <Download className="w-4 h-4" />
                                     </button>
                                 )}
                                 <button 
@@ -607,12 +629,13 @@ export const Assinaturas: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         title="Nova Assinatura"
         size="lg"
+        onSubmit={(e) => { e.preventDefault(); handleSave(); }}
         footer={
           <>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancelar</Button>
             <Button 
+                type="submit"
                 className="bg-slate-900 hover:bg-slate-800" 
-                onClick={handleSave}
                 isLoading={isSaving}
             >
                 Criar Assinatura
@@ -774,16 +797,11 @@ export const Assinaturas: React.FC = () => {
                     <InfoTooltip text="É o dia em que a fatura fecha. O vencimento dela ocorre 7 dias após a data de fechamento." />
                 </label>
                 <div className="relative">
-                    <select
-                        name="diaPagamento"
+                    <SearchSelect
+                        options={Array.from({ length: 31 }, (_, i) => ({ value: (i + 1).toString(), label: (i + 1).toString() }))}
                         value={formData.diaPagamento}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900"
-                    >
-                        {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
-                            <option key={day} value={day}>{day}</option>
-                        ))}
-                    </select>
+                        onChange={(val) => setFormData(prev => ({ ...prev, diaPagamento: val.toString() }))}
+                    />
                 </div>
                 {parseInt(formData.diaPagamento) > 28 && (
                     <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-amber-600 bg-amber-50 p-2 rounded-md animate-in fade-in slide-in-from-top-1">
@@ -830,10 +848,11 @@ export const Assinaturas: React.FC = () => {
         onClose={() => setIsConnectModalOpen(false)}
         title="Convidar Cliente"
         size="md"
+        onSubmit={(e) => { e.preventDefault(); handleConnectClient(); }}
         footer={
           <>
-            <Button variant="outline" onClick={() => setIsConnectModalOpen(false)} disabled={isConnecting}>Cancelar</Button>
-            <Button onClick={handleConnectClient} isLoading={isConnecting} className="bg-slate-900 hover:bg-slate-800">
+            <Button type="button" variant="outline" onClick={() => setIsConnectModalOpen(false)} disabled={isConnecting}>Cancelar</Button>
+            <Button type="submit" isLoading={isConnecting} className="bg-slate-900 hover:bg-slate-800">
                 <Send className="w-4 h-4 mr-2" />
                 Enviar Convite
             </Button>
@@ -872,11 +891,12 @@ export const Assinaturas: React.FC = () => {
         onClose={() => setIsStatusModalOpen(false)}
         title="Alterar Status da Assinatura"
         size="md"
+        onSubmit={(e) => { e.preventDefault(); handleUpdateStatus(); }}
         footer={
           <>
-            <Button variant="outline" onClick={() => setIsStatusModalOpen(false)} disabled={isSaving}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => setIsStatusModalOpen(false)} disabled={isSaving}>Cancelar</Button>
             <Button 
-                onClick={handleUpdateStatus}
+                type="submit"
                 isLoading={isSaving}
                 className="bg-slate-900 hover:bg-slate-800"
             >
@@ -896,6 +916,7 @@ export const Assinaturas: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                     {['Ativo', 'Cancelado', 'Pendente', 'Suspenso'].map(status => (
                         <button
+                            type="button"
                             key={status}
                             onClick={() => setNewStatus(status)}
                             className={`flex items-center justify-center p-3 rounded-lg border transition-all ${
@@ -922,11 +943,12 @@ export const Assinaturas: React.FC = () => {
         onClose={() => setIsDeleteModalOpen(false)}
         title="Excluir Assinatura"
         size="md"
+        onSubmit={(e) => { e.preventDefault(); confirmDelete(); }}
         footer={
           <>
-            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)} disabled={isSaving}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => setIsDeleteModalOpen(false)} disabled={isSaving}>Cancelar</Button>
             <Button 
-                onClick={confirmDelete} 
+                type="submit"
                 isLoading={isSaving} 
                 className="bg-red-600 hover:bg-red-700 text-white"
             >
@@ -951,10 +973,11 @@ export const Assinaturas: React.FC = () => {
         isOpen={isNewPlanModalOpen}
         onClose={() => setIsNewPlanModalOpen(false)}
         title="Cadastrar Novo Plano"
+        onSubmit={(e) => { e.preventDefault(); handleCreatePlan(); }}
         footer={
             <>
-                <Button variant="outline" onClick={() => setIsNewPlanModalOpen(false)} disabled={isSaving}>Cancelar</Button>
-                <Button onClick={handleCreatePlan} isLoading={isSaving} className="bg-slate-900 hover:bg-slate-800">Criar Plano</Button>
+                <Button type="button" variant="outline" onClick={() => setIsNewPlanModalOpen(false)} disabled={isSaving}>Cancelar</Button>
+                <Button type="submit" isLoading={isSaving} className="bg-slate-900 hover:bg-slate-800">Criar Plano</Button>
             </>
         }
       >

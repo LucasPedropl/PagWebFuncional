@@ -8,6 +8,7 @@ import { userService } from '../../services/userService';
 import { ClientInvoice, SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { jsPDF } from 'jspdf';
+import { SearchSelect } from '../../components/ui/SearchSelect';
 
 export const Pagamentos: React.FC = () => {
   const { addToast } = useToast();
@@ -321,17 +322,17 @@ export const Pagamentos: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100 animate-fadeIn">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-              <select 
-                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900"
+              <SearchSelect 
+                options={[
+                  { value: 'Todos', label: 'Todos' },
+                  { value: 'Aberto', label: 'Aberto' },
+                  { value: 'Pago', label: 'Pago' },
+                  { value: 'Atrasado', label: 'Atrasado' },
+                  { value: 'Baixado', label: 'Baixado' },
+                ]}
                 value={filters.status}
-                onChange={(e) => setFilters({...filters, status: e.target.value})}
-              >
-                <option value="Todos">Todos</option>
-                <option value="Aberto">Aberto</option>
-                <option value="Pago">Pago</option>
-                <option value="Atrasado">Atrasado</option>
-                <option value="Baixado">Baixado</option>
-              </select>
+                onChange={(val) => setFilters({...filters, status: val.toString()})}
+              />
             </div>
             
             <div>
