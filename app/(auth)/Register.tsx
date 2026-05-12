@@ -292,7 +292,7 @@ export const Register: React.FC = () => {
                 nome: `Teste ${random}`,
                 sobreNome: `User ${random}`,
                 cpf: randomCPF,
-                email: `teste${random}@example.com`,
+                email: isEmailLocked ? prev.email : `teste${random}@example.com`,
                 password: isBusiness ? '123123' : 'password123',
                 confirmPassword: isBusiness ? '123123' : 'password123',
                 telefone: `(11) 9${Math.floor(Math.random() * 8999 + 1000)}-${Math.floor(Math.random() * 8999 + 1000)}`,

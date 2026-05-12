@@ -8,6 +8,7 @@ import { userService } from '../../services/userService';
 import { ClientConnection, ClientSubscription } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { SearchSelect } from '../../components/ui/SearchSelect';
+import { getImageUrl } from '../../utils/api';
 
 export const Empresas: React.FC = () => {
   const { addToast } = useToast();
@@ -267,8 +268,12 @@ export const Empresas: React.FC = () => {
             {filteredCompanies.map((company, index) => (
                 <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col relative group">
                     <div className="flex justify-between items-start mb-4">
-                        <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center text-slate-700 font-bold text-xl uppercase">
-                            {company.nomeEmpresa.substring(0,2)}
+                        <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center text-slate-700 font-bold text-xl uppercase overflow-hidden border border-gray-100">
+                            {company.logo ? (
+                                <img src={getImageUrl(company.logo)} alt="Logo" className="w-full h-full object-contain p-1" />
+                            ) : (
+                                company.nomeEmpresa.substring(0,2)
+                            )}
                         </div>
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
                             company.status === 'Ativo' ? 'bg-green-100 text-green-800' : 
@@ -364,8 +369,12 @@ export const Empresas: React.FC = () => {
         {selectedCompany && (
             <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
                 <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                    <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center text-slate-700 font-bold text-2xl uppercase border border-gray-200 shadow-sm">
-                        {selectedCompany.nomeEmpresa.substring(0,2)}
+                    <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center text-slate-700 font-bold text-2xl uppercase border border-gray-200 shadow-sm overflow-hidden">
+                        {selectedCompany.logo ? (
+                            <img src={getImageUrl(selectedCompany.logo)} alt="Logo" className="w-full h-full object-contain p-2" />
+                        ) : (
+                            selectedCompany.nomeEmpresa.substring(0,2)
+                        )}
                     </div>
                     <div>
                         <h3 className="text-xl font-bold text-gray-900">{selectedCompany.nomeEmpresa}</h3>
@@ -479,7 +488,7 @@ export const Empresas: React.FC = () => {
                                     <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
                                 </div>
                             ) : companySubscriptions.length === 0 ? (
-                                <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                                <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 flex flex-col items-center">
                                     <p className="text-gray-500 text-sm mb-4">Você ainda não possui assinaturas neste estabelecimento.</p>
                                     <Button variant="outline" onClick={() => setActiveTab('planos')}>
                                         Ver Planos Disponíveis

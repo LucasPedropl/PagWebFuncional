@@ -158,6 +158,7 @@ export interface ClientConnection {
   emailEmpresa: string;
   nomeDono: string;
   status: string;
+  logo?: string | null;
 }
 
 export interface ClientSubscription {

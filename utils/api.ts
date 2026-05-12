@@ -8,7 +8,7 @@ export const API_BASE_URL = "https://lojas.vlks.com.br";
  */
 export const getImageUrl = (path: string | null | undefined): string => {
     if (!path) return '';
-    if (path.startsWith('http')) return path;
+    if (path.startsWith('http') || path.startsWith('blob:')) return path;
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
     return `${API_BASE_URL}${normalizedPath}`;
 };
