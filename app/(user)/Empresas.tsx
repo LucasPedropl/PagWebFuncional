@@ -3,12 +3,16 @@ import React, { useEffect, useState } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { Store, MapPin, Mail, FileText, Loader2, LogOut, AlertTriangle, Calendar, CreditCard, Filter, Search, Download, Info } from 'lucide-react';
+import { Store, Mail, FileText, Loader2, LogOut, AlertTriangle, Calendar, CreditCard, Filter, Search, Download, Repeat, PenLine, Camera, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { userService } from '../../services/userService';
-import { ClientConnection, ClientSubscription } from '../../types';
+import { ClientConnection, ClientSubscription, PlanResponse } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { SearchSelect } from '../../components/ui/SearchSelect';
-import { getImageUrl } from '../../utils/api';
+import { SignaturePadModal } from '../../components/ui/SignaturePadModal';
+import { CameraCaptureModal } from '../../components/ui/CameraCaptureModal';
+import { getImageUrl, getContractUrl, TIPO_CONTRATO } from '../../utils/api';
+import { dataUrlToFile } from '../../utils/files';
+import { buildContractPdfWithEvidence, downloadBlob } from '../../utils/contractPdf';
 
 export const Empresas: React.FC = () => {
   const { addToast } = useToast();
@@ -27,7 +31,9 @@ export const Empresas: React.FC = () => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<ClientConnection | null>(null);
   const [companySubscriptions, setCompanySubscriptions] = useState<ClientSubscription[]>([]);
-  const [companyPlans, setCompanyPlans] = useState<any[]>([]);
+  const [companyPlans, setCompanyPlans] = useState<PlanResponse[]>([]);
+  const [plansByCompanyId, setPlansByCompanyId] = useState<Record<number, PlanResponse[]>>({});
+  const [allClientSubscriptions, setAllClientSubscriptions] = useState<ClientSubscription[]>([]);
   const [isLoadingSubscriptions, setIsLoadingSubscriptions] = useState(false);
   const [activeTab, setActiveTab] = useState<'assinaturas' | 'planos'>('assinaturas');
 
@@ -35,6 +41,20 @@ export const Empresas: React.FC = () => {
   const [isSubscribeModalOpen, setIsSubscribeModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [subscribeForm, setSubscribeForm] = useState({
+    periodo: '12',
+    diaPagamento: Math.min(new Date().getDate(), 30).toString(),
+    isRecorrente: true,
+    aceitouTermos: false,
+    signatureDataUrl: null as string | null,
+    photoDataUrl: null as string | null,
+  });
+  const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
+  const [subscribeStep, setSubscribeStep] = useState(0);
+  const [mergedContractPdfUrl, setMergedContractPdfUrl] = useState<string | null>(null);
+  const [mergedContractBlob, setMergedContractBlob] = useState<Blob | null>(null);
+  const [isBuildingMergedPdf, setIsBuildingMergedPdf] = useState(false);
 
   const [isAccepting, setIsAccepting] = useState<number | null>(null);
 
@@ -46,10 +66,62 @@ export const Empresas: React.FC = () => {
     try {
       const data = await userService.listConnections();
       setCompanies(data);
+      preloadCompanyDetails(data);
     } catch (error) {
       console.error(error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const preloadCompanyDetails = async (connections: ClientConnection[]) => {
+    const activeCompanies = connections.filter(
+      (c) => c.status !== 'Pendente' && c.idEmpresa
+    );
+
+    try {
+      const subs = await userService.listClientSubscriptions();
+      setAllClientSubscriptions(subs);
+    } catch (error) {
+      console.error('Erro ao pré-carregar assinaturas', error);
+    }
+
+    if (activeCompanies.length === 0) return;
+
+    const results = await Promise.allSettled(
+      activeCompanies.map(async (company) => {
+        const plans = await userService.listCompanyPlans(company.idEmpresa);
+        return { idEmpresa: company.idEmpresa, plans };
+      })
+    );
+
+    const plansMap: Record<number, PlanResponse[]> = {};
+    results.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        plansMap[result.value.idEmpresa] = result.value.plans;
+      }
+    });
+    setPlansByCompanyId((prev) => ({ ...prev, ...plansMap }));
+  };
+
+  const refreshCompanyDetails = async (company: ClientConnection) => {
+    try {
+      const [allSubs, plans] = await Promise.all([
+        userService.listClientSubscriptions(),
+        userService.listCompanyPlans(company.idEmpresa),
+      ]);
+
+      setAllClientSubscriptions(allSubs);
+      setPlansByCompanyId((prev) => ({ ...prev, [company.idEmpresa]: plans }));
+      setCompanySubscriptions(
+        allSubs.filter((sub) => sub.nomeEmpresa === company.nomeEmpresa)
+      );
+      setCompanyPlans(plans);
+    } catch (error) {
+      console.error('Erro ao carregar dados', error);
+      addToast('error', 'Erro', 'Não foi possível carregar as informações do estabelecimento.');
+    } finally {
+      setIsLoadingSubscriptions(false);
     }
   };
 
@@ -75,48 +147,239 @@ export const Empresas: React.FC = () => {
       setIsUnlinkModalOpen(true);
   };
 
-  const handleDetailsClick = async (company: ClientConnection) => {
+  const handleDetailsClick = (company: ClientConnection) => {
     setSelectedCompany(company);
-    setActiveTab('planos'); // Default to plans to encourage subscription
+    setActiveTab('planos');
     setIsDetailsModalOpen(true);
-    setIsLoadingSubscriptions(true);
-    try {
-        const [allSubs, plans] = await Promise.all([
-          userService.listClientSubscriptions(),
-          userService.listCompanyPlans(company.idEmpresa)
-        ]);
-        
-        // Filter subscriptions by company name
-        const filtered = allSubs.filter(sub => sub.nomeEmpresa === company.nomeEmpresa);
-        setCompanySubscriptions(filtered);
-        setCompanyPlans(plans);
-    } catch (error) {
-        console.error("Erro ao carregar dados", error);
-        addToast('error', 'Erro', 'Não foi possível carregar as informações do estabelecimento.');
-    } finally {
-        setIsLoadingSubscriptions(false);
+
+    const cachedPlans = plansByCompanyId[company.idEmpresa];
+    const cachedSubs = allClientSubscriptions.filter(
+      (sub) => sub.nomeEmpresa === company.nomeEmpresa
+    );
+
+    setCompanyPlans(cachedPlans ?? []);
+    setCompanySubscriptions(cachedSubs);
+
+    if (cachedPlans !== undefined) {
+      setIsLoadingSubscriptions(false);
+      refreshCompanyDetails(company);
+      return;
     }
+
+    setIsLoadingSubscriptions(true);
+    refreshCompanyDetails(company);
   };
 
   const handleSubscribeClick = (plan: any) => {
     setSelectedPlan(plan);
+    setSubscribeForm({
+      periodo: '12',
+      diaPagamento: Math.min(new Date().getDate(), 30).toString(),
+      isRecorrente: true,
+      aceitouTermos: false,
+      signatureDataUrl: null,
+      photoDataUrl: null,
+    });
+    setSubscribeStep(0);
     setIsSubscribeModalOpen(true);
+  };
+
+  const hasContractStep = (plan: any) =>
+    Boolean(plan?.contratoPath) || requiresContractAck(plan);
+
+  const getSubscribeSteps = (plan: any) => {
+    const steps = [
+      { id: 'plano', label: 'Plano' },
+      { id: 'config', label: 'Pagamento' },
+    ];
+    if (hasContractStep(plan)) {
+      steps.push({ id: 'contrato', label: 'Contrato' });
+    }
+    steps.push({ id: 'confirmacao', label: 'Confirmar' });
+    return steps;
+  };
+
+  const requiresSignedContract = (plan: any) =>
+    Number(plan?.tipoContrato ?? plan?.TipoContrato ?? TIPO_CONTRATO.Nenhum) === TIPO_CONTRATO.Contrato;
+
+  const requiresContractAck = (plan: any) => {
+    const tipo = Number(plan?.tipoContrato ?? plan?.TipoContrato ?? TIPO_CONTRATO.Nenhum);
+    return tipo === TIPO_CONTRATO.Termo || tipo === TIPO_CONTRATO.Contrato;
+  };
+
+  const validateSubscribeStep = (): boolean => {
+    if (!selectedPlan) return false;
+
+    const steps = getSubscribeSteps(selectedPlan);
+    const current = steps[subscribeStep];
+    if (!current) return false;
+
+    if (current.id === 'config') {
+      const dia = Number(subscribeForm.diaPagamento);
+      if (dia < 1 || dia > 30) {
+        addToast('error', 'Pagamento', 'Dia de pagamento deve ser entre 1 e 30.');
+        return false;
+      }
+      if (!subscribeForm.isRecorrente) {
+        const periodo = Number(subscribeForm.periodo);
+        if (!periodo || periodo < 1) {
+          addToast('error', 'Pagamento', 'Informe um período válido em meses.');
+          return false;
+        }
+      }
+    }
+
+    if (current.id === 'contrato') {
+      if (requiresSignedContract(selectedPlan) && !subscribeForm.signatureDataUrl) {
+        addToast('error', 'Contrato', 'Desenhe sua assinatura antes de continuar.');
+        return false;
+      }
+      if (requiresContractAck(selectedPlan) && !subscribeForm.aceitouTermos) {
+        addToast('error', 'Contrato', 'Aceite os termos do contrato antes de continuar.');
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const goNextSubscribeStep = () => {
+    if (!validateSubscribeStep() || !selectedPlan) return;
+    const steps = getSubscribeSteps(selectedPlan);
+    setSubscribeStep((prev) => Math.min(prev + 1, steps.length - 1));
+  };
+
+  const goPrevSubscribeStep = () => {
+    setSubscribeStep((prev) => Math.max(prev - 1, 0));
+  };
+
+  useEffect(() => {
+    if (!isSubscribeModalOpen || !selectedPlan) return;
+
+    const steps = getSubscribeSteps(selectedPlan);
+    const current = steps[subscribeStep];
+
+    if (current?.id !== 'confirmacao') {
+      setMergedContractPdfUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setMergedContractBlob(null);
+      return;
+    }
+
+    const hasEvidence =
+      subscribeForm.signatureDataUrl || subscribeForm.photoDataUrl;
+
+    if (!hasEvidence && !selectedPlan.contratoPath) {
+      setMergedContractPdfUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setMergedContractBlob(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const buildMergedPdf = async () => {
+      setIsBuildingMergedPdf(true);
+      try {
+        const blob = await buildContractPdfWithEvidence(
+          selectedPlan.contratoPath ?? null,
+          subscribeForm.signatureDataUrl,
+          subscribeForm.photoDataUrl
+        );
+        if (cancelled) return;
+
+        setMergedContractBlob(blob);
+        setMergedContractPdfUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(blob);
+        });
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          addToast(
+            'error',
+            'Contrato',
+            'Não foi possível montar o PDF com assinatura e foto. Tente novamente.'
+          );
+          setMergedContractBlob(null);
+          setMergedContractPdfUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return null;
+          });
+        }
+      } finally {
+        if (!cancelled) setIsBuildingMergedPdf(false);
+      }
+    };
+
+    buildMergedPdf();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isSubscribeModalOpen,
+    selectedPlan,
+    subscribeStep,
+    subscribeForm.signatureDataUrl,
+    subscribeForm.photoDataUrl,
+    addToast,
+  ]);
+
+  const closeSubscribeModal = () => {
+    setMergedContractPdfUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setMergedContractBlob(null);
+    setIsSubscribeModalOpen(false);
   };
 
   const confirmSubscription = async () => {
     if (!selectedPlan) return;
-    
+
+    if (requiresContractAck(selectedPlan) && !subscribeForm.aceitouTermos) {
+      addToast('error', 'Contrato', 'Você precisa ler e aceitar o contrato/termo antes de assinar.');
+      return;
+    }
+
+    if (requiresSignedContract(selectedPlan) && !subscribeForm.signatureDataUrl) {
+      addToast('error', 'Contrato', 'Desenhe sua assinatura no contrato antes de continuar.');
+      return;
+    }
+
     setIsSubscribing(true);
     try {
-      await userService.assinarPlano(selectedPlan.idPlano);
+      const periodo = subscribeForm.isRecorrente
+        ? 0
+        : Math.max(1, Number(subscribeForm.periodo));
+
+      const contratoFile = mergedContractBlob
+        ? new File([mergedContractBlob], 'contrato-assinado.pdf', { type: 'application/pdf' })
+        : subscribeForm.signatureDataUrl
+          ? dataUrlToFile(subscribeForm.signatureDataUrl, 'contrato-assinado.png')
+          : null;
+
+      await userService.assinarPlano({
+        idPlano: selectedPlan.idPlano,
+        periodo,
+        diaPagamento: Math.min(30, Math.max(1, Number(subscribeForm.diaPagamento))),
+        contrato: contratoFile,
+        observacao: subscribeForm.isRecorrente ? 'Assinatura recorrente' : undefined,
+      });
       addToast('success', 'Assinatura Realizada', `Você assinou o ${selectedPlan?.nome} com sucesso!`);
-      setIsSubscribeModalOpen(false);
+      closeSubscribeModal();
       
-      // Atualiza os dados para refletir a nova assinatura
       if (selectedCompany) {
         const allSubs = await userService.listClientSubscriptions();
-        const filtered = allSubs.filter(sub => sub.nomeEmpresa === selectedCompany.nomeEmpresa);
-        setCompanySubscriptions(filtered);
+        setAllClientSubscriptions(allSubs);
+        setCompanySubscriptions(
+          allSubs.filter((sub) => sub.nomeEmpresa === selectedCompany.nomeEmpresa)
+        );
       }
       
       setActiveTab('assinaturas');
@@ -172,9 +435,7 @@ export const Empresas: React.FC = () => {
         addToast('error', 'Indisponível', 'Este plano não possui um contrato digital anexado.');
         return;
     }
-    const normalizedPath = path.replace(/\\/g, '/');
-    const fullUrl = `https://lojas.vlks.com.br/${normalizedPath.startsWith('/') ? normalizedPath.substring(1) : normalizedPath}`;
-    window.open(fullUrl, '_blank');
+    window.open(getContractUrl(path), '_blank');
   };
 
   const filteredCompanies = companies.filter(c => {
@@ -538,72 +799,389 @@ export const Empresas: React.FC = () => {
         )}
       </Modal>
 
-      {/* Modal Confirmar Assinatura */}
+      {/* Modal Confirmar Assinatura — wizard em etapas */}
       <Modal
         isOpen={isSubscribeModalOpen}
-        onClose={() => setIsSubscribeModalOpen(false)}
-        title="Confirmar Assinatura"
-        size="md"
+        onClose={closeSubscribeModal}
+        title={
+          selectedPlan
+            ? `Assinar plano — etapa ${subscribeStep + 1} de ${getSubscribeSteps(selectedPlan).length}`
+            : 'Assinar plano'
+        }
+        size="lg"
         footer={
-          <>
-            <Button variant="outline" onClick={() => setIsSubscribeModalOpen(false)} disabled={isSubscribing}>
-                Cancelar
-            </Button>
-            <Button 
-                onClick={confirmSubscription} 
-                isLoading={isSubscribing} 
-                className="bg-slate-900 hover:bg-slate-800 text-white"
-            >
-                Confirmar Assinatura
-            </Button>
-          </>
+          selectedPlan && selectedCompany ? (() => {
+            const steps = getSubscribeSteps(selectedPlan);
+            const isFirst = subscribeStep === 0;
+            const isLast = subscribeStep === steps.length - 1;
+
+            return (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => (isFirst ? closeSubscribeModal() : goPrevSubscribeStep())}
+                  disabled={isSubscribing}
+                >
+                  {isFirst ? 'Cancelar' : (
+                    <>
+                      <ChevronLeft className="w-4 h-4 mr-1" />
+                      Voltar
+                    </>
+                  )}
+                </Button>
+                {isLast ? (
+                  <Button
+                    onClick={confirmSubscription}
+                    isLoading={isSubscribing}
+                    className="bg-slate-900 hover:bg-slate-800 text-white"
+                  >
+                    Confirmar Assinatura
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={goNextSubscribeStep}
+                    className="bg-slate-900 hover:bg-slate-800 text-white"
+                  >
+                    Próximo
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                )}
+              </>
+            );
+          })() : undefined
         }
       >
-        {selectedPlan && selectedCompany && (
-            <div className="space-y-4 p-2">
-                <div className="text-center mb-6">
-                    <div className="w-16 h-16 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <CreditCard className="w-8 h-8" />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-900">Você está quase lá!</h3>
-                    <p className="text-gray-500 text-sm mt-1">Confirme os detalhes para assinar o plano.</p>
-                </div>
+        {selectedPlan && selectedCompany && (() => {
+          const steps = getSubscribeSteps(selectedPlan);
+          const currentStep = steps[subscribeStep];
 
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 space-y-3">
-                    <div className="flex justify-between items-center border-b border-gray-200 pb-3">
-                        <span className="text-sm text-gray-500">Estabelecimento</span>
-                        <span className="font-medium text-gray-900">{selectedCompany.nomeEmpresa}</span>
+          return (
+            <div className="space-y-4">
+              {/* Stepper */}
+              <div className="flex items-center justify-between gap-1 px-1">
+                {steps.map((step, index) => (
+                  <React.Fragment key={step.id}>
+                    <div className="flex flex-col items-center flex-1 min-w-0">
+                      <div
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors ${
+                          index < subscribeStep
+                            ? 'bg-green-600 text-white'
+                            : index === subscribeStep
+                              ? 'bg-slate-900 text-white'
+                              : 'bg-gray-100 text-gray-400'
+                        }`}
+                      >
+                        {index < subscribeStep ? <CheckCircle2 className="w-4 h-4" /> : index + 1}
+                      </div>
+                      <span className={`text-[10px] mt-1 truncate w-full text-center ${
+                        index === subscribeStep ? 'text-slate-900 font-medium' : 'text-gray-400'
+                      }`}>
+                        {step.label}
+                      </span>
                     </div>
-                    <div className="flex justify-between items-center border-b border-gray-200 pb-3">
-                        <span className="text-sm text-gray-500">Plano</span>
-                        <span className="font-medium text-gray-900">{selectedPlan.nome}</span>
-                    </div>
-                    <div className="flex justify-between items-center pt-1">
-                        <span className="text-sm font-semibold text-gray-900">Total Mensal</span>
-                        <span className="text-lg font-bold text-slate-900">R$ {(selectedPlan.valorMensalidade || 0).toFixed(2).replace('.', ',')}</span>
-                    </div>
-                </div>
+                    {index < steps.length - 1 && (
+                      <div className={`h-0.5 flex-1 mb-4 ${index < subscribeStep ? 'bg-green-500' : 'bg-gray-200'}`} />
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
 
-                {selectedPlan.funcionalidades && selectedPlan.funcionalidades.length > 0 && (
-                    <div className="mt-4">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">O que está incluso:</p>
-                        <ul className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                            {selectedPlan.funcionalidades.map((func: string, idx: number) => (
-                                <li key={idx} className="flex items-start text-xs text-gray-600">
-                                    <div className="w-1 h-1 rounded-full bg-slate-400 mt-1.5 mr-2 shrink-0"></div>
-                                    <span>{func}</span>
-                                </li>
-                            ))}
+              <div className="max-h-[52vh] overflow-y-auto pr-1 custom-scrollbar">
+                {/* Etapa 1 — Plano */}
+                {currentStep.id === 'plano' && (
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <div className="w-14 h-14 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                        <CreditCard className="w-7 h-7" />
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-900">{selectedPlan.nome}</h3>
+                      <p className="text-sm text-gray-500">{selectedCompany.nomeEmpresa}</p>
+                      <p className="text-2xl font-bold text-slate-900 mt-2">
+                        R$ {(selectedPlan.valorMensalidade || 0).toFixed(2).replace('.', ',')}
+                        <span className="text-sm font-normal text-gray-500">/mês</span>
+                      </p>
+                    </div>
+
+                    {selectedPlan.funcionalidades?.length > 0 && (
+                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Incluso no plano</p>
+                        <ul className="space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar">
+                          {selectedPlan.funcionalidades.map((func: string, idx: number) => (
+                            <li key={idx} className="flex items-start text-sm text-gray-600">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-green-500 mr-2 shrink-0 mt-0.5" />
+                              <span>{func}</span>
+                            </li>
+                          ))}
                         </ul>
-                    </div>
+                      </div>
+                    )}
+                  </div>
                 )}
 
-                <p className="text-xs text-gray-400 text-center mt-4">
-                    Ao confirmar, você concorda com os termos de serviço e autoriza a cobrança recorrente no método de pagamento padrão.
-                </p>
+                {/* Etapa 2 — Pagamento */}
+                {currentStep.id === 'config' && (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">Configuração de pagamento</h3>
+                      <p className="text-sm text-gray-500 mt-1">Defina o período e o dia de cobrança.</p>
+                    </div>
+
+                    <label className="flex items-center cursor-pointer gap-2 select-none p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={subscribeForm.isRecorrente}
+                        onChange={(e) => setSubscribeForm((prev) => ({ ...prev, isRecorrente: e.target.checked }))}
+                        className="w-4 h-4 rounded border-gray-300 text-slate-900 accent-slate-900"
+                      />
+                      <span className="flex items-center text-sm text-gray-700 font-medium">
+                        <Repeat className="w-4 h-4 mr-2 text-slate-500" />
+                        Assinatura recorrente (sem data de término)
+                      </span>
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Período (meses)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={subscribeForm.periodo}
+                          onChange={(e) => setSubscribeForm((prev) => ({ ...prev, periodo: e.target.value }))}
+                          disabled={subscribeForm.isRecorrente}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${
+                            subscribeForm.isRecorrente ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Dia de pagamento</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={30}
+                          value={subscribeForm.diaPagamento}
+                          onChange={(e) => setSubscribeForm((prev) => ({ ...prev, diaPagamento: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Etapa 3 — Contrato */}
+                {currentStep.id === 'contrato' && (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">Contrato do plano</h3>
+                      <p className="text-sm text-gray-500 mt-1">Leia, assine e registre sua foto se necessário.</p>
+                    </div>
+
+                    {selectedPlan.contratoPath ? (
+                      <>
+                        <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
+                          <iframe
+                            src={getContractUrl(selectedPlan.contratoPath)}
+                            title="Contrato do plano"
+                            className="w-full h-40"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full justify-start text-sm py-2"
+                          onClick={() => handleDownloadContract(selectedPlan.contratoPath)}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Abrir contrato em nova aba
+                        </Button>
+                      </>
+                    ) : (
+                      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3">
+                        Este plano exige aceite, mas ainda não possui PDF de contrato cadastrado.
+                      </p>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="justify-center text-sm py-2"
+                        onClick={() => setIsSignatureModalOpen(true)}
+                      >
+                        <PenLine className="w-4 h-4 mr-2" />
+                        Assinar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="justify-center text-sm py-2"
+                        onClick={() => setIsCameraModalOpen(true)}
+                      >
+                        <Camera className="w-4 h-4 mr-2" />
+                        Tirar foto
+                      </Button>
+                    </div>
+
+                    {(subscribeForm.signatureDataUrl || subscribeForm.photoDataUrl) && (
+                      <div className="grid grid-cols-2 gap-3">
+                        {subscribeForm.signatureDataUrl && (
+                          <div className="rounded-lg border border-green-200 bg-green-50 p-2">
+                            <p className="text-[11px] font-medium text-green-800 mb-1 flex items-center">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Assinatura
+                            </p>
+                            <img
+                              src={subscribeForm.signatureDataUrl}
+                              alt="Assinatura"
+                              className="w-full h-14 object-contain bg-white rounded border border-green-100"
+                            />
+                          </div>
+                        )}
+                        {subscribeForm.photoDataUrl && (
+                          <div className="rounded-lg border border-blue-200 bg-blue-50 p-2">
+                            <p className="text-[11px] font-medium text-blue-800 mb-1 flex items-center">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Foto
+                            </p>
+                            <img
+                              src={subscribeForm.photoDataUrl}
+                              alt="Foto do usuário"
+                              className="w-full h-14 object-cover bg-white rounded border border-blue-100"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {requiresContractAck(selectedPlan) && (
+                      <label className="flex items-start gap-2 text-sm text-gray-600 p-3 border border-gray-200 rounded-lg">
+                        <input
+                          type="checkbox"
+                          checked={subscribeForm.aceitouTermos}
+                          onChange={(e) => setSubscribeForm((prev) => ({ ...prev, aceitouTermos: e.target.checked }))}
+                          className="mt-0.5"
+                        />
+                        Li e concordo com os termos/contrato deste plano.
+                      </label>
+                    )}
+                  </div>
+                )}
+
+                {/* Etapa final — Confirmação */}
+                {currentStep.id === 'confirmacao' && (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">Revise antes de confirmar</h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Confira os dados e o contrato com assinatura e foto na última página.
+                      </p>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 space-y-2.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Estabelecimento</span>
+                        <span className="font-medium text-gray-900 text-right">{selectedCompany.nomeEmpresa}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Plano</span>
+                        <span className="font-medium text-gray-900">{selectedPlan.nome}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Valor mensal</span>
+                        <span className="font-bold text-slate-900">
+                          R$ {(selectedPlan.valorMensalidade || 0).toFixed(2).replace('.', ',')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Tipo</span>
+                        <span className="font-medium text-gray-900">
+                          {subscribeForm.isRecorrente ? 'Recorrente' : `${subscribeForm.periodo} meses`}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Dia de pagamento</span>
+                        <span className="font-medium text-gray-900">Dia {subscribeForm.diaPagamento}</span>
+                      </div>
+                    </div>
+
+                    {(mergedContractPdfUrl ||
+                      selectedPlan.contratoPath ||
+                      subscribeForm.signatureDataUrl ||
+                      subscribeForm.photoDataUrl) && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium text-gray-900">Contrato final (com anexo)</p>
+                          {mergedContractBlob && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="text-xs py-1.5 px-3 shrink-0"
+                              onClick={() =>
+                                downloadBlob(
+                                  mergedContractBlob,
+                                  `contrato-${selectedPlan.nome?.replace(/\s+/g, '-') ?? 'plano'}.pdf`
+                                )
+                              }
+                            >
+                              <Download className="w-3.5 h-3.5 mr-1" />
+                              Baixar PDF
+                            </Button>
+                          )}
+                        </div>
+
+                        {isBuildingMergedPdf ? (
+                          <div className="flex items-center justify-center h-48 border border-gray-200 rounded-lg bg-white">
+                            <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
+                            <span className="ml-2 text-sm text-gray-500">Montando contrato...</span>
+                          </div>
+                        ) : mergedContractPdfUrl ? (
+                          <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
+                            <iframe
+                              src={mergedContractPdfUrl}
+                              title="Contrato com assinatura e foto"
+                              className="w-full h-56"
+                            />
+                          </div>
+                        ) : selectedPlan.contratoPath ? (
+                          <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
+                            <iframe
+                              src={getContractUrl(selectedPlan.contratoPath)}
+                              title="Contrato do plano"
+                              className="w-full h-56"
+                            />
+                          </div>
+                        ) : null}
+
+                        <p className="text-[11px] text-gray-400">
+                          A última página do PDF contém sua foto e assinatura registradas neste formulário.
+                        </p>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-gray-400 text-center">
+                      Ao confirmar, você autoriza a cobrança conforme o plano selecionado.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-        )}
+          );
+        })()}
       </Modal>
+
+      <SignaturePadModal
+        isOpen={isSignatureModalOpen}
+        onClose={() => setIsSignatureModalOpen(false)}
+        initialSignature={subscribeForm.signatureDataUrl}
+        onSave={(dataUrl) => setSubscribeForm((prev) => ({ ...prev, signatureDataUrl: dataUrl }))}
+      />
+
+      <CameraCaptureModal
+        isOpen={isCameraModalOpen}
+        onClose={() => setIsCameraModalOpen(false)}
+        initialPhoto={subscribeForm.photoDataUrl}
+        onCapture={(dataUrl) => setSubscribeForm((prev) => ({ ...prev, photoDataUrl: dataUrl }))}
+      />
 
     </UserLayout>
   );

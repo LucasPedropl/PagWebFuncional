@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './context/ToastContext';
 import { Login } from './app/(auth)/Login';
@@ -31,15 +31,31 @@ import { sessionService } from './services/session';
 // Protege rotas de CLIENTE
 const ClientRoute = ({ children }: { children?: React.ReactNode }) => {
   const session = sessionService.getSession();
-  
-  // 1. Não logado -> Login Cliente
+  const needsClientToken = session.user?.tipo === 'Empresa';
+  const [tokenReady, setTokenReady] = useState(!needsClientToken);
+
+  useEffect(() => {
+    if (!needsClientToken) return;
+    localStorage.setItem('pagweb_active_view', 'client');
+    sessionService
+      .switchToMode('client')
+      .then(() => setTokenReady(true))
+      .catch(() => setTokenReady(true));
+  }, [needsClientToken]);
+
   if (!session.token) {
     return <Navigate to="/login?type=client" replace />;
   }
 
-  // 2. Logado como Empresa tentando acessar área de Cliente -> Manda para área Empresa
   if (session.user?.tipo === 'Empresa') {
-    return <Navigate to="/business/dashboard" replace />;
+    const activeView = localStorage.getItem('pagweb_active_view');
+    if (activeView !== 'client') {
+      return <Navigate to="/business/dashboard" replace />;
+    }
+  }
+
+  if (!tokenReady) {
+    return null;
   }
 
   return <>{children}</>;
@@ -48,15 +64,28 @@ const ClientRoute = ({ children }: { children?: React.ReactNode }) => {
 // Protege rotas de EMPRESA (ADMIN)
 const BusinessRoute = ({ children }: { children?: React.ReactNode }) => {
   const session = sessionService.getSession();
+  const needsAdminToken = session.user?.tipo === 'Empresa';
+  const [tokenReady, setTokenReady] = useState(!needsAdminToken);
 
-  // 1. Não logado -> Login Business
+  useEffect(() => {
+    if (!needsAdminToken) return;
+    localStorage.setItem('pagweb_active_view', 'business');
+    sessionService
+      .switchToMode('admin')
+      .then(() => setTokenReady(true))
+      .catch(() => setTokenReady(true));
+  }, [needsAdminToken]);
+
   if (!session.token) {
     return <Navigate to="/login?type=business" replace />;
   }
 
-  // 2. Logado como Cliente tentando acessar área Admin -> Manda para área Cliente
   if (session.user?.tipo !== 'Empresa') {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  if (!tokenReady) {
+    return null;
   }
 
   return <>{children}</>;

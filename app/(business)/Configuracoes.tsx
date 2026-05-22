@@ -10,7 +10,7 @@ import { userService } from '../../services/userService';
 import { NotificationSettings } from '../../types';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../context/ToastContext';
-import { formatCNPJ, formatPhone } from '../../utils/formatters';
+import { formatCNPJ, formatPhone, formatCPFOrCNPJ } from '../../utils/formatters';
 import { getImageUrl } from '../../utils/api';
 
 export const Configuracoes: React.FC = () => {
@@ -112,7 +112,7 @@ export const Configuracoes: React.FC = () => {
       setCompanyData({
         idEmpresa: data.idEmpresa,
         nome: data.nome || '',
-        cnpj: formatCNPJ(data.cnpj || ''),
+        cnpj: formatCPFOrCNPJ(data.cnpj || ''),
         telefone: formatPhone(phone),
         ddi: ddi,
         logo: null,
@@ -127,7 +127,8 @@ export const Configuracoes: React.FC = () => {
 
   const handleCompanyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setCompanyData(prev => ({ ...prev, [name]: value }));
+    const formattedValue = name === 'cnpj' ? formatCPFOrCNPJ(value) : value;
+    setCompanyData(prev => ({ ...prev, [name]: formattedValue }));
   };
 
   const handleCompanyPhoneChange = (value: string) => {
@@ -303,7 +304,7 @@ export const Configuracoes: React.FC = () => {
                     }`}
                 >
                     <Store className="w-4 h-4 mr-3" />
-                    Dados da Empresa
+                    Dados da Empresa/Estabelecimento
                 </button>
                 <button
                     onClick={() => setActiveTab('notificacoes')}
@@ -432,7 +433,7 @@ export const Configuracoes: React.FC = () => {
                 {activeTab === 'geral' && (
                     <div className="space-y-6 animate-fadeIn">
                         <div className="mb-4">
-                            <h2 className="text-lg font-bold text-gray-900">Dados da Empresa</h2>
+                            <h2 className="text-lg font-bold text-gray-900">Dados da Empresa/Estabelecimento</h2>
                             <p className="text-sm text-gray-500">Dados visíveis para seus clientes nas faturas.</p>
                         </div>
 
@@ -452,7 +453,7 @@ export const Configuracoes: React.FC = () => {
                             <div className="flex-1 space-y-3 text-center sm:text-left">
                                 <div className="space-y-1">
                                     <label className="block text-base font-black text-slate-900">
-                                        Logo da Empresa
+                                        Logo da Empresa/Estabelecimento
                                     </label>
                                     <p className="text-xs text-slate-500 leading-relaxed">
                                         Esta logo aparecerá nas faturas e no painel do seu cliente.
@@ -474,13 +475,13 @@ export const Configuracoes: React.FC = () => {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Input 
-                                label="Razão Social" 
+                                label="Razão Social / Nome da Empresa/Estabelecimento" 
                                 name="nome"
                                 value={companyData.nome}
                                 onChange={handleCompanyChange}
                             />
                             <Input 
-                                label="CNPJ" 
+                                label="CPF/CNPJ" 
                                 name="cnpj"
                                 value={companyData.cnpj}
                                 onChange={handleCompanyChange}

@@ -10,6 +10,7 @@ import { PlanResponse, SubscriptionResponse, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { InfoTooltip } from '../../components/ui/InfoTooltip';
 import { SearchSelect } from '../../components/ui/SearchSelect';
+import { TIPO_CONTRATO, TIPO_DESCONTO, getContractUrl } from '../../utils/api';
 
 export const Assinaturas: React.FC = () => {
   const { addToast } = useToast();
@@ -49,8 +50,9 @@ export const Assinaturas: React.FC = () => {
     idUser: '',
     idPlano: '',
     periodo: '12',
-    diaPagamento: new Date().getDate().toString(),
+    diaPagamento: Math.min(new Date().getDate(), 30).toString(),
     desconto: '0',
+    tipoDesconto: String(TIPO_DESCONTO.Percentual),
     observacao: ''
   });
 
@@ -81,7 +83,11 @@ export const Assinaturas: React.FC = () => {
       valorMensalidade: '',
       percentualMulta: '0',
       percentualJurosMensal: '0',
-      funcionalidades: ''
+      funcionalidades: '',
+      contrato: null as File | null,
+      tipoContrato: String(TIPO_CONTRATO.Nenhum),
+      cancelamentoDias: '7',
+      assinarPorCliente: true,
   });
 
   useEffect(() => {
@@ -212,14 +218,17 @@ export const Assinaturas: React.FC = () => {
             percentualMulta: Number(newPlanFormData.percentualMulta),
             percentualJurosMensal: Number(newPlanFormData.percentualJurosMensal),
             funcionalidades: funcionalidadesArray,
-            arquivoContrato: newPlanFormData.contrato
+            arquivoContrato: newPlanFormData.contrato,
+            tipoContrato: Number(newPlanFormData.tipoContrato),
+            cancelamentoDias: Number(newPlanFormData.cancelamentoDias || '0'),
+            assinarPorCliente: newPlanFormData.assinarPorCliente,
         });
         
         addToast('success', 'Plano Criado', 'Novo plano adicionado.');
         const newPlans = await businessService.listPlans();
         setPlans(newPlans);
         setIsNewPlanModalOpen(false);
-        setNewPlanFormData({ nome: '', valorMensalidade: '', percentualMulta: '0', percentualJurosMensal: '0', funcionalidades: '', contrato: null });
+        setNewPlanFormData({ nome: '', valorMensalidade: '', percentualMulta: '0', percentualJurosMensal: '0', funcionalidades: '', contrato: null, tipoContrato: String(TIPO_CONTRATO.Nenhum), cancelamentoDias: '7', assinarPorCliente: true });
     } catch (e: any) {
         addToast('error', 'Erro', e.message || 'Erro ao criar plano');
     } finally {
@@ -248,8 +257,9 @@ export const Assinaturas: React.FC = () => {
             idUser: parseInt(formData.idUser),
             idPlano: parseInt(formData.idPlano),
             periodo: parseInt(formData.periodo),
-            diaPagamento: parseInt(formData.diaPagamento),
+            diaPagamento: Math.min(30, Math.max(1, parseInt(formData.diaPagamento))),
             desconto: parseFloat(formData.desconto || '0'),
+            tipoDesconto: Number(formData.tipoDesconto),
             observacao: formData.observacao + (isRecurring ? ' [Recorrente]' : '')
         });
 
@@ -261,8 +271,9 @@ export const Assinaturas: React.FC = () => {
             idUser: '',
             idPlano: '',
             periodo: '12',
-            diaPagamento: new Date().getDate().toString(),
+            diaPagamento: Math.min(new Date().getDate(), 30).toString(),
             desconto: '0',
+            tipoDesconto: String(TIPO_DESCONTO.Percentual),
             observacao: ''
         });
         setIsRecurring(false);
@@ -335,9 +346,7 @@ export const Assinaturas: React.FC = () => {
         addToast('error', 'Indisponível', 'Esta assinatura não possui um contrato anexado.');
         return;
     }
-    const normalizedPath = path.replace(/\\/g, '/');
-    const fullUrl = `https://lojas.vlks.com.br/${normalizedPath.startsWith('/') ? normalizedPath.substring(1) : normalizedPath}`;
-    window.open(fullUrl, '_blank');
+    window.open(getContractUrl(path), '_blank');
   };
 
   // Filtragem local
@@ -798,7 +807,7 @@ export const Assinaturas: React.FC = () => {
                 </label>
                 <div className="relative">
                     <SearchSelect
-                        options={Array.from({ length: 31 }, (_, i) => ({ value: (i + 1).toString(), label: (i + 1).toString() }))}
+                        options={Array.from({ length: 30 }, (_, i) => ({ value: (i + 1).toString(), label: (i + 1).toString() }))}
                         value={formData.diaPagamento}
                         onChange={(val) => setFormData(prev => ({ ...prev, diaPagamento: val.toString() }))}
                     />
@@ -811,8 +820,9 @@ export const Assinaturas: React.FC = () => {
                 )}
              </div>
 
-             <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-gray-700">Desconto (%)</label>
+             <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-gray-700">Desconto</label>
                 <div className="relative">
                     <input
                         type="number"
@@ -821,9 +831,24 @@ export const Assinaturas: React.FC = () => {
                         onChange={handleInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 pr-8"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+                      {Number(formData.tipoDesconto) === TIPO_DESCONTO.ValorFixo ? 'R$' : '%'}
+                    </span>
                 </div>
             </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-gray-700">Tipo de desconto</label>
+              <select
+                name="tipoDesconto"
+                value={formData.tipoDesconto}
+                onChange={handleInputChange}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900"
+              >
+                <option value={TIPO_DESCONTO.Percentual}>Percentual (%)</option>
+                <option value={TIPO_DESCONTO.ValorFixo}>Valor fixo (R$)</option>
+              </select>
+            </div>
+          </div>
           </div>
 
           {/* Observação */}

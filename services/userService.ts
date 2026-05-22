@@ -1,12 +1,20 @@
 
-import { ActivatePayload, AppNotification, AuthResponse, ClientConnection, ClientInvoice, ClientSubscription, LoginPayload, NotificationSettings, RegisterPayload, SavedCard, UserAccountResponse, UserUpdatePayload } from "../types";
+import { ActivatePayload, AppNotification, AuthResponse, ClientConnection, ClientInvoice, ClientSubscription, LoginPayload, NotificationSettings, RegisterPayload, SavedCard, UserAccountResponse, UserUpdatePayload, AssinarPlanoPayload, PlanResponse } from "../types";
 import { sessionService } from "./session";
 import { parseApiError } from "../utils/formatters";
+import { ASSINATURA_STATUS, resolveContractPath } from "../utils/api";
 
 const BASE_URL = "https://lojas.vlks.com.br/api/v1";
 
+const isEmpresaDualAccount = (): boolean =>
+  sessionService.isEmpresaOwner() || sessionService.getSession().user?.tipo === "Empresa";
+
 // Helper privado para requisições autenticadas com renovação automática
 const authRequest = async (endpoint: string, options: RequestInit = {}, isRetry = false): Promise<Response> => {
+  if (!isRetry && isEmpresaDualAccount()) {
+    await sessionService.switchToMode("client");
+  }
+
   const { token } = sessionService.getSession();
   
   if (!token && !isRetry) {
@@ -35,23 +43,10 @@ const authRequest = async (endpoint: string, options: RequestInit = {}, isRetry 
     const creds = sessionService.getCredentials();
     if (creds) {
       try {
-        if (creds.type === 'client') {
-            await userService.login(creds.email, creds.password);
-        } else {
-            // Login administrativo direto para evitar dependência circular
-            const loginRes = await fetch(`${BASE_URL}/User/login-admin`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
-                body: JSON.stringify({ email: creds.email, password: creds.password })
-            });
-            if (loginRes.ok) {
-                const data = await loginRes.json();
-                if (data.user) data.user.tipo = 'Empresa';
-                sessionService.setSession(data);
-            } else {
-                throw new Error("Falha na renovação silenciosa");
-            }
-        }
+        await sessionService.switchToMode("client");
+        const refreshed = await sessionService.fetchClientToken(creds.email, creds.password);
+        sessionService.applyAuthResponse(refreshed, "client");
+        sessionService.saveCredentials(creds.email, creds.password, "client");
         // Tenta a requisição original novamente
         return authRequest(endpoint, options, true);
       } catch (err) {
@@ -62,6 +57,15 @@ const authRequest = async (endpoint: string, options: RequestInit = {}, isRetry 
     }
     sessionService.logout();
     throw new Error("Sessão expirada. Por favor, faça login novamente.");
+  }
+
+  if (response.status === 403 && !isRetry && isEmpresaDualAccount()) {
+    try {
+      await sessionService.switchToMode("client");
+      return authRequest(endpoint, options, true);
+    } catch (err) {
+      console.error("Erro ao obter token de cliente:", err);
+    }
   }
 
   return response;
@@ -135,13 +139,18 @@ export const userService = {
     }
 
     const data = await response.json();
-    
-    if (data.user && !data.user.tipo) {
-      data.user.tipo = 'Cliente';
+
+    if (data.user) {
+      if (sessionService.isEmpresaOwner()) {
+        data.user.tipo = "Empresa";
+      } else if (!data.user.tipo) {
+        data.user.tipo = "Cliente";
+      }
     }
 
-    sessionService.setSession(data);
-    sessionService.saveCredentials(email, password, 'client');
+    sessionService.applyAuthResponse(data, "client");
+    sessionService.saveCredentials(email, password, "client");
+    sessionService.prefetchAlternateToken("client");
     return data;
   },
 
@@ -316,7 +325,7 @@ export const userService = {
   },
 
   async acceptSubscription(idAssinatura: number): Promise<void> {
-    const response = await authRequest(`/User/minha-assinatura/${idAssinatura}/true`, {
+    const response = await authRequest(`/User/minha-assinatura/${idAssinatura}/${ASSINATURA_STATUS.Ativo}`, {
       method: 'PATCH'
     });
     if (!response.ok) {
@@ -336,12 +345,19 @@ export const userService = {
     }
   },
 
-  async listCompanyPlans(idEmpresa: number): Promise<any[]> {
+  async listCompanyPlans(idEmpresa: number): Promise<PlanResponse[]> {
     const response = await authRequest(`/Plano/empresa/${idEmpresa}`, { method: 'GET' });
     if (!response.ok) return [];
     try {
         const data = await response.json();
-        return Array.isArray(data) ? data : [];
+        const list = Array.isArray(data) ? data : (Array.isArray(data?.dados) ? data.dados : []);
+        return list.map((plan: any) => ({
+          ...plan,
+          contratoPath: resolveContractPath(plan),
+          cancelamentoDias: plan.cancelamentoDias ?? plan.cancelamento ?? plan.Cancelamento,
+          tipoContrato: plan.tipoContrato ?? plan.TipoContrato,
+          assinarPorCliente: plan.assinarPorCliente ?? plan.AssinarPorCliente,
+        }));
     } catch {
         return [];
     }
@@ -352,10 +368,55 @@ export const userService = {
     if (!response.ok) return [];
     try {
         const data = await response.json();
-        return Array.isArray(data) ? data : [];
+        const list = Array.isArray(data) ? data : [];
+        return list.map((sub: any) => ({
+          idAssinatura: sub.idAssinatura ?? sub.IdAssinatura,
+          nomePlano: sub.nomePlano ?? sub.NomePlano,
+          nomeEmpresa: sub.nomeEmpresa ?? sub.NomeEmpresa,
+          dataInicio: sub.dataInicio ?? sub.DataInicio,
+          dataFim: sub.dataFim ?? sub.DataFim,
+          valorMensal: sub.valorMensal ?? sub.ValorMensal,
+          status: sub.status ?? sub.Status,
+          periodo: sub.periodo ?? sub.Periodo,
+          idPlano: sub.idPlano ?? sub.IdPlano,
+          contratoPath: resolveContractPath(sub),
+          contrato: resolveContractPath(sub),
+        }));
     } catch {
         return [];
     }
+  },
+
+  async enrichClientSubscriptions(
+    subscriptions: ClientSubscription[],
+    connections: ClientConnection[]
+  ): Promise<ClientSubscription[]> {
+    if (!subscriptions.length) return subscriptions;
+
+    const plansByCompany = new Map<number, PlanResponse[]>();
+    const uniqueCompanyIds = [...new Set(connections.map((c) => c.idEmpresa).filter(Boolean))];
+
+    await Promise.all(
+      uniqueCompanyIds.map(async (idEmpresa) => {
+        const plans = await this.listCompanyPlans(idEmpresa);
+        plansByCompany.set(idEmpresa, plans);
+      })
+    );
+
+    return subscriptions.map((sub) => {
+      const connection = connections.find((c) => c.nomeEmpresa === sub.nomeEmpresa);
+      const plans = connection ? plansByCompany.get(connection.idEmpresa) ?? [] : [];
+      const matchedPlan = plans.find((p) => p.nome === sub.nomePlano);
+
+      if (!matchedPlan) return sub;
+
+      return {
+        ...sub,
+        idPlano: sub.idPlano ?? matchedPlan.idPlano,
+        contratoPath: sub.contratoPath ?? resolveContractPath(matchedPlan),
+        tipoContratoPlano: matchedPlan.tipoContrato,
+      };
+    });
   },
 
   async listClientInvoices(): Promise<ClientInvoice[]> {
@@ -440,7 +501,7 @@ export const userService = {
   },
 
   async cancelSubscription(idAssinatura: number): Promise<void> {
-    const response = await authRequest(`/User/minha-assinatura/${idAssinatura}/false`, {
+    const response = await authRequest(`/User/minha-assinatura/${idAssinatura}/${ASSINATURA_STATUS.Cancelado}`, {
       method: 'PATCH'
     });
     if (!response.ok) {
@@ -465,14 +526,44 @@ export const userService = {
       }
   },
 
-  async assinarPlano(idPlano: number): Promise<void> {
-    const response = await authRequest(`/User/assinar-plano/${idPlano}`, {
-      method: 'POST'
+  async assinarPlano(payload: AssinarPlanoPayload): Promise<{ idAssinatura?: number; message?: string }> {
+    const account = await this.getMyAccount();
+    const idUser = payload.idUser ?? account.idUser;
+    const diaPagamento = Math.min(30, Math.max(1, payload.diaPagamento));
+
+    const formData = new FormData();
+    formData.append('IdUser', idUser.toString());
+    formData.append('IdPlano', payload.idPlano.toString());
+    formData.append('Periodo', payload.periodo.toString());
+    formData.append('DiaPagamento', diaPagamento.toString());
+
+    if (payload.desconto != null) {
+      formData.append('Desconto', payload.desconto.toString());
+    }
+    if (payload.tipoDesconto != null) {
+      formData.append('TipoDesconto', payload.tipoDesconto.toString());
+    }
+    if (payload.observacao) {
+      formData.append('Observacao', payload.observacao);
+    }
+    if (payload.contrato) {
+      formData.append('Contrato', payload.contrato);
+    }
+
+    const response = await authRequest(`/User/assinar-plano/${payload.idPlano}`, {
+      method: 'POST',
+      body: formData
     });
 
     if (!response.ok) {
       const msg = await parseApiError(response);
       throw new Error(msg || "Falha ao assinar plano.");
+    }
+
+    try {
+      return await response.json();
+    } catch {
+      return { message: 'Assinatura realizada com sucesso.' };
     }
   }
 };

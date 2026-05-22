@@ -37,10 +37,12 @@ export const Login: React.FC = () => {
       if (isBusiness) {
         // Uses login-admin logic
         await companyService.login(formData.email, formData.password);
+        localStorage.setItem('pagweb_active_view', 'business');
         navigate('/business/dashboard');
       } else {
         // Uses login-cliente logic
         await userService.login(formData.email, formData.password);
+        localStorage.setItem('pagweb_active_view', 'client');
         navigate('/dashboard');
       }
     } catch (err: any) {

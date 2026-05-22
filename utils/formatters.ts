@@ -17,6 +17,15 @@ export const formatCNPJ = (value: string) => {
     .replace(/(-\d{2})\d+?$/, '$1');
 };
 
+export const formatCPFOrCNPJ = (value: string) => {
+  const clean = value.replace(/\D/g, '');
+  if (clean.length <= 11) {
+    return formatCPF(value);
+  } else {
+    return formatCNPJ(value);
+  }
+};
+
 export const formatPhone = (value: string) => {
   const clean = value.replace(/\D/g, '');
   if (clean.length > 10) {

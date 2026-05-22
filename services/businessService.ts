@@ -2,11 +2,72 @@
 import { PlanPayload, PlanResponse, User, SubscriptionPayload, SubscriptionResponse, Mensalidade } from "../types";
 import { sessionService } from "./session";
 import { parseApiError } from "../utils/formatters";
+import { resolveContractPath, toAssinaturaStatusCode } from "../utils/api";
 
 const BASE_URL = "https://lojas.vlks.com.br/api/v1";
 
+const buildPlanFormData = (data: PlanPayload): FormData => {
+  const formData = new FormData();
+  formData.append('Nome', data.nome);
+  formData.append('ValorMensalidade', data.valorMensalidade.toString());
+  formData.append('PercentualMulta', data.percentualMulta.toString());
+  formData.append('PercentualJurosMensal', data.percentualJurosMensal.toString());
+
+  if (data.funcionalidades?.length) {
+    data.funcionalidades.forEach((func) => formData.append('Funcionalidades', func));
+  }
+
+  if (data.arquivoContrato) {
+    formData.append('ArquivoContrato', data.arquivoContrato);
+  }
+
+  if (data.tipoContrato != null) {
+    formData.append('TipoContrato', data.tipoContrato.toString());
+  }
+
+  if (data.cancelamentoDias != null) {
+    formData.append('cancelamentoDias', data.cancelamentoDias.toString());
+  }
+
+  if (data.assinarPorCliente != null) {
+    formData.append('assinarPorCliente', String(data.assinarPorCliente));
+  }
+
+  return formData;
+};
+
+const normalizePlan = (plan: any): PlanResponse => ({
+  ...plan,
+  contratoPath: resolveContractPath(plan),
+  cancelamentoDias: plan.cancelamentoDias ?? plan.cancelamento ?? plan.Cancelamento,
+  tipoContrato: plan.tipoContrato ?? plan.TipoContrato,
+  assinarPorCliente: plan.assinarPorCliente ?? plan.AssinarPorCliente,
+});
+
+const normalizeSubscription = (sub: any): SubscriptionResponse => ({
+  ...sub,
+  idAssinatura: sub.idAssinatura ?? sub.IdAssinatura,
+  nomeCliente: sub.nomeCliente ?? sub.NomeCliente,
+  nomePlano: sub.nomePlano ?? sub.NomePlano,
+  idPlano: sub.idPlano ?? sub.IdPlano,
+  periodo: sub.periodo ?? sub.Periodo,
+  dataInicial: sub.dataInicial ?? sub.DataInicial,
+  dataFinal: sub.dataFinal ?? sub.DataFinal,
+  valorComDesconto: sub.valorComDesconto ?? sub.ValorComDesconto,
+  status: sub.status ?? sub.Status,
+  contratoPath: resolveContractPath(sub),
+  contrato: resolveContractPath(sub),
+});
+
+const isEmpresaDualAccount = (): boolean =>
+  sessionService.isEmpresaOwner() || sessionService.getSession().user?.tipo === "Empresa";
+
 // Helper privado para requisições autenticadas com renovação automática
 const authRequest = async (endpoint: string, options: RequestInit = {}, isRetry = false): Promise<Response> => {
+  if (!isRetry && isEmpresaDualAccount()) {
+    await sessionService.switchToMode("admin");
+  }
+
   const { token } = sessionService.getSession();
   
   if (!token && !isRetry) {
@@ -25,30 +86,26 @@ const authRequest = async (endpoint: string, options: RequestInit = {}, isRetry 
   });
 
   // Se o token expirou (401), tentamos renovar usando as credenciais salvas
+  if (response.status === 403 && !isRetry && isEmpresaDualAccount()) {
+    try {
+      await sessionService.switchToMode("admin");
+      return authRequest(endpoint, options, true);
+    } catch (err) {
+      console.error("Erro ao obter token administrativo:", err);
+    }
+  }
+
   if (response.status === 401 && !isRetry) {
     const creds = sessionService.getCredentials();
     if (creds) {
       try {
-        // Tentamos o login administrativo
-        const loginRes = await fetch(`${BASE_URL}/User/login-admin`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
-            body: JSON.stringify({ email: creds.email, password: creds.password })
-        });
-
-        if (loginRes.ok) {
-            const data = await loginRes.json();
-            if (data.user) data.user.tipo = 'Empresa';
-            sessionService.setSession(data);
-            
-            // Tenta a requisição original novamente
-            return authRequest(endpoint, options, true);
-        }
+        await sessionService.switchToMode("admin");
+        return authRequest(endpoint, options, true);
       } catch (err) {
         console.error("Erro na renovação automática de token:", err);
       }
     }
-    
+
     sessionService.logout();
     throw new Error("Sessão expirada. Por favor, faça login novamente.");
   }
@@ -69,30 +126,14 @@ export const businessService = {
     }
     try {
         const data = await response.json();
-        return Array.isArray(data) ? data : [];
+        return Array.isArray(data) ? data.map(normalizePlan) : [];
     } catch {
         return [];
     }
   },
 
   async createPlan(data: PlanPayload): Promise<PlanResponse> {
-    const formData = new FormData();
-    formData.append('Nome', data.nome);
-    formData.append('ValorMensalidade', data.valorMensalidade.toString());
-    formData.append('PercentualMulta', data.percentualMulta.toString());
-    formData.append('PercentualJurosMensal', data.percentualJurosMensal.toString());
-    
-    if (data.funcionalidades && data.funcionalidades.length > 0) {
-      data.funcionalidades.forEach(func => {
-        formData.append('Funcionalidades', func);
-      });
-    } else {
-      // If empty, we might need to send an empty string or nothing. Based on swagger, it can be empty.
-    }
-
-    if (data.arquivoContrato) {
-      formData.append('ArquivoContrato', data.arquivoContrato);
-    }
+    const formData = buildPlanFormData(data);
 
     const { token } = sessionService.getSession();
     if (!token) {
@@ -113,13 +154,26 @@ export const businessService = {
         const text = await parseApiError(response);
         throw new Error(text || "Erro ao criar plano");
     }
-    return await response.json();
+    const json = await response.json();
+    return normalizePlan(json);
   },
 
   async updatePlan(id: number, data: PlanPayload): Promise<void> {
-    const response = await authRequest(`/Plano/${id}`, {
+    const formData = buildPlanFormData(data);
+
+    const { token } = sessionService.getSession();
+    if (!token) {
+      sessionService.logout();
+      throw new Error("Sessão inválida. Faça login novamente.");
+    }
+
+    const response = await fetch(`${BASE_URL}/Plano/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify(data)
+      headers: {
+        "accept": "*/*",
+        "Authorization": `Bearer ${token}`
+      },
+      body: formData
     });
 
     if (!response.ok) {
@@ -181,19 +235,37 @@ export const businessService = {
      const response = await authRequest('/Assinatura/empresa', {
       method: 'GET'
     });
-    if (!response.ok) return [];
+    // API retorna 500 por bug de serialização no backend (tipos anônimos EF) — tratamos sem quebrar a UI
+    if (!response.ok) {
+      if (response.status >= 500) {
+        console.warn(
+          "[PagWeb] GET /Assinatura/empresa indisponível (erro no servidor). Métricas de assinatura usarão valores vazios."
+        );
+      }
+      return [];
+    }
     try {
         const data = await response.json();
-        return Array.isArray(data) ? data : [];
+        return Array.isArray(data) ? data.map(normalizeSubscription) : [];
     } catch {
         return [];
     }
   },
 
   async createSubscription(data: SubscriptionPayload): Promise<void> {
+    const payload = {
+      idUser: data.idUser,
+      idPlano: data.idPlano,
+      periodo: data.periodo,
+      diaPagamento: Math.min(30, Math.max(1, data.diaPagamento)),
+      desconto: data.desconto ?? 0,
+      tipoDesconto: data.tipoDesconto ?? 0,
+      observacao: data.observacao ?? '',
+    };
+
     const response = await authRequest('/Assinatura', {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
@@ -202,10 +274,11 @@ export const businessService = {
     }
   },
 
-  async updateSubscription(id: number, status: string): Promise<void> {
+  async updateSubscription(id: number, status: string | number): Promise<void> {
+    const statusCode = toAssinaturaStatusCode(status);
     const response = await authRequest(`/Assinatura/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify(status) 
+      body: JSON.stringify(statusCode)
     });
 
     if (!response.ok) {
@@ -215,7 +288,7 @@ export const businessService = {
   },
 
   async deleteSubscription(id: number): Promise<void> {
-    const response = await authRequest(`/Assinatura/${id}`, {
+    const response = await authRequest(`/Assinatura/assinatura/${id}`, {
       method: 'DELETE'
     });
 

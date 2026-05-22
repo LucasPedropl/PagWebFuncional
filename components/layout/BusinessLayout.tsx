@@ -16,10 +16,15 @@ import {
   LogOut,
   Menu as MenuIcon,
   Info,
-  MessageCircle
+  MessageCircle,
+  ChevronsUpDown,
+  Store,
+  UserCircle,
+  Check
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
+import { companyService } from '../../services/companyService';
 import { AppNotification } from '../../types';
 import { getImageUrl } from '../../utils/api';
 
@@ -39,17 +44,88 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
-  const [userProfile, setUserProfile] = useState<{nome: string, fotoPerfilPath: string | null} | null>(null);
+  const [userProfile, setUserProfile] = useState<{nome: string, fotoPerfilPath: string | null} | null>(() => {
+    const { user } = sessionService.getSession();
+    return user ? { nome: user.nome, fotoPerfilPath: user.fotoPerfilPath || null } : null;
+  });
+  const [companyProfile, setCompanyProfile] = useState<{nome: string, logo: string | null} | null>(() => {
+     const savedCompany = localStorage.getItem('pagweb_company');
+     return savedCompany ? JSON.parse(savedCompany) : null;
+  });
+
+  const getInitials = (name?: string) => {
+     if (!name) return 'HQ';
+     const parts = name.trim().split(' ');
+     if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+     }
+     return name.substring(0, 2).toUpperCase();
+  };
+
+  const [showSwitcherDropdown, setShowSwitcherDropdown] = useState(false);
+  const { user } = sessionService.getSession();
+  const isEmpresa = user?.tipo === 'Empresa';
+  const activeView = localStorage.getItem('pagweb_active_view') || 'business';
+
+  const handleSwitchView = async (view: 'client' | 'business') => {
+     setShowSwitcherDropdown(false);
+     localStorage.setItem('pagweb_active_view', view);
+     try {
+        await sessionService.switchToMode(view === 'client' ? 'client' : 'admin');
+        window.dispatchEvent(new CustomEvent('pagweb:session-switched', { detail: { view } }));
+        navigate(view === 'client' ? '/dashboard' : '/business/dashboard');
+     } catch (error) {
+        console.error('Erro ao alternar ambiente', error);
+     }
+  };
 
   useEffect(() => {
     localStorage.setItem('pagweb_sidebar_collapsed', JSON.stringify(isCollapsed));
   }, [isCollapsed]);
 
-  // Carrega notificações e perfil ao montar
+  // Garante token admin antes de carregar dados do estabelecimento
   useEffect(() => {
-      fetchNotifications();
-      fetchProfile();
+      let cancelled = false;
+      const init = async () => {
+        if (isEmpresa) {
+          try {
+            await sessionService.switchToMode('admin');
+          } catch (error) {
+            console.error('Erro ao ativar sessão administrativa', error);
+          }
+        }
+        if (cancelled) return;
+        fetchNotifications();
+        fetchProfile();
+        fetchCompany();
+      };
+      init();
+      return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    const onSessionSwitched = (e: Event) => {
+      const view = (e as CustomEvent).detail?.view;
+      if (view === 'business') {
+        fetchNotifications();
+        fetchProfile();
+        fetchCompany();
+      }
+    };
+    window.addEventListener('pagweb:session-switched', onSessionSwitched);
+    return () => window.removeEventListener('pagweb:session-switched', onSessionSwitched);
+  }, []);
+
+  const fetchCompany = async () => {
+    try {
+      const data = await companyService.getMyCompany();
+      const compData = { nome: data.nome, logo: data.logo || null };
+      setCompanyProfile(compData);
+      localStorage.setItem('pagweb_company', JSON.stringify(compData));
+    } catch (error) {
+      console.error("Erro ao carregar empresa no layout business", error);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -58,6 +134,13 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
           nome: data.nome,
           fotoPerfilPath: data.fotoPerfilPath
       });
+      const sessionUserStr = localStorage.getItem('pagweb_user');
+      if (sessionUserStr) {
+         const sessionUser = JSON.parse(sessionUserStr);
+         sessionUser.fotoPerfilPath = data.fotoPerfilPath;
+         sessionUser.nome = data.nome;
+         localStorage.setItem('pagweb_user', JSON.stringify(sessionUser));
+      }
     } catch (error) {
       console.error("Erro ao carregar perfil no layout business", error);
       // Fallback para sessão se falhar
@@ -195,6 +278,101 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
              </span>
           </div>
         </div>
+
+        {/* Switcher de Visão (Apenas para usuário Empresa) */}
+        {isEmpresa && (
+           <div className={`px-4 pt-4 pb-2 transition-all duration-300 relative ${isCollapsed ? 'px-2 pt-4' : ''}`}>
+              <button
+                 onClick={() => setShowSwitcherDropdown(!showSwitcherDropdown)}
+                 className={isCollapsed 
+                    ? "w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 border border-gray-200 shadow-sm flex items-center justify-center font-bold text-slate-800 text-sm mx-auto transition-all duration-200 relative group overflow-hidden"
+                    : "w-full flex items-center justify-between p-2 rounded-xl bg-white hover:bg-gray-50 border border-gray-200 shadow-sm transition-all duration-200 group"
+                 }
+                 title="Alternar ambiente de trabalho"
+              >
+                 {isCollapsed ? (
+                    // Modo Colapsado: Apenas a Logo ou Iniciais direto no botão
+                    companyProfile?.logo ? (
+                       <img src={getImageUrl(companyProfile.logo)} alt={companyProfile.nome} className="w-full h-full object-cover" />
+                    ) : (
+                       <span>{getInitials(companyProfile?.nome || userProfile?.nome || user?.nome)}</span>
+                    )
+                 ) : (
+                    // Modo Expandido: Card completo com Logo, Textos e Setas
+                    <>
+                       <div className="flex items-center gap-3 overflow-hidden">
+                          <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center font-bold text-slate-800 text-sm shrink-0 overflow-hidden shadow-2xs">
+                             {companyProfile?.logo ? (
+                                <img src={getImageUrl(companyProfile.logo)} alt={companyProfile.nome} className="w-full h-full object-cover" />
+                             ) : (
+                                <span>{getInitials(companyProfile?.nome || userProfile?.nome || user?.nome)}</span>
+                             )}
+                          </div>
+                          <div className="flex flex-col text-left overflow-hidden transition-all duration-300">
+                             <span className="text-sm font-bold text-slate-900 truncate">{companyProfile?.nome || 'Estabelecimento'}</span>
+                             <span className="text-xs text-blue-600 font-medium truncate">Área do Estabelecimento</span>
+                          </div>
+                       </div>
+                       <ChevronsUpDown className="w-4 h-4 text-gray-400 group-hover:text-gray-600 shrink-0 ml-1 transition-colors" />
+                    </>
+                 )}
+              </button>
+
+              {showSwitcherDropdown && (
+                 <>
+                    <div className="fixed inset-0 z-[60]" onClick={() => setShowSwitcherDropdown(false)}></div>
+                    <div className={`absolute z-[70] bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden py-1 ${
+                       isCollapsed 
+                          ? 'left-full top-4 ml-3 w-72' 
+                          : 'left-4 right-4 top-full mt-2 w-[calc(100%-2rem)]'
+                    }`}>
+                       <div className="px-3 py-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100 bg-gray-50/50">
+                          Alternar Ambiente
+                       </div>
+                       <button 
+                          onClick={() => handleSwitchView('business')}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-slate-50 transition-colors ${activeView === 'business' ? 'bg-blue-50/40' : ''}`}
+                       >
+                          <div className="flex items-center gap-3">
+                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center border overflow-hidden shrink-0 ${activeView === 'business' ? 'border-blue-600 ring-2 ring-blue-600/20 shadow-sm bg-blue-50 text-blue-700 font-bold' : 'border-gray-200 bg-gray-100 text-slate-700 font-bold'}`}>
+                                {companyProfile?.logo ? (
+                                   <img src={getImageUrl(companyProfile.logo)} alt={companyProfile.nome} className="w-full h-full object-cover" />
+                                ) : (
+                                   <span className="text-xs">{getInitials(companyProfile?.nome || userProfile?.nome || user?.nome)}</span>
+                                )}
+                             </div>
+                             <div>
+                                <div className="text-sm font-semibold text-slate-900">Painel do Estabelecimento</div>
+                                <div className="text-xs text-slate-500">Gestão e Cobranças</div>
+                             </div>
+                          </div>
+                          {activeView === 'business' && <Check size={16} className="text-blue-600" />}
+                       </button>
+
+                       <button 
+                          onClick={() => handleSwitchView('client')}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-slate-50 transition-colors border-t border-gray-100 ${activeView === 'client' ? 'bg-blue-50/40' : ''}`}
+                       >
+                          <div className="flex items-center gap-3">
+                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center border overflow-hidden shrink-0 ${activeView === 'client' ? 'border-blue-600 ring-2 ring-blue-600/20 shadow-sm bg-blue-50 text-blue-700 font-bold' : 'border-gray-200 bg-gray-100 text-slate-700 font-bold'}`}>
+                                {(userProfile?.fotoPerfilPath || user?.fotoPerfilPath) ? (
+                                   <img src={getImageUrl(userProfile?.fotoPerfilPath || user?.fotoPerfilPath)} alt={userProfile?.nome || user?.nome} className="w-full h-full object-cover" />
+                                ) : (
+                                   <span className="text-xs">{getInitials(userProfile?.nome || user?.nome)}</span>
+                                )}
+                             </div>
+                             <div>
+                                <div className="text-sm font-semibold text-slate-900">Área do Cliente</div>
+                                <div className="text-xs text-slate-500">Minhas Assinaturas</div>
+                             </div>
+                          </div>
+                          {activeView === 'client' && <Check size={16} className="text-blue-600" />}
+                       </button>
+                    </div>
+                 </>
+              )}
+           </div>
+        )}
 
         {/* Navigation */}
         <nav className={`flex-1 py-6 space-y-2 ${isCollapsed ? 'overflow-visible' : 'overflow-y-auto overflow-x-hidden'}`}>

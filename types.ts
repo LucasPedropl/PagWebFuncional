@@ -94,6 +94,9 @@ export interface PlanPayload {
   percentualJurosMensal: number;
   funcionalidades: string[];
   arquivoContrato?: File | null;
+  tipoContrato?: number;
+  cancelamentoDias?: number;
+  assinarPorCliente?: boolean;
 }
 
 export interface PlanResponse {
@@ -104,15 +107,31 @@ export interface PlanResponse {
   percentualJurosMensal: number;
   funcionalidades: string[];
   contratoPath?: string | null;
+  tipoContrato?: number;
+  cancelamentoDias?: number;
+  cancelamento?: number;
+  assinarPorCliente?: boolean;
 }
 
 export interface SubscriptionPayload {
   idUser: number;
   idPlano: number;
-  periodo: number; // em meses
-  diaPagamento: number; // Novo campo: Dia do mês para vencimento
+  periodo: number; // em meses (0 = recorrente)
+  diaPagamento: number;
   desconto: number;
+  tipoDesconto?: number;
   observacao: string;
+}
+
+export interface AssinarPlanoPayload {
+  idPlano: number;
+  idUser?: number;
+  periodo: number;
+  diaPagamento: number;
+  desconto?: number;
+  tipoDesconto?: number;
+  observacao?: string;
+  contrato?: File | null;
 }
 
 export interface SubscriptionResponse {
@@ -126,11 +145,13 @@ export interface SubscriptionResponse {
   valorComDesconto: number;
   status: string;
   contratoPath?: string | null;
+  contrato?: string | null;
   
   // Campos opcionais/legados para compatibilidade
   idUser?: number;
   observacao?: string;
   desconto?: number;
+  tipoDesconto?: number;
   user?: User;
 }
 
@@ -170,6 +191,11 @@ export interface ClientSubscription {
   valorMensal: number;
   status: string;
   contratoPath?: string | null;
+  contrato?: string | null;
+  idPlano?: number;
+  periodo?: number;
+  diaPagamento?: number;
+  tipoContratoPlano?: number;
   // Optional fields that might come from the API for details
   descricaoPlano?: string;
   beneficios?: string[];

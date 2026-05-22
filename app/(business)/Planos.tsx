@@ -7,6 +7,8 @@ import { Plus, Check, Edit2, Trash2, Loader2, AlertTriangle, ExternalLink, Box, 
 import { businessService } from '../../services/businessService';
 import { PlanResponse } from '../../types';
 import { useToast } from '../../context/ToastContext';
+import { TIPO_CONTRATO } from '../../utils/api';
+import { getContractUrl } from '../../utils/api';
 
 export const Planos: React.FC = () => {
   const { addToast } = useToast();
@@ -31,7 +33,10 @@ export const Planos: React.FC = () => {
     percentualMulta: '',
     percentualJurosMensal: '',
     funcionalidades: '',
-    contrato: null as File | null
+    contrato: null as File | null,
+    tipoContrato: String(TIPO_CONTRATO.Nenhum),
+    cancelamentoDias: '7',
+    assinarPorCliente: true,
   });
 
   useEffect(() => {
@@ -52,8 +57,13 @@ export const Planos: React.FC = () => {
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData(prev => ({ ...prev, [name]: checked }));
+      return;
+    }
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -67,7 +77,7 @@ export const Planos: React.FC = () => {
 
   const openNewPlanModal = () => {
       setSelectedPlan(null);
-      setFormData({ nome: '', valorMensalidade: '', percentualMulta: '', percentualJurosMensal: '', funcionalidades: '', contrato: null });
+      setFormData({ nome: '', valorMensalidade: '', percentualMulta: '', percentualJurosMensal: '', funcionalidades: '', contrato: null, tipoContrato: String(TIPO_CONTRATO.Nenhum), cancelamentoDias: '7', assinarPorCliente: true });
       setIsEditModalOpen(true);
   };
 
@@ -91,7 +101,10 @@ export const Planos: React.FC = () => {
           percentualMulta: plan.percentualMulta?.toString() || '0',
           percentualJurosMensal: plan.percentualJurosMensal?.toString() || '0',
           funcionalidades: funcs,
-          contrato: null
+          contrato: null,
+          tipoContrato: String(plan.tipoContrato ?? TIPO_CONTRATO.Nenhum),
+          cancelamentoDias: String(plan.cancelamentoDias ?? 7),
+          assinarPorCliente: plan.assinarPorCliente ?? true,
       });
       setIsEditModalOpen(true);
   };
@@ -134,7 +147,10 @@ export const Planos: React.FC = () => {
         percentualMulta: Number(formData.percentualMulta.replace(',', '.')),
         percentualJurosMensal: Number(formData.percentualJurosMensal.replace(',', '.')),
         funcionalidades: funcionalidadesArray,
-        arquivoContrato: formData.contrato
+        arquivoContrato: formData.contrato,
+        tipoContrato: Number(formData.tipoContrato),
+        cancelamentoDias: Number(formData.cancelamentoDias || '0'),
+        assinarPorCliente: formData.assinarPorCliente,
       };
 
       if (selectedPlan) {
@@ -147,7 +163,7 @@ export const Planos: React.FC = () => {
 
       await fetchPlans();
       setIsEditModalOpen(false);
-      setFormData({ nome: '', valorMensalidade: '', percentualMulta: '', percentualJurosMensal: '', funcionalidades: '' });
+      setFormData({ nome: '', valorMensalidade: '', percentualMulta: '', percentualJurosMensal: '', funcionalidades: '', contrato: null, tipoContrato: String(TIPO_CONTRATO.Nenhum), cancelamentoDias: '7', assinarPorCliente: true });
       setSelectedPlan(null);
     } catch (error: any) {
       addToast('error', 'Erro ao salvar', error.message || "Verifique os dados.");
@@ -158,9 +174,7 @@ export const Planos: React.FC = () => {
 
   const handleDownloadContract = (path: string) => {
     if (!path) return;
-    const normalizedPath = path.replace(/\\/g, '/');
-    const fullUrl = `https://lojas.vlks.com.br/${normalizedPath}`;
-    window.open(fullUrl, '_blank');
+    window.open(getContractUrl(path), '_blank');
   };
 
   return (
@@ -434,6 +448,41 @@ export const Planos: React.FC = () => {
               onChange={handleInputChange}
             />
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-gray-700">Tipo de contrato</label>
+              <select
+                name="tipoContrato"
+                value={formData.tipoContrato}
+                onChange={handleInputChange}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900"
+              >
+                <option value={TIPO_CONTRATO.Nenhum}>Nenhum</option>
+                <option value={TIPO_CONTRATO.Termo}>Termo de adesão</option>
+                <option value={TIPO_CONTRATO.Contrato}>Contrato (requer assinatura)</option>
+              </select>
+            </div>
+            <Input
+              label="Dias p/ cancelamento"
+              type="number"
+              min={0}
+              name="cancelamentoDias"
+              value={formData.cancelamentoDias}
+              onChange={handleInputChange}
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              name="assinarPorCliente"
+              checked={formData.assinarPorCliente}
+              onChange={handleInputChange}
+              className="rounded border-gray-300"
+            />
+            Permitir que o cliente assine este plano diretamente
+          </label>
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">

@@ -120,8 +120,27 @@ export const companyService = {
 			data.user.tipo = 'Empresa';
 		}
 
-		sessionService.setSession(data);
+		sessionService.setEmpresaOwnerFlag(true);
+		sessionService.applyAuthResponse(data, 'admin');
 		sessionService.saveCredentials(email, password, 'admin');
+		sessionService.prefetchAlternateToken('admin');
+
+		// Cache da empresa para o switcher na área do cliente (minha-empresa exige token admin)
+		fetch(`${USER_URL}/minha-empresa`, {
+			method: 'GET',
+			headers: { accept: '*/*', Authorization: `Bearer ${data.token}` },
+		})
+			.then((res) => (res.ok ? res.json() : null))
+			.then((comp) => {
+				if (comp?.nome) {
+					localStorage.setItem(
+						'pagweb_company',
+						JSON.stringify({ nome: comp.nome, logo: comp.logo || null }),
+					);
+				}
+			})
+			.catch(() => {});
+
 		return data;
 	},
 };

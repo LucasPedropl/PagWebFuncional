@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "pagwebv1": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["tsx", "c:/Users/Pedro/Downloads/ServidorMCP/apps/api/src/index.ts"],
+      "env": {
+        "TARGET_SERVER_ID": "1b701ad2-2d9c-49fb-92f6-2259eb998eda"
+      }
+    }
+  }
+}

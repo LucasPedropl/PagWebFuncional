@@ -8,6 +8,7 @@ import { userService } from '../../services/userService';
 import { ClientSubscription, SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { SearchSelect } from '../../components/ui/SearchSelect';
+import { getContractUrl, TIPO_CONTRATO } from '../../utils/api';
 
 export const Assinaturas: React.FC = () => {
   const { addToast } = useToast();
@@ -49,6 +50,11 @@ export const Assinaturas: React.FC = () => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedSubForDetails, setSelectedSubForDetails] = useState<ClientSubscription | null>(null);
 
+  const [isAcceptModalOpen, setIsAcceptModalOpen] = useState(false);
+  const [subToAccept, setSubToAccept] = useState<ClientSubscription | null>(null);
+  const [acceptForm, setAcceptForm] = useState({
+    aceitouTermos: false,
+  });
   const [isAccepting, setIsAccepting] = useState<number | null>(null);
 
   useEffect(() => {
@@ -58,11 +64,13 @@ export const Assinaturas: React.FC = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [subsData, cardsData] = await Promise.all([
+      const [subsData, cardsData, connections] = await Promise.all([
         userService.listClientSubscriptions(),
-        userService.listSavedCards()
+        userService.listSavedCards(),
+        userService.listConnections(),
       ]);
-      setSubscriptions(subsData);
+      const enrichedSubs = await userService.enrichClientSubscriptions(subsData, connections);
+      setSubscriptions(enrichedSubs);
       setSavedCards(cardsData);
     } catch (error) {
       console.error(error);
@@ -74,22 +82,48 @@ export const Assinaturas: React.FC = () => {
 
   const fetchSubscriptions = async () => {
     try {
-      const data = await userService.listClientSubscriptions();
-      setSubscriptions(data);
+      const [subsData, connections] = await Promise.all([
+        userService.listClientSubscriptions(),
+        userService.listConnections(),
+      ]);
+      const enrichedSubs = await userService.enrichClientSubscriptions(subsData, connections);
+      setSubscriptions(enrichedSubs);
     } catch (error) {
       console.error(error);
     }
   };
 
-  const handleAcceptSubscription = async (idAssinatura: number) => {
+  const requiresSignedContract = (sub: ClientSubscription) =>
+    Number(sub.tipoContratoPlano ?? TIPO_CONTRATO.Nenhum) === TIPO_CONTRATO.Contrato;
+
+  const requiresContractAck = (sub: ClientSubscription) => {
+    const tipo = Number(sub.tipoContratoPlano ?? TIPO_CONTRATO.Nenhum);
+    return tipo === TIPO_CONTRATO.Termo || tipo === TIPO_CONTRATO.Contrato;
+  };
+
+  const handleAcceptClick = (sub: ClientSubscription) => {
+    setSubToAccept(sub);
+    setAcceptForm({ aceitouTermos: false });
+    setIsAcceptModalOpen(true);
+  };
+
+  const handleAcceptSubscription = async () => {
+    if (!subToAccept) return;
+
+    if (requiresContractAck(subToAccept) && !acceptForm.aceitouTermos) {
+      addToast('error', 'Contrato', 'Você precisa ler e aceitar o contrato/termo antes de aceitar a assinatura.');
+      return;
+    }
+
     try {
-      setIsAccepting(idAssinatura);
-      await userService.acceptSubscription(idAssinatura);
+      setIsAccepting(subToAccept.idAssinatura);
+      await userService.acceptSubscription(subToAccept.idAssinatura);
       addToast('success', 'Sucesso', 'Assinatura aceita com sucesso.');
       
-      // Notificar Sidebar para atualizar badges
       window.dispatchEvent(new CustomEvent('pagweb:refresh-counts'));
       
+      setIsAcceptModalOpen(false);
+      setSubToAccept(null);
       await fetchSubscriptions();
     } catch (error: any) {
       addToast('error', 'Erro', error.message);
@@ -185,10 +219,14 @@ export const Assinaturas: React.FC = () => {
         addToast('error', 'Indisponível', 'Este plano não possui um contrato digital anexado.');
         return;
     }
-    const normalizedPath = path.replace(/\\/g, '/');
-    const fullUrl = `https://lojas.vlks.com.br/${normalizedPath.startsWith('/') ? normalizedPath.substring(1) : normalizedPath}`;
-    window.open(fullUrl, '_blank');
+    window.open(getContractUrl(path), '_blank');
   };
+
+  const isPendingStatus = (status: string) =>
+    status === 'Pendente' || status === '3';
+
+  const isActiveStatus = (status: string) =>
+    status === 'Ativo' || status === 'Ativa' || status === '0';
 
   const formatDate = (isoStr: string) => {
     try {
@@ -204,7 +242,9 @@ export const Assinaturas: React.FC = () => {
     const empresaName = sub.nomeEmpresa || '';
     const matchesSearch = planoName.toLowerCase().includes(searchLower) || empresaName.toLowerCase().includes(searchLower);
     
-    const matchesStatus = statusFilter === 'Todos' || sub.status === statusFilter;
+    const matchesStatus = statusFilter === 'Todos' || sub.status === statusFilter
+      || (statusFilter === 'Ativo' && isActiveStatus(sub.status))
+      || (statusFilter === 'Pendente' && isPendingStatus(sub.status));
 
     let matchesDate = true;
     if (dateStart || dateEnd) {
@@ -230,8 +270,8 @@ export const Assinaturas: React.FC = () => {
 
     return matchesSearch && matchesStatus && matchesDate && matchesValue;
   }).sort((a, b) => {
-    if (a.status === 'Pendente' && b.status !== 'Pendente') return -1;
-    if (b.status === 'Pendente' && a.status !== 'Pendente') return 1;
+    if (isPendingStatus(a.status) && !isPendingStatus(b.status)) return -1;
+    if (isPendingStatus(b.status) && !isPendingStatus(a.status)) return 1;
     return 0;
   });
 
@@ -386,7 +426,7 @@ export const Assinaturas: React.FC = () => {
                         </div>
                         <p className="text-sm text-gray-500">{sub.nomeEmpresa}</p>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm">
-                            <span className={`flex items-center font-medium ${sub.status === 'Ativo' ? 'text-green-600' : 'text-gray-600'}`}>
+                            <span className={`flex items-center font-medium ${isActiveStatus(sub.status) ? 'text-green-600' : 'text-gray-600'}`}>
                                 <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> {sub.status}
                             </span>
                             <span className="text-gray-400 hidden sm:inline">•</span>
@@ -399,8 +439,8 @@ export const Assinaturas: React.FC = () => {
                             </span>
                             {/* Ícones de Notificação */}
                             <div className="flex items-center gap-2 ml-auto sm:ml-0 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
-                                <Mail className={`w-3 h-3 ${sub.status === 'Ativo' ? 'text-blue-500' : 'text-gray-300'}`} title="Notificações por E-mail ativas" />
-                                <MessageSquare className={`w-3 h-3 ${sub.status === 'Ativo' ? 'text-green-500' : 'text-gray-300'}`} title="Notificações por WhatsApp ativas" />
+                                <Mail className={`w-3 h-3 ${isActiveStatus(sub.status) ? 'text-blue-500' : 'text-gray-300'}`} title="Notificações por E-mail ativas" />
+                                <MessageSquare className={`w-3 h-3 ${isActiveStatus(sub.status) ? 'text-green-500' : 'text-gray-300'}`} title="Notificações por WhatsApp ativas" />
                             </div>
                         </div>
                     </div>
@@ -411,16 +451,16 @@ export const Assinaturas: React.FC = () => {
                         <span className="text-2xl font-bold text-gray-900">R$ {sub.valorMensal.toFixed(2).replace('.', ',')}</span>
                         <span className="text-xs text-gray-500">/mês</span>
                     </div>
-                    {sub.status === 'Pendente' && (
+                    {isPendingStatus(sub.status) && (
                         <Button 
                             className="bg-green-600 hover:bg-green-700 text-white"
-                            onClick={() => handleAcceptSubscription(sub.idAssinatura)}
+                            onClick={() => handleAcceptClick(sub)}
                             isLoading={isAccepting === sub.idAssinatura}
                         >
                             <CheckCircle2 className="w-4 h-4 mr-2" /> Aceitar
                         </Button>
                     )}
-                    {sub.status === 'Ativo' && (
+                    {isActiveStatus(sub.status) && (
                         <div className="flex gap-2">
                             {sub.contratoPath && (
                                 <Button 
@@ -455,6 +495,77 @@ export const Assinaturas: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* Modal Aceitar Assinatura */}
+      <Modal
+        isOpen={isAcceptModalOpen}
+        onClose={() => setIsAcceptModalOpen(false)}
+        title="Aceitar Assinatura"
+        size="md"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setIsAcceptModalOpen(false)} disabled={isAccepting !== null}>Cancelar</Button>
+            <Button 
+                onClick={handleAcceptSubscription} 
+                isLoading={isAccepting !== null} 
+                className="bg-green-600 hover:bg-green-700 text-white"
+            >
+                Confirmar Aceite
+            </Button>
+          </>
+        }
+      >
+        {subToAccept && (
+          <div className="space-y-4">
+            <div className="text-center pb-2">
+              <h3 className="text-lg font-medium text-gray-900">{subToAccept.nomePlano}</h3>
+              <p className="text-sm text-gray-500">{subToAccept.nomeEmpresa}</p>
+              <p className="text-xl font-bold text-gray-900 mt-2">
+                R$ {subToAccept.valorMensal.toFixed(2).replace('.', ',')} <span className="text-sm font-normal text-gray-500">/mês</span>
+              </p>
+            </div>
+
+            {requiresContractAck(subToAccept) ? (
+              <div className="space-y-3 border border-slate-200 rounded-lg p-4 bg-slate-50">
+                <p className="text-sm font-medium text-gray-900">Contrato do plano</p>
+                {subToAccept.contratoPath ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => handleDownloadContract(subToAccept.contratoPath as string)}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Baixar contrato para leitura/assinatura
+                  </Button>
+                ) : (
+                  <p className="text-xs text-amber-700">Este plano exige aceite, mas ainda não possui PDF de contrato cadastrado.</p>
+                )}
+
+                {requiresSignedContract(subToAccept) && (
+                  <p className="text-xs text-amber-700">
+                    Este plano exige contrato assinado. Baixe o PDF, assine conforme orientação da empresa e confirme o aceite abaixo.
+                  </p>
+                )}
+
+                <label className="flex items-start gap-2 text-xs text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={acceptForm.aceitouTermos}
+                    onChange={(e) => setAcceptForm((prev) => ({ ...prev, aceitouTermos: e.target.checked }))}
+                    className="mt-0.5"
+                  />
+                  Li e concordo com os termos/contrato desta assinatura.
+                </label>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center">
+                Ao confirmar, você aceita a assinatura do plano e autoriza as cobranças conforme o contrato da empresa.
+              </p>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {/* Modal Cancelamento */}
       <Modal
@@ -729,7 +840,7 @@ export const Assinaturas: React.FC = () => {
                 <h2 className="text-2xl font-bold text-gray-900">{selectedSubForDetails.nomePlano}</h2>
                 <p className="text-gray-500">{selectedSubForDetails.nomeEmpresa}</p>
                 <div className="mt-2">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedSubForDetails.status === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isActiveStatus(selectedSubForDetails.status) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                     {selectedSubForDetails.status}
                   </span>
                 </div>

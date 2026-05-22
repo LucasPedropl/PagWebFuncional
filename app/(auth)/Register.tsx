@@ -5,7 +5,7 @@ import { userService } from '../../services/userService';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { formatCNPJ, formatCPF, formatPhone } from '../../utils/formatters';
+import { formatCNPJ, formatCPF, formatPhone, formatCPFOrCNPJ } from '../../utils/formatters';
 import { ChevronRight, ChevronLeft, Store } from 'lucide-react';
 import { PhoneInput } from '../../components/ui/PhoneInput';
 
@@ -123,7 +123,7 @@ export const Register: React.FC = () => {
 
     // Apply Masks
     if (name === 'cpf') value = formatCPF(value);
-    if (name === 'companyCnpj') value = formatCNPJ(value);
+    if (name === 'companyCnpj') value = formatCPFOrCNPJ(value);
     if (name === 'telefone' || name === 'companyTelefone') value = formatPhone(value);
 
     setFormData(prev => ({
@@ -431,11 +431,11 @@ export const Register: React.FC = () => {
         {step === 3 && isBusiness && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
                 <h4 className="text-sm font-bold text-gray-900 uppercase border-b border-gray-100 pb-2">
-                    Dados da Empresa
+                    Dados da Empresa/Estabelecimento
                 </h4>
                 
                 <Input
-                    label="Razão Social / Nome da Empresa"
+                    label="Razão Social / Nome da Empresa/Estabelecimento"
                     name="companyNome"
                     value={formData.companyNome}
                     onChange={handleChange}
@@ -446,12 +446,12 @@ export const Register: React.FC = () => {
 
                 <div className="space-y-4">
                     <Input
-                        label="CNPJ"
+                        label="CPF/CNPJ"
                         name="companyCnpj"
                         value={formData.companyCnpj}
                         onChange={handleChange}
                         required={isBusiness}
-                        placeholder="00.000.000/0000-00"
+                        placeholder="000.000.000-00 ou 00.000.000/0000-00"
                         maxLength={18}
                         autoComplete="off"
                     />
@@ -477,7 +477,7 @@ export const Register: React.FC = () => {
                     </div>
                     <div className="flex-1 space-y-2">
                         <label className="block text-xs font-bold text-gray-700 uppercase">
-                            Logo da Empresa
+                            Logo da Empresa/Estabelecimento
                         </label>
                         <input
                             type="file"
