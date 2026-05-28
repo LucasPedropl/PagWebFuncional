@@ -112,23 +112,16 @@ export const getContractUrl = (path: string | null | undefined): string => {
  */
 export const getContractFetchUrl = (path: string): string => {
   if (path.startsWith('http://') || path.startsWith('https://')) {
-    if (import.meta.env.DEV) {
-      try {
-        const parsed = new URL(path);
-        return `/api-assets${parsed.pathname}${parsed.search}`;
-      } catch {
-        return path;
-      }
+    try {
+      const parsed = new URL(path);
+      return `/api-assets${parsed.pathname}${parsed.search}`;
+    } catch {
+      return path;
     }
-    return path;
   }
 
   const normalizedPath = path.replace(/\\/g, '/');
   const withSlash = normalizedPath.startsWith('/') ? normalizedPath : `/${normalizedPath}`;
 
-  if (import.meta.env.DEV) {
-    return `/api-assets${withSlash}`;
-  }
-
-  return `${API_BASE_URL}${withSlash}`;
+  return `/api-assets${withSlash}`;
 };
