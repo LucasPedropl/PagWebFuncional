@@ -22,6 +22,31 @@ export const TIPO_CONTRATO = {
   Contrato: 2,
 } as const;
 
+type PlanContractSource = {
+  tipoContrato?: number;
+  TipoContrato?: number;
+};
+
+type SubscriptionContractSource = {
+  tipoContratoPlano?: number;
+};
+
+/** Lê o tipo de contrato de um plano (API pode vir em camelCase ou PascalCase). */
+export const getPlanTipoContrato = (plan?: PlanContractSource | null): number =>
+  Number(plan?.tipoContrato ?? plan?.TipoContrato ?? TIPO_CONTRATO.Nenhum);
+
+/** Lê o tipo de contrato vinculado a uma assinatura do cliente. */
+export const getSubscriptionTipoContrato = (sub?: SubscriptionContractSource | null): number =>
+  Number(sub?.tipoContratoPlano ?? TIPO_CONTRATO.Nenhum);
+
+/** Contrato (tipo 2): exige assinatura desenhada e foto do usuário. */
+export const requiresSignedContractType = (tipo: number): boolean =>
+  tipo === TIPO_CONTRATO.Contrato;
+
+/** Termo (1) ou Contrato (2): exige aceite via checkbox (sem assinatura/foto no termo). */
+export const requiresContractAckType = (tipo: number): boolean =>
+  tipo === TIPO_CONTRATO.Termo || tipo === TIPO_CONTRATO.Contrato;
+
 export type AssinaturaStatusName = keyof typeof ASSINATURA_STATUS;
 
 export const toAssinaturaStatusCode = (status: string | number): number => {

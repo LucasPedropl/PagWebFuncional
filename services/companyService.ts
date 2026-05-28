@@ -4,14 +4,100 @@ import {
 	CompanyLoginPayload,
 	CompanyResponse,
 	CompanyUpdatePayload,
+	PlanResponse,
+	PublicCompanyListItem,
 } from '../types';
 import { sessionService } from './session';
 import { parseApiError } from '../utils/formatters';
+import { resolveContractPath } from '../utils/api';
 
-const COMPANY_URL = 'https://lojas.vlks.com.br/api/v1/Empresa';
-const USER_URL = 'https://lojas.vlks.com.br/api/v1/User';
+const API_BASE = 'https://lojas.vlks.com.br/api/v1';
+const COMPANY_URL = `${API_BASE}/Empresa`;
+const USER_URL = `${API_BASE}/User`;
+
+const normalizePublicCompany = (raw: Record<string, unknown>): PublicCompanyListItem => ({
+	idEmpresa: Number(raw.idEmpresa ?? raw.IdEmpresa),
+	nome: String(raw.nome ?? raw.Nome ?? ''),
+	cnpj: String(raw.cnpj ?? raw.Cnpj ?? ''),
+	telefone: raw.telefone != null ? String(raw.telefone) : raw.Telefone != null ? String(raw.Telefone) : undefined,
+	logoPath: (raw.logoPath ?? raw.LogoPath ?? null) as string | null,
+	dataCriacao: raw.dataCriacao != null ? String(raw.dataCriacao) : undefined,
+	status: raw.status != null ? Number(raw.status) : undefined,
+	enderecoEmpresa: (raw.enderecoEmpresa ?? raw.EnderecoEmpresa ?? null) as
+		| PublicCompanyListItem['enderecoEmpresa']
+		| null,
+});
+
+const normalizePublicPlan = (raw: Record<string, unknown>): PlanResponse => ({
+	idPlano: Number(raw.idPlano ?? raw.IdPlano),
+	nome: String(raw.nome ?? raw.Nome ?? ''),
+	valorMensalidade: Number(raw.valorMensalidade ?? raw.ValorMensalidade ?? 0),
+	percentualMulta: Number(raw.percentualMulta ?? raw.PercentualMulta ?? 0),
+	percentualJurosMensal: Number(raw.percentualJurosMensal ?? raw.PercentualJurosMensal ?? 0),
+	funcionalidades: Array.isArray(raw.funcionalidades)
+		? (raw.funcionalidades as string[])
+		: Array.isArray(raw.Funcionalidades)
+			? (raw.Funcionalidades as string[])
+			: [],
+	contratoPath: resolveContractPath(raw as Parameters<typeof resolveContractPath>[0]),
+	tipoContrato: raw.tipoContrato != null ? Number(raw.tipoContrato) : raw.TipoContrato != null ? Number(raw.TipoContrato) : undefined,
+	cancelamentoDias:
+		raw.cancelamentoDias != null
+			? Number(raw.cancelamentoDias)
+			: raw.cancelamento != null
+				? Number(raw.cancelamento)
+				: raw.Cancelamento != null
+					? Number(raw.Cancelamento)
+					: undefined,
+	assinarPorCliente:
+		raw.assinarPorCliente != null
+			? Boolean(raw.assinarPorCliente)
+			: raw.AssinarPorCliente != null
+				? Boolean(raw.AssinarPorCliente)
+				: undefined,
+});
 
 export const companyService = {
+	/** Lista empresas do diretório público (GET /api/v1/Empresa). */
+	async listPublic(): Promise<PublicCompanyListItem[]> {
+		const response = await fetch(COMPANY_URL, {
+			method: 'GET',
+			headers: { accept: '*/*' },
+		});
+
+		if (!response.ok) {
+			const errorMessage = await parseApiError(response);
+			throw new Error(errorMessage || 'Falha ao listar empresas');
+		}
+
+		const data: unknown = await response.json();
+		if (!Array.isArray(data)) return [];
+		return data.map((item) => normalizePublicCompany(item as Record<string, unknown>));
+	},
+
+	/** Busca uma empresa do diretório público pelo ID (usa GET /Empresa). */
+	async getPublicById(idEmpresa: number): Promise<PublicCompanyListItem | null> {
+		const list = await this.listPublic();
+		return list.find((item) => item.idEmpresa === idEmpresa) ?? null;
+	},
+
+	/** Lista planos públicos de uma empresa (GET /Plano/empresa/{id}). */
+	async listPublicPlans(idEmpresa: number): Promise<PlanResponse[]> {
+		const response = await fetch(`${API_BASE}/Plano/empresa/${idEmpresa}`, {
+			method: 'GET',
+			headers: { accept: '*/*' },
+		});
+
+		if (!response.ok) {
+			const errorMessage = await parseApiError(response);
+			throw new Error(errorMessage || 'Falha ao listar planos da empresa');
+		}
+
+		const data: unknown = await response.json();
+		if (!Array.isArray(data)) return [];
+		return data.map((item) => normalizePublicPlan(item as Record<string, unknown>));
+	},
+
 	// Agora recebe o token do usuário logado para criar a empresa
 	async create(
 		token: string,

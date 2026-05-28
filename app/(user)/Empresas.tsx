@@ -10,7 +10,13 @@ import { useToast } from '../../context/ToastContext';
 import { SearchSelect } from '../../components/ui/SearchSelect';
 import { SignaturePadModal } from '../../components/ui/SignaturePadModal';
 import { CameraCaptureModal } from '../../components/ui/CameraCaptureModal';
-import { getImageUrl, getContractUrl, TIPO_CONTRATO } from '../../utils/api';
+import {
+  getContractUrl,
+  getImageUrl,
+  getPlanTipoContrato,
+  requiresContractAckType,
+  requiresSignedContractType,
+} from '../../utils/api';
 import { dataUrlToFile } from '../../utils/files';
 import { buildContractPdfWithEvidence, downloadBlob } from '../../utils/contractPdf';
 
@@ -248,13 +254,11 @@ export const Empresas: React.FC = () => {
     return steps;
   };
 
-  const requiresSignedContract = (plan: any) =>
-    Number(plan?.tipoContrato ?? plan?.TipoContrato ?? TIPO_CONTRATO.Nenhum) === TIPO_CONTRATO.Contrato;
+  const requiresSignedContract = (plan: { tipoContrato?: number; TipoContrato?: number }) =>
+    requiresSignedContractType(getPlanTipoContrato(plan));
 
-  const requiresContractAck = (plan: any) => {
-    const tipo = Number(plan?.tipoContrato ?? plan?.TipoContrato ?? TIPO_CONTRATO.Nenhum);
-    return tipo === TIPO_CONTRATO.Termo || tipo === TIPO_CONTRATO.Contrato;
-  };
+  const requiresContractAck = (plan: { tipoContrato?: number; TipoContrato?: number }) =>
+    requiresContractAckType(getPlanTipoContrato(plan));
 
   const validateSubscribeStep = (): boolean => {
     if (!selectedPlan) return false;
@@ -279,9 +283,15 @@ export const Empresas: React.FC = () => {
     }
 
     if (current.id === 'contrato') {
-      if (requiresSignedContract(selectedPlan) && !subscribeForm.signatureDataUrl) {
-        addToast('error', 'Contrato', 'Desenhe sua assinatura antes de continuar.');
-        return false;
+      if (requiresSignedContract(selectedPlan)) {
+        if (!subscribeForm.signatureDataUrl) {
+          addToast('error', 'Contrato', 'Desenhe sua assinatura antes de continuar.');
+          return false;
+        }
+        if (!subscribeForm.photoDataUrl) {
+          addToast('error', 'Contrato', 'Registre sua foto antes de continuar.');
+          return false;
+        }
       }
       if (requiresContractAck(selectedPlan) && !subscribeForm.aceitouTermos) {
         addToast('error', 'Contrato', 'Aceite os termos do contrato antes de continuar.');
@@ -309,6 +319,15 @@ export const Empresas: React.FC = () => {
     const current = steps[subscribeStep];
 
     if (current?.id !== 'confirmacao') {
+      setMergedContractPdfUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setMergedContractBlob(null);
+      return;
+    }
+
+    if (!requiresSignedContract(selectedPlan)) {
       setMergedContractPdfUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
@@ -396,9 +415,15 @@ export const Empresas: React.FC = () => {
       return;
     }
 
-    if (requiresSignedContract(selectedPlan) && !subscribeForm.signatureDataUrl) {
-      addToast('error', 'Contrato', 'Desenhe sua assinatura no contrato antes de continuar.');
-      return;
+    if (requiresSignedContract(selectedPlan)) {
+      if (!subscribeForm.signatureDataUrl) {
+        addToast('error', 'Contrato', 'Desenhe sua assinatura no contrato antes de continuar.');
+        return;
+      }
+      if (!subscribeForm.photoDataUrl) {
+        addToast('error', 'Contrato', 'Registre sua foto antes de continuar.');
+        return;
+      }
     }
 
     setIsSubscribing(true);
@@ -407,11 +432,13 @@ export const Empresas: React.FC = () => {
         ? 0
         : Math.max(1, Number(subscribeForm.periodo));
 
-      const contratoFile = mergedContractBlob
-        ? new File([mergedContractBlob], 'contrato-assinado.pdf', { type: 'application/pdf' })
-        : subscribeForm.signatureDataUrl
-          ? dataUrlToFile(subscribeForm.signatureDataUrl, 'contrato-assinado.png')
-          : null;
+      const contratoFile = requiresSignedContract(selectedPlan)
+        ? mergedContractBlob
+          ? new File([mergedContractBlob], 'contrato-assinado.pdf', { type: 'application/pdf' })
+          : subscribeForm.signatureDataUrl
+            ? dataUrlToFile(subscribeForm.signatureDataUrl, 'contrato-assinado.png')
+            : null
+        : null;
 
       await userService.assinarPlano({
         idPlano: selectedPlan.idPlano,
@@ -1041,8 +1068,14 @@ export const Empresas: React.FC = () => {
                 {currentStep.id === 'contrato' && (
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-base font-semibold text-gray-900">Contrato do plano</h3>
-                      <p className="text-sm text-gray-500 mt-1">Leia, assine e registre sua foto se necessário.</p>
+                      <h3 className="text-base font-semibold text-gray-900">
+                        {requiresSignedContract(selectedPlan) ? 'Contrato do plano' : 'Termo de adesão'}
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {requiresSignedContract(selectedPlan)
+                          ? 'Leia o contrato, desenhe sua assinatura e registre sua foto.'
+                          : 'Leia o termo de adesão e marque que concorda para continuar.'}
+                      </p>
                     </div>
 
                     {selectedPlan.contratoPath ? (
@@ -1070,28 +1103,31 @@ export const Empresas: React.FC = () => {
                       </p>
                     )}
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="justify-center text-sm py-2"
-                        onClick={() => setIsSignatureModalOpen(true)}
-                      >
-                        <PenLine className="w-4 h-4 mr-2" />
-                        Assinar
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="justify-center text-sm py-2"
-                        onClick={() => setIsCameraModalOpen(true)}
-                      >
-                        <Camera className="w-4 h-4 mr-2" />
-                        Tirar foto
-                      </Button>
-                    </div>
+                    {requiresSignedContract(selectedPlan) && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="justify-center text-sm py-2"
+                          onClick={() => setIsSignatureModalOpen(true)}
+                        >
+                          <PenLine className="w-4 h-4 mr-2" />
+                          Assinar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="justify-center text-sm py-2"
+                          onClick={() => setIsCameraModalOpen(true)}
+                        >
+                          <Camera className="w-4 h-4 mr-2" />
+                          Tirar foto
+                        </Button>
+                      </div>
+                    )}
 
-                    {(subscribeForm.signatureDataUrl || subscribeForm.photoDataUrl) && (
+                    {requiresSignedContract(selectedPlan) &&
+                      (subscribeForm.signatureDataUrl || subscribeForm.photoDataUrl) && (
                       <div className="grid grid-cols-2 gap-3">
                         {subscribeForm.signatureDataUrl && (
                           <div className="rounded-lg border border-green-200 bg-green-50 p-2">
@@ -1142,7 +1178,9 @@ export const Empresas: React.FC = () => {
                     <div>
                       <h3 className="text-base font-semibold text-gray-900">Revise antes de confirmar</h3>
                       <p className="text-sm text-gray-500 mt-1">
-                        Confira os dados e o contrato com assinatura e foto na última página.
+                        {requiresSignedContract(selectedPlan)
+                          ? 'Confira os dados e o contrato com assinatura e foto na última página.'
+                          : 'Confira os dados e o termo de adesão antes de confirmar.'}
                       </p>
                     </div>
 
@@ -1175,11 +1213,15 @@ export const Empresas: React.FC = () => {
 
                     {(mergedContractPdfUrl ||
                       selectedPlan.contratoPath ||
-                      subscribeForm.signatureDataUrl ||
-                      subscribeForm.photoDataUrl) && (
+                      (requiresSignedContract(selectedPlan) &&
+                        (subscribeForm.signatureDataUrl || subscribeForm.photoDataUrl))) && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium text-gray-900">Contrato final (com anexo)</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {requiresSignedContract(selectedPlan)
+                              ? 'Contrato final (com anexo)'
+                              : 'Termo de adesão'}
+                          </p>
                           {mergedContractBlob && (
                             <Button
                               type="button"
@@ -1221,9 +1263,11 @@ export const Empresas: React.FC = () => {
                           </div>
                         ) : null}
 
-                        <p className="text-[11px] text-gray-400">
-                          A última página do PDF contém sua foto e assinatura registradas neste formulário.
-                        </p>
+                        {requiresSignedContract(selectedPlan) && (
+                          <p className="text-[11px] text-gray-400">
+                            A última página do PDF contém sua foto e assinatura registradas neste formulário.
+                          </p>
+                        )}
                       </div>
                     )}
 

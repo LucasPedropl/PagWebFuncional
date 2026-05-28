@@ -1,4 +1,3 @@
-
 import { ActivatePayload, AppNotification, AuthResponse, ClientConnection, ClientInvoice, ClientSubscription, LoginPayload, NotificationSettings, RegisterPayload, SavedCard, UserAccountResponse, UserUpdatePayload, AssinarPlanoPayload, PlanResponse } from "../types";
 import { sessionService } from "./session";
 import { parseApiError } from "../utils/formatters";
@@ -32,16 +31,25 @@ const authRequest = async (endpoint: string, options: RequestInit = {}, isRetry 
     ? endpoint 
     : (endpoint.startsWith('/api/') ? `https://lojas.vlks.com.br${endpoint}` : `${BASE_URL}${endpoint}`);
 
-  const isFormData = options.body instanceof FormData;
+  const isFormData = options.body instanceof FormData || 
+                     (options.body && typeof options.body === 'object' && typeof (options.body as any).append === 'function');
+  const headers: Record<string, string> = {
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    "accept": "*/*",
+    ...(token ? { "Authorization": `Bearer ${token}` } : {})
+  };
+
+  if (options.headers) {
+    Object.assign(headers, options.headers);
+    if (isFormData) {
+      delete headers["Content-Type"];
+      delete headers["content-type"];
+    }
+  }
 
   const response = await fetch(url, {
     ...options,
-    headers: {
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      "accept": "*/*",
-      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
-      ...options.headers
-    }
+    headers
   });
 
   // Se o token expirou (401), tentamos renovar usando as credenciais salvas
@@ -499,7 +507,7 @@ export const userService = {
     isDefault: boolean;
   }): Promise<void> {
     const response = await authRequest(`/api/Cartao/editar/${id}`, {
-      method: 'PATCH',
+      method: 'POST',
       body: JSON.stringify(data)
     });
     if (!response.ok) {
@@ -567,30 +575,74 @@ export const userService = {
       throw new Error('Não foi possível identificar seu usuário. Faça login novamente.');
     }
 
-    const diaPagamento = Math.min(30, Math.max(1, payload.diaPagamento));
+    const diaPagamento = Math.min(30, Math.max(1, parseInt(String(payload.diaPagamento), 10)));
+    const temContrato = !!payload.contrato;
 
-    const formData = new FormData();
-    formData.append('IdUser', String(idUser));
-    formData.append('IdPlano', String(payload.idPlano));
-    formData.append('Periodo', String(payload.periodo));
-    formData.append('DiaPagamento', String(diaPagamento));
-    formData.append('Desconto', String(payload.desconto ?? 0));
-    formData.append('TipoDesconto', String(payload.tipoDesconto ?? 0));
-    if (payload.observacao) {
-      formData.append('Observacao', payload.observacao);
-    }
-    if (payload.contrato) {
-      formData.append('Contrato', payload.contrato);
-    }
+    // Função auxiliar para enviar como JSON (PascalCase compatível com Dto em C#)
+    const enviarComoJson = async () => {
+      const jsonPayload = {
+        IdUser: idUser,
+        IdPlano: payload.idPlano,
+        Periodo: payload.periodo,
+        DiaPagamento: diaPagamento,
+        Desconto: payload.desconto ?? 0,
+        TipoDesconto: payload.tipoDesconto ?? 0,
+        Observacao: payload.observacao ?? ''
+      };
+      return await authRequest('/User/assinar-plano', {
+        method: 'POST',
+        body: JSON.stringify(jsonPayload)
+      });
+    };
 
-    const response = await authRequest('/User/assinar-plano', {
-      method: 'POST',
-      body: formData
-    });
+    // Função auxiliar para enviar como FormData (multipart/form-data)
+    const enviarComoFormData = async () => {
+      const formData = new FormData();
+      formData.append('IdUser', String(idUser));
+      formData.append('IdPlano', String(payload.idPlano));
+      formData.append('Periodo', String(payload.periodo));
+      formData.append('DiaPagamento', String(diaPagamento));
+      formData.append('Desconto', String(payload.desconto ?? 0));
+      formData.append('TipoDesconto', String(payload.tipoDesconto ?? 0));
+      if (payload.observacao) {
+        formData.append('Observacao', payload.observacao);
+      }
+      if (payload.contrato) {
+        formData.append('Contrato', payload.contrato);
+      }
+      return await authRequest('/User/assinar-plano', {
+        method: 'POST',
+        body: formData
+      });
+    };
+
+    let response: Response;
+
+    if (temContrato) {
+      // Se possui arquivo de contrato, tentamos enviar como FormData (multipart) primeiro
+      console.log("[userService] Enviando assinatura com contrato usando FormData.");
+      response = await enviarComoFormData();
+
+      if (response.status === 415) {
+        // Fallback para JSON caso a nuvem rejeite FormData
+        console.warn("[userService] Rota /User/assinar-plano retornou 415 para FormData com contrato. Tentando fallback com JSON.");
+        response = await enviarComoJson();
+      }
+    } else {
+      // Se não possui arquivo de contrato, enviamos como JSON diretamente (padrão mais aceito em nuvem)
+      console.log("[userService] Enviando assinatura sem contrato usando JSON.");
+      response = await enviarComoJson();
+
+      if (response.status === 415) {
+        // Fallback para FormData caso a nuvem rejeite JSON
+        console.warn("[userService] Rota /User/assinar-plano retornou 415 para JSON. Tentando fallback com FormData.");
+        response = await enviarComoFormData();
+      }
+    }
 
     if (!response.ok) {
       const msg = await parseApiError(response);
-      throw new Error(msg || "Falha ao assinar plano.");
+      throw new Error(msg || "Falha ao realizar assinatura do plano.");
     }
 
     try {

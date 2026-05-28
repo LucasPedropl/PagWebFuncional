@@ -462,6 +462,9 @@ export const Planos: React.FC = () => {
                 <option value={TIPO_CONTRATO.Termo}>Termo de adesão</option>
                 <option value={TIPO_CONTRATO.Contrato}>Contrato (requer assinatura)</option>
               </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Termo de adesão: o cliente só marca concordância. Contrato: exige assinatura desenhada e foto.
+              </p>
             </div>
             <Input
               label="Dias p/ cancelamento"
@@ -486,7 +489,7 @@ export const Planos: React.FC = () => {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-gray-700">
-              Contrato do Plano (PDF)
+              Contrato / Termo de adesão (PDF)
             </label>
             <div className="relative group">
               <input

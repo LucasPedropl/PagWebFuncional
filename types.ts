@@ -42,6 +42,51 @@ export interface CompanyResponse {
   status?: number;
 }
 
+/** Endereço opcional embutido na listagem pública de empresas. */
+export interface PublicCompanyAddress {
+  logradouro?: string;
+  numero?: string;
+  bairro?: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
+}
+
+/** Item retornado por GET /api/v1/Empresa (diretório público). */
+export interface PublicCompanyListItem {
+  idEmpresa: number;
+  nome: string;
+  cnpj: string;
+  telefone?: string;
+  logoPath?: string | null;
+  dataCriacao?: string;
+  status?: number;
+  enderecoEmpresa?: PublicCompanyAddress | null;
+}
+
+/** Card de estabelecimento para Landing / Explorar. */
+export interface ExploreEstablishmentCard {
+  idEmpresa: number;
+  name: string;
+  description: string;
+  image: string;
+  telefone?: string;
+  isConnected: boolean;
+  planCount: number;
+}
+
+/** Card de plano agregado na aba Planos do Explorar. */
+export interface ExplorePlanCard {
+  idPlano: number;
+  idEmpresa: number;
+  establishmentName: string;
+  establishmentImage: string;
+  name: string;
+  price: number;
+  description: string;
+  features: string[];
+}
+
 export interface CompanyUpdatePayload {
   nome?: string;
   cnpj?: string;

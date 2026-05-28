@@ -1,7 +1,7 @@
 
 import { PlanPayload, PlanResponse, User, SubscriptionPayload, SubscriptionResponse, Mensalidade } from "../types";
 import { sessionService } from "./session";
-import { parseApiError } from "../utils/formatters";
+import { normalizePaymentDay, parseApiError } from "../utils/formatters";
 import { resolveContractPath, toAssinaturaStatusCode } from "../utils/api";
 
 const BASE_URL = "https://lojas.vlks.com.br/api/v1";
@@ -31,6 +31,26 @@ const buildPlanFormData = (data: PlanPayload): FormData => {
 
   if (data.assinarPorCliente != null) {
     formData.append('assinarPorCliente', String(data.assinarPorCliente));
+  }
+
+  return formData;
+};
+
+const buildSubscriptionFormData = (data: SubscriptionPayload): FormData => {
+  const formData = new FormData();
+  const idUser = typeof data.idUser === 'string' ? parseInt(data.idUser, 10) : data.idUser;
+  const idPlano = typeof data.idPlano === 'string' ? parseInt(data.idPlano, 10) : data.idPlano;
+  const periodo = typeof data.periodo === 'string' ? parseInt(data.periodo, 10) : data.periodo;
+  const diaPagamento = normalizePaymentDay(data.diaPagamento);
+
+  formData.append('IdUser', String(idUser));
+  formData.append('IdPlano', String(idPlano));
+  formData.append('Periodo', String(periodo));
+  formData.append('DiaPagamento', String(diaPagamento));
+  formData.append('Desconto', String(data.desconto ?? 0));
+  formData.append('TipoDesconto', String(data.tipoDesconto ?? 0));
+  if (data.observacao?.trim()) {
+    formData.append('Observacao', data.observacao.trim());
   }
 
   return formData;
@@ -81,10 +101,12 @@ const authRequest = async (endpoint: string, options: RequestInit = {}, isRetry 
     throw new Error("Sessão inválida. Faça login novamente.");
   }
 
+  const isFormData = options.body instanceof FormData;
+
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       "accept": "*/*",
       ...(token ? { "Authorization": `Bearer ${token}` } : {}),
       ...options.headers
@@ -267,19 +289,11 @@ export const businessService = {
   },
 
   async createSubscription(data: SubscriptionPayload): Promise<void> {
-    const payload = {
-      idUser: data.idUser,
-      idPlano: data.idPlano,
-      periodo: data.periodo,
-      diaPagamento: Math.min(30, Math.max(1, data.diaPagamento)),
-      desconto: data.desconto ?? 0,
-      tipoDesconto: data.tipoDesconto ?? 0,
-      observacao: data.observacao ?? '',
-    };
+    const formData = buildSubscriptionFormData(data);
 
     const response = await authRequest('/Assinatura', {
       method: 'POST',
-      body: JSON.stringify(payload)
+      body: formData
     });
 
     if (!response.ok) {

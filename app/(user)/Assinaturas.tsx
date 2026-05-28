@@ -8,7 +8,12 @@ import { userService } from '../../services/userService';
 import { ClientSubscription, SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { SearchSelect } from '../../components/ui/SearchSelect';
-import { getContractUrl, TIPO_CONTRATO } from '../../utils/api';
+import {
+  getContractUrl,
+  getSubscriptionTipoContrato,
+  requiresContractAckType,
+  requiresSignedContractType,
+} from '../../utils/api';
 import { SignaturePadModal } from '../../components/ui/SignaturePadModal';
 import { CameraCaptureModal } from '../../components/ui/CameraCaptureModal';
 import { dataUrlToFile } from '../../utils/files';
@@ -106,12 +111,10 @@ export const Assinaturas: React.FC = () => {
   };
 
   const requiresSignedContract = (sub: ClientSubscription) =>
-    Number(sub.tipoContratoPlano ?? TIPO_CONTRATO.Nenhum) === TIPO_CONTRATO.Contrato;
+    requiresSignedContractType(getSubscriptionTipoContrato(sub));
 
-  const requiresContractAck = (sub: ClientSubscription) => {
-    const tipo = Number(sub.tipoContratoPlano ?? TIPO_CONTRATO.Nenhum);
-    return tipo === TIPO_CONTRATO.Termo || tipo === TIPO_CONTRATO.Contrato;
-  };
+  const requiresContractAck = (sub: ClientSubscription) =>
+    requiresContractAckType(getSubscriptionTipoContrato(sub));
 
   const handleAcceptClick = (sub: ClientSubscription) => {
     setSubToAccept(sub);
@@ -142,9 +145,15 @@ export const Assinaturas: React.FC = () => {
     if (!current) return false;
 
     if (current.id === 'contrato') {
-      if (requiresSignedContract(subToAccept) && !acceptForm.signatureDataUrl) {
-        addToast('error', 'Contrato', 'Desenhe sua assinatura antes de continuar.');
-        return false;
+      if (requiresSignedContract(subToAccept)) {
+        if (!acceptForm.signatureDataUrl) {
+          addToast('error', 'Contrato', 'Desenhe sua assinatura antes de continuar.');
+          return false;
+        }
+        if (!acceptForm.photoDataUrl) {
+          addToast('error', 'Contrato', 'Registre sua foto antes de continuar.');
+          return false;
+        }
       }
       if (requiresContractAck(subToAccept) && !acceptForm.aceitouTermos) {
         addToast('error', 'Contrato', 'Aceite os termos do contrato antes de continuar.');
@@ -172,6 +181,15 @@ export const Assinaturas: React.FC = () => {
     const current = steps[acceptStep];
 
     if (current?.id !== 'confirmacao') {
+      setMergedContractPdfUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setMergedContractBlob(null);
+      return;
+    }
+
+    if (!requiresSignedContract(subToAccept)) {
       setMergedContractPdfUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
@@ -260,18 +278,26 @@ export const Assinaturas: React.FC = () => {
       return;
     }
 
-    if (requiresSignedContract(subToAccept) && !acceptForm.signatureDataUrl) {
-      addToast('error', 'Contrato', 'Desenhe sua assinatura no contrato antes de continuar.');
-      return;
+    if (requiresSignedContract(subToAccept)) {
+      if (!acceptForm.signatureDataUrl) {
+        addToast('error', 'Contrato', 'Desenhe sua assinatura no contrato antes de continuar.');
+        return;
+      }
+      if (!acceptForm.photoDataUrl) {
+        addToast('error', 'Contrato', 'Registre sua foto antes de continuar.');
+        return;
+      }
     }
 
     try {
       setIsAccepting(subToAccept.idAssinatura);
-      const contratoFile = mergedContractBlob
-        ? new File([mergedContractBlob], 'contrato-assinado.pdf', { type: 'application/pdf' })
-        : acceptForm.signatureDataUrl
-          ? dataUrlToFile(acceptForm.signatureDataUrl, 'contrato-assinado.png')
-          : null;
+      const contratoFile = requiresSignedContract(subToAccept)
+        ? mergedContractBlob
+          ? new File([mergedContractBlob], 'contrato-assinado.pdf', { type: 'application/pdf' })
+          : acceptForm.signatureDataUrl
+            ? dataUrlToFile(acceptForm.signatureDataUrl, 'contrato-assinado.png')
+            : null
+        : null;
 
       await userService.acceptSubscription(subToAccept.idAssinatura, contratoFile);
       addToast('success', 'Sucesso', 'Assinatura aceita com sucesso.');
@@ -765,8 +791,14 @@ export const Assinaturas: React.FC = () => {
                 {currentStep.id === 'contrato' && (
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-base font-semibold text-gray-900">Contrato do plano</h3>
-                      <p className="text-sm text-gray-500 mt-1">Leia, assine e registre sua foto se necessário.</p>
+                      <h3 className="text-base font-semibold text-gray-900">
+                        {requiresSignedContract(subToAccept) ? 'Contrato do plano' : 'Termo de adesão'}
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {requiresSignedContract(subToAccept)
+                          ? 'Leia o contrato, desenhe sua assinatura e registre sua foto.'
+                          : 'Leia o termo de adesão e marque que concorda para continuar.'}
+                      </p>
                     </div>
 
                     {subToAccept.contratoPath ? (
@@ -817,7 +849,8 @@ export const Assinaturas: React.FC = () => {
                       </div>
                     )}
 
-                    {(acceptForm.signatureDataUrl || acceptForm.photoDataUrl) && (
+                    {requiresSignedContract(subToAccept) &&
+                      (acceptForm.signatureDataUrl || acceptForm.photoDataUrl) && (
                       <div className="grid grid-cols-2 gap-3">
                         {acceptForm.signatureDataUrl && (
                           <div className="rounded-lg border border-green-200 bg-green-50 p-2">
@@ -868,7 +901,9 @@ export const Assinaturas: React.FC = () => {
                     <div>
                       <h3 className="text-base font-semibold text-gray-900">Revise antes de confirmar</h3>
                       <p className="text-sm text-gray-500 mt-1">
-                        Confira os dados e o contrato com assinatura e foto na última página.
+                        {requiresSignedContract(subToAccept)
+                          ? 'Confira os dados e o contrato com assinatura e foto na última página.'
+                          : 'Confira os dados e o termo de adesão antes de confirmar.'}
                       </p>
                     </div>
 
@@ -891,11 +926,15 @@ export const Assinaturas: React.FC = () => {
 
                     {(mergedContractPdfUrl ||
                       subToAccept.contratoPath ||
-                      acceptForm.signatureDataUrl ||
-                      acceptForm.photoDataUrl) && (
+                      (requiresSignedContract(subToAccept) &&
+                        (acceptForm.signatureDataUrl || acceptForm.photoDataUrl))) && (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium text-gray-900">Contrato final (com anexo)</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            {requiresSignedContract(subToAccept)
+                              ? 'Contrato final (com anexo)'
+                              : 'Termo de adesão'}
+                          </p>
                           {mergedContractBlob && (
                             <Button
                               type="button"

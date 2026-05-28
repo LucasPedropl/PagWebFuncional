@@ -11,6 +11,7 @@ import { useToast } from '../../context/ToastContext';
 import { InfoTooltip } from '../../components/ui/InfoTooltip';
 import { SearchSelect } from '../../components/ui/SearchSelect';
 import { TIPO_CONTRATO, TIPO_DESCONTO, getContractUrl } from '../../utils/api';
+import { normalizePaymentDay } from '../../utils/formatters';
 
 export const Assinaturas: React.FC = () => {
   const { addToast } = useToast();
@@ -78,6 +79,7 @@ export const Assinaturas: React.FC = () => {
 
   // New Plan Modal State
   const [isNewPlanModalOpen, setIsNewPlanModalOpen] = useState(false);
+  const [currentPlanStep, setCurrentPlanStep] = useState(0);
   const [newPlanFormData, setNewPlanFormData] = useState({
       nome: '',
       valorMensalidade: '',
@@ -89,6 +91,11 @@ export const Assinaturas: React.FC = () => {
       cancelamentoDias: '7',
       assinarPorCliente: true,
   });
+
+  const resetNewPlanForm = () => {
+    setNewPlanFormData({ nome: '', valorMensalidade: '', percentualMulta: '0', percentualJurosMensal: '0', funcionalidades: '', contrato: null, tipoContrato: String(TIPO_CONTRATO.Nenhum), cancelamentoDias: '7', assinarPorCliente: true });
+    setCurrentPlanStep(0);
+  };
 
   useEffect(() => {
     fetchData();
@@ -228,7 +235,7 @@ export const Assinaturas: React.FC = () => {
         const newPlans = await businessService.listPlans();
         setPlans(newPlans);
         setIsNewPlanModalOpen(false);
-        setNewPlanFormData({ nome: '', valorMensalidade: '', percentualMulta: '0', percentualJurosMensal: '0', funcionalidades: '', contrato: null, tipoContrato: String(TIPO_CONTRATO.Nenhum), cancelamentoDias: '7', assinarPorCliente: true });
+        resetNewPlanForm();
     } catch (e: any) {
         addToast('error', 'Erro', e.message || 'Erro ao criar plano');
     } finally {
@@ -250,14 +257,20 @@ export const Assinaturas: React.FC = () => {
         return;
     }
 
+    const diaPagamento = normalizePaymentDay(formData.diaPagamento);
+    if (!Number.isFinite(parseInt(formData.diaPagamento, 10))) {
+        addToast('error', 'Dia inválido', 'Selecione o dia do fechamento entre 1 e 30.');
+        return;
+    }
+
     try {
         setIsSaving(true);
         
         await businessService.createSubscription({
-            idUser: parseInt(formData.idUser),
-            idPlano: parseInt(formData.idPlano),
-            periodo: parseInt(formData.periodo),
-            diaPagamento: Math.min(30, Math.max(1, parseInt(formData.diaPagamento))),
+            idUser: parseInt(formData.idUser, 10),
+            idPlano: parseInt(formData.idPlano, 10),
+            periodo: parseInt(formData.periodo, 10),
+            diaPagamento,
             desconto: parseFloat(formData.desconto || '0'),
             tipoDesconto: Number(formData.tipoDesconto),
             observacao: formData.observacao + (isRecurring ? ' [Recorrente]' : '')
@@ -393,6 +406,10 @@ export const Assinaturas: React.FC = () => {
         <Button 
           onClick={() => {
               setIsRecurring(false);
+              setFormData((prev) => ({
+                ...prev,
+                diaPagamento: Math.min(new Date().getDate(), 30).toString(),
+              }));
               setIsModalOpen(true);
           }}
           className="bg-slate-900 hover:bg-slate-800"
@@ -996,45 +1013,191 @@ export const Assinaturas: React.FC = () => {
       {/* New Plan Modal */}
       <Modal
         isOpen={isNewPlanModalOpen}
-        onClose={() => setIsNewPlanModalOpen(false)}
+        onClose={resetNewPlanForm}
         title="Cadastrar Novo Plano"
-        onSubmit={(e) => { e.preventDefault(); handleCreatePlan(); }}
+        size="lg"
         footer={
-            <>
-                <Button type="button" variant="outline" onClick={() => setIsNewPlanModalOpen(false)} disabled={isSaving}>Cancelar</Button>
-                <Button type="submit" isLoading={isSaving} className="bg-slate-900 hover:bg-slate-800">Criar Plano</Button>
-            </>
+            <div className="flex justify-between items-center w-full">
+              <div className="flex gap-1.5">
+                {[0, 1, 2].map((idx) => (
+                  <div
+                    key={idx}
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      idx === currentPlanStep ? 'w-6 bg-slate-900' : 'w-2 bg-gray-200'
+                    }`}
+                  />
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    if (currentPlanStep === 0) {
+                      setIsNewPlanModalOpen(false);
+                      resetNewPlanForm();
+                    } else {
+                      setCurrentPlanStep(prev => prev - 1);
+                    }
+                  }}
+                  disabled={isSaving}
+                >
+                  {currentPlanStep === 0 ? 'Cancelar' : 'Voltar'}
+                </Button>
+                {currentPlanStep < 2 ? (
+                  <Button
+                    type="button"
+                    className="bg-slate-900 hover:bg-slate-800 text-white"
+                    onClick={() => {
+                      if (currentPlanStep === 0 && !newPlanFormData.nome) {
+                        addToast('error', 'Nome Obrigatório', 'Por favor, informe o nome do plano.');
+                        return;
+                      }
+                      if (currentPlanStep === 0 && !newPlanFormData.valorMensalidade) {
+                        addToast('error', 'Valor Obrigatório', 'Por favor, informe o valor da mensalidade.');
+                        return;
+                      }
+                      setCurrentPlanStep(prev => prev + 1);
+                    }}
+                  >
+                    Avançar
+                  </Button>
+                ) : (
+                  <Button 
+                    type="button" 
+                    isLoading={isSaving} 
+                    className="bg-slate-900 hover:bg-slate-800 text-white"
+                    onClick={handleCreatePlan}
+                  >
+                    Criar Plano
+                  </Button>
+                )}
+              </div>
+            </div>
         }
       >
-        <div className="space-y-4">
-            <Input label="Nome" placeholder="Ex: Plano Enterprise" value={newPlanFormData.nome} onChange={(e) => setNewPlanFormData({...newPlanFormData, nome: e.target.value})} />
-            <Input label="Valor Mensal" placeholder="R$ 0.00" type="number" value={newPlanFormData.valorMensalidade} onChange={(e) => setNewPlanFormData({...newPlanFormData, valorMensalidade: e.target.value})} />
-            <div className="grid grid-cols-2 gap-4">
-                <Input label="Multa (%)" placeholder="Ex: 2.00" type="number" value={newPlanFormData.percentualMulta} onChange={(e) => setNewPlanFormData({...newPlanFormData, percentualMulta: e.target.value})} />
-                <Input label="Juros Mensal (%)" placeholder="Ex: 1.00" type="number" value={newPlanFormData.percentualJurosMensal} onChange={(e) => setNewPlanFormData({...newPlanFormData, percentualJurosMensal: e.target.value})} />
-            </div>
-            
-            <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-gray-700">Contrato do Plano (PDF)</label>
-                <label className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 transition-colors">
-                    <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center mb-2">
-                        <FileText className="w-5 h-5 text-gray-400" />
-                    </div>
-                    <span className="text-sm font-medium text-gray-600">
-                        {newPlanFormData.contrato ? newPlanFormData.contrato.name : 'Clique para selecionar o contrato'}
-                    </span>
-                    <span className="text-xs text-gray-400">Apenas arquivos PDF</span>
-                    <input type="file" accept=".pdf" className="hidden" onChange={handleNewPlanFileChange} />
-                </label>
+        <div className="space-y-5 py-1">
+            {/* Header das etapas */}
+            <div className="flex justify-between border-b border-gray-100 pb-4 mb-2">
+              <span className={`text-xs font-semibold ${currentPlanStep === 0 ? 'text-slate-900' : 'text-gray-400'}`}>
+                1. Informações Básicas
+              </span>
+              <span className={`text-xs font-semibold ${currentPlanStep === 1 ? 'text-slate-900' : 'text-gray-400'}`}>
+                2. Contrato & Multas
+              </span>
+              <span className={`text-xs font-semibold ${currentPlanStep === 2 ? 'text-slate-900' : 'text-gray-400'}`}>
+                3. Funcionalidades
+              </span>
             </div>
 
-            <textarea 
-                className="w-full border rounded p-2" 
-                placeholder="Funcionalidades (uma por linha)&#10;Ex: Suporte 24h&#10;Acesso ilimitado" 
-                rows={4} 
-                value={newPlanFormData.funcionalidades} 
-                onChange={(e) => setNewPlanFormData({...newPlanFormData, funcionalidades: e.target.value})} 
-            />
+            {/* Etapa 1: Informações Básicas */}
+            {currentPlanStep === 0 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-3 duration-200">
+                <Input 
+                  label="Nome do Plano" 
+                  placeholder="Ex: Plano Individual Premium" 
+                  value={newPlanFormData.nome} 
+                  onChange={(e) => setNewPlanFormData({...newPlanFormData, nome: e.target.value})} 
+                  required
+                />
+                <Input 
+                  label="Valor da Mensalidade" 
+                  placeholder="R$ 0,00" 
+                  type="number" 
+                  value={newPlanFormData.valorMensalidade} 
+                  onChange={(e) => setNewPlanFormData({...newPlanFormData, valorMensalidade: e.target.value})} 
+                  required
+                />
+                <div className="flex items-center pt-2">
+                     <label className="flex items-center cursor-pointer space-x-2 select-none">
+                        <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-gray-300 text-slate-900 focus:ring-slate-900 accent-slate-900"
+                            checked={newPlanFormData.assinarPorCliente}
+                            onChange={(e) => setNewPlanFormData({...newPlanFormData, assinarPorCliente: e.target.checked})}
+                        />
+                        <div className="flex items-center text-sm text-gray-700 font-medium">
+                            Permitir que o cliente assine sozinho pelo app
+                        </div>
+                     </label>
+                </div>
+              </div>
+            )}
+
+            {/* Etapa 2: Contrato e Multas */}
+            {currentPlanStep === 1 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-3 duration-200">
+                <div className="grid grid-cols-2 gap-4">
+                    <Input 
+                      label="Multa por Atraso (%)" 
+                      placeholder="Ex: 2.00" 
+                      type="number" 
+                      value={newPlanFormData.percentualMulta} 
+                      onChange={(e) => setNewPlanFormData({...newPlanFormData, percentualMulta: e.target.value})} 
+                    />
+                    <Input 
+                      label="Juros Mensal (%)" 
+                      placeholder="Ex: 1.00" 
+                      type="number" 
+                      value={newPlanFormData.percentualJurosMensal} 
+                      onChange={(e) => setNewPlanFormData({...newPlanFormData, percentualJurosMensal: e.target.value})} 
+                    />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-medium text-gray-700">Tipo de Contrato</label>
+                    <select
+                      value={newPlanFormData.tipoContrato}
+                      onChange={(e) => setNewPlanFormData({...newPlanFormData, tipoContrato: e.target.value})}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900 text-sm"
+                    >
+                      <option value={TIPO_CONTRATO.Nenhum}>Sem Contrato Requerido</option>
+                      <option value={TIPO_CONTRATO.Termo}>Aceitar Termo Digital (Clique de Aceite)</option>
+                      <option value={TIPO_CONTRATO.Contrato}>Assinar Contrato (Assinatura na tela + Foto)</option>
+                    </select>
+                  </div>
+                  <Input 
+                    label="Prazo para Cancelamento sem Multa (Dias)" 
+                    placeholder="Ex: 7" 
+                    type="number" 
+                    value={newPlanFormData.cancelamentoDias} 
+                    onChange={(e) => setNewPlanFormData({...newPlanFormData, cancelamentoDias: e.target.value})} 
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5 pt-1">
+                    <label className="text-sm font-medium text-gray-700">Arquivo do Contrato (PDF)</label>
+                    <label className="border-2 border-dashed border-gray-200 rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer hover:border-slate-400 transition-colors bg-gray-50/50">
+                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center mb-2 shadow-sm border border-gray-100">
+                            <FileText className="w-5 h-5 text-slate-500" />
+                        </div>
+                        <span className="text-sm font-medium text-gray-700 text-center px-4 truncate max-w-full">
+                            {newPlanFormData.contrato ? newPlanFormData.contrato.name : 'Clique para selecionar o PDF do contrato'}
+                        </span>
+                        <span className="text-xs text-gray-400 mt-1">Apenas arquivos no formato PDF</span>
+                        <input type="file" accept=".pdf" className="hidden" onChange={handleNewPlanFileChange} />
+                    </label>
+                </div>
+              </div>
+            )}
+
+            {/* Etapa 3: Funcionalidades */}
+            {currentPlanStep === 2 && (
+              <div className="space-y-4 animate-in fade-in slide-in-from-right-3 duration-200">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-gray-700">Destaques e Funcionalidades do Plano</label>
+                  <span className="text-xs text-gray-400">Insira cada diferencial do plano em uma nova linha.</span>
+                  <textarea 
+                      className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900 placeholder-gray-400 text-sm resize-none" 
+                      placeholder="Exemplo:&#10;Acesso ilimitado ao espaço físico&#10;Suporte VIP via WhatsApp&#10;Desconto de 10% em produtos" 
+                      rows={6} 
+                      value={newPlanFormData.funcionalidades} 
+                      onChange={(e) => setNewPlanFormData({...newPlanFormData, funcionalidades: e.target.value})} 
+                  />
+                </div>
+              </div>
+            )}
         </div>
       </Modal>
 

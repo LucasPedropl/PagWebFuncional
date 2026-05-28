@@ -37,6 +37,15 @@ export const formatPhone = (value: string) => {
   }
 };
 
+/** Garante dia de pagamento entre 1 e 30 para payloads da API. */
+export const normalizePaymentDay = (value: string | number | undefined | null): number => {
+  const parsed = typeof value === 'string' ? parseInt(value, 10) : Number(value);
+  if (!Number.isFinite(parsed)) {
+    return Math.min(30, Math.max(1, new Date().getDate()));
+  }
+  return Math.min(30, Math.max(1, parsed));
+};
+
 export const parseApiError = async (response: Response): Promise<string> => {
   const text = await response.text();
   try {
