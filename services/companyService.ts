@@ -43,7 +43,7 @@ export const companyService = {
 	},
 
 	async getMyCompany(): Promise<CompanyResponse> {
-		const { token } = sessionService.getSession();
+		const token = sessionService.getCachedToken('admin') || sessionService.getSession().token;
 		if (!token) throw new Error('Não autenticado');
 
 		const response = await fetch(`${USER_URL}/minha-empresa`, {
@@ -63,7 +63,7 @@ export const companyService = {
 	},
 
 	async update(id: number, data: CompanyUpdatePayload): Promise<void> {
-		const { token } = sessionService.getSession();
+		const token = sessionService.getCachedToken('admin') || sessionService.getSession().token;
 		if (!token) throw new Error('Não autenticado');
 
 		const formData = new FormData();

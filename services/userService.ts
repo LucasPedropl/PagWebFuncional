@@ -11,12 +11,18 @@ const isEmpresaDualAccount = (): boolean =>
 
 // Helper privado para requisições autenticadas com renovação automática
 const authRequest = async (endpoint: string, options: RequestInit = {}, isRetry = false): Promise<Response> => {
-  if (!isRetry && isEmpresaDualAccount()) {
-    await sessionService.switchToMode("client");
+  let token = sessionService.getSession().token;
+
+  if (isEmpresaDualAccount()) {
+    const cachedClient = sessionService.getCachedToken("client");
+    if (cachedClient) {
+      token = cachedClient;
+    } else if (!isRetry) {
+      await sessionService.switchToMode("client");
+      token = sessionService.getSession().token;
+    }
   }
 
-  const { token } = sessionService.getSession();
-  
   if (!token && !isRetry) {
     sessionService.logout();
     throw new Error("Sessão inválida. Faça login novamente.");
@@ -191,10 +197,30 @@ export const userService = {
   },
 
   async linkToCompany(companyId: number): Promise<void> {
-    await authRequest('/User/conecta-empresa', {
-      method: "POST",
-      body: JSON.stringify(companyId)
+    const response = await authRequest(`/User/conectar-empresa/${companyId}`, {
+      method: 'POST',
     });
+
+    if (!response.ok) {
+      const msg = await parseApiError(response);
+      const alreadyLinked = /j[aá]\s*existe|already/i.test(msg);
+      if (!alreadyLinked) {
+        throw new Error(msg || 'Falha ao conectar com o estabelecimento.');
+      }
+    }
+  },
+
+  async ensureCompanyConnection(idEmpresa: number): Promise<void> {
+    const connections = await this.listConnections();
+    const hasActiveConnection = connections.some(
+      (connection) =>
+        connection.idEmpresa === idEmpresa &&
+        String(connection.status).toLowerCase() === 'ativo'
+    );
+
+    if (!hasActiveConnection) {
+      await this.linkToCompany(idEmpresa);
+    }
   },
 
   // --- NOTIFICAÇÕES (Compartilhado entre User e Business) ---
@@ -324,10 +350,14 @@ export const userService = {
     }
   },
 
-  async acceptSubscription(idAssinatura: number): Promise<void> {
-    const response = await authRequest(`/User/minha-assinatura/${idAssinatura}/${ASSINATURA_STATUS.Ativo}`, {
-      method: 'PATCH'
-    });
+  async acceptSubscription(idAssinatura: number, contrato?: File | null): Promise<void> {
+    let options: RequestInit = { method: 'PATCH' };
+    if (contrato) {
+      const formData = new FormData();
+      formData.append('Contrato', contrato);
+      options.body = formData;
+    }
+    const response = await authRequest(`/User/minha-assinatura/${idAssinatura}/${ASSINATURA_STATUS.Ativo}`, options);
     if (!response.ok) {
       const msg = await parseApiError(response);
       throw new Error(msg || "Falha ao aceitar assinatura.");
@@ -491,8 +521,8 @@ export const userService = {
   // --- AÇÕES DO CLIENTE (Cancelar, Pagar) ---
 
   async unlinkCompany(idEmpresa: number): Promise<void> {
-    const response = await authRequest(`/User/desconecta-empresa/${idEmpresa}`, {
-        method: 'DELETE'
+    const response = await authRequest(`/User/minha-conexao/desconectar/${idEmpresa}`, {
+        method: 'PATCH'
     });
     if (!response.ok) {
         const msg = await parseApiError(response);
@@ -527,22 +557,25 @@ export const userService = {
   },
 
   async assinarPlano(payload: AssinarPlanoPayload): Promise<{ idAssinatura?: number; message?: string }> {
+    if (payload.idEmpresa) {
+      await this.ensureCompanyConnection(payload.idEmpresa);
+    }
+
     const account = await this.getMyAccount();
-    const idUser = payload.idUser ?? account.idUser;
+    const idUser = payload.idUser ?? account.idUser ?? (account as { IdUser?: number }).IdUser;
+    if (!idUser) {
+      throw new Error('Não foi possível identificar seu usuário. Faça login novamente.');
+    }
+
     const diaPagamento = Math.min(30, Math.max(1, payload.diaPagamento));
 
     const formData = new FormData();
-    formData.append('IdUser', idUser.toString());
-    formData.append('IdPlano', payload.idPlano.toString());
-    formData.append('Periodo', payload.periodo.toString());
-    formData.append('DiaPagamento', diaPagamento.toString());
-
-    if (payload.desconto != null) {
-      formData.append('Desconto', payload.desconto.toString());
-    }
-    if (payload.tipoDesconto != null) {
-      formData.append('TipoDesconto', payload.tipoDesconto.toString());
-    }
+    formData.append('IdUser', String(idUser));
+    formData.append('IdPlano', String(payload.idPlano));
+    formData.append('Periodo', String(payload.periodo));
+    formData.append('DiaPagamento', String(diaPagamento));
+    formData.append('Desconto', String(payload.desconto ?? 0));
+    formData.append('TipoDesconto', String(payload.tipoDesconto ?? 0));
     if (payload.observacao) {
       formData.append('Observacao', payload.observacao);
     }
@@ -550,7 +583,7 @@ export const userService = {
       formData.append('Contrato', payload.contrato);
     }
 
-    const response = await authRequest(`/User/assinar-plano/${payload.idPlano}`, {
+    const response = await authRequest('/User/assinar-plano', {
       method: 'POST',
       body: formData
     });

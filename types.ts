@@ -125,6 +125,7 @@ export interface SubscriptionPayload {
 
 export interface AssinarPlanoPayload {
   idPlano: number;
+  idEmpresa?: number;
   idUser?: number;
   periodo: number;
   diaPagamento: number;

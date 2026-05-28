@@ -42,6 +42,28 @@ export const Activate: React.FC = () => {
     }
   }, [searchParams, location.state]);
 
+  useEffect(() => {
+    const currentEmail = searchParams.get('email') || location.state?.email;
+    if (currentEmail && sessionStorage.getItem('isRandomTest') === 'true') {
+      const fetchToken = async () => {
+        try {
+          const res = await fetch('https://lojas.vlks.com.br/api/zTemporario/dev/lista-usuarios');
+          if (res.ok) {
+            const data = await res.json();
+            const user = data.find((u: any) => u.email === currentEmail);
+            if (user && user.verificationToken) {
+              setToken(user.verificationToken);
+              sessionStorage.removeItem('isRandomTest');
+            }
+          }
+        } catch (e) {
+          console.error('Erro ao buscar token dev:', e);
+        }
+      };
+      fetchToken();
+    }
+  }, [searchParams, location.state]);
+
   const handleAutoActivate = async (autoEmail: string, autoToken: string) => {
     setIsLoading(true);
     setError(null);

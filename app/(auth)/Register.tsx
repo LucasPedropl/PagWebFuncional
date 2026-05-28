@@ -287,6 +287,7 @@ export const Register: React.FC = () => {
             onClick={() => {
               const random = Math.floor(Math.random() * 10000);
               const randomCPF = `${Math.floor(Math.random() * 900 + 100)}.${Math.floor(Math.random() * 900 + 100)}.${Math.floor(Math.random() * 900 + 100)}-${Math.floor(Math.random() * 90 + 10)}`;
+              sessionStorage.setItem('isRandomTest', 'true');
               setFormData(prev => ({
                 ...prev,
                 nome: `Teste ${random}`,

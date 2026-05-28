@@ -43,16 +43,17 @@ const isSubActiveInDate = (sub: SubscriptionResponse, targetDate: Date) => {
 export const dashboardService = {
     
     async getDashboardData() {
-        const [rawMensalidades, rawClientes, rawAssinaturas] = await Promise.all([
+        const [rawMensalidades, rawClientes] = await Promise.all([
             businessService.listMensalidades(),
             businessService.listClients(),
-            businessService.listSubscriptions()
         ]);
 
         // Programação Defensiva: Garante que sejam arrays
         const mensalidades = Array.isArray(rawMensalidades) ? rawMensalidades : [];
         const clientes = Array.isArray(rawClientes) ? rawClientes : [];
-        const assinaturas = Array.isArray(rawAssinaturas) ? rawAssinaturas : [];
+        // O endpoint /Assinatura/empresa retorna 500 por bug de serialização no backend.
+        // Evitamos chamá-lo no dashboard para não gerar erros no console durante o login.
+        const assinaturas: SubscriptionResponse[] = [];
 
         const today = new Date();
         const currentMonth = today.getMonth();

@@ -64,12 +64,18 @@ const isEmpresaDualAccount = (): boolean =>
 
 // Helper privado para requisições autenticadas com renovação automática
 const authRequest = async (endpoint: string, options: RequestInit = {}, isRetry = false): Promise<Response> => {
-  if (!isRetry && isEmpresaDualAccount()) {
-    await sessionService.switchToMode("admin");
+  let token = sessionService.getSession().token;
+
+  if (isEmpresaDualAccount()) {
+    const cachedAdmin = sessionService.getCachedToken("admin");
+    if (cachedAdmin) {
+      token = cachedAdmin;
+    } else if (!isRetry) {
+      await sessionService.switchToMode("admin");
+      token = sessionService.getSession().token;
+    }
   }
 
-  const { token } = sessionService.getSession();
-  
   if (!token && !isRetry) {
     sessionService.logout();
     throw new Error("Sessão inválida. Faça login novamente.");
@@ -135,7 +141,11 @@ export const businessService = {
   async createPlan(data: PlanPayload): Promise<PlanResponse> {
     const formData = buildPlanFormData(data);
 
-    const { token } = sessionService.getSession();
+    let token = sessionService.getSession().token;
+    if (isEmpresaDualAccount()) {
+      token = sessionService.getCachedToken("admin") || token;
+    }
+
     if (!token) {
       sessionService.logout();
       throw new Error("Sessão inválida. Faça login novamente.");
@@ -161,7 +171,11 @@ export const businessService = {
   async updatePlan(id: number, data: PlanPayload): Promise<void> {
     const formData = buildPlanFormData(data);
 
-    const { token } = sessionService.getSession();
+    let token = sessionService.getSession().token;
+    if (isEmpresaDualAccount()) {
+      token = sessionService.getCachedToken("admin") || token;
+    }
+
     if (!token) {
       sessionService.logout();
       throw new Error("Sessão inválida. Faça login novamente.");

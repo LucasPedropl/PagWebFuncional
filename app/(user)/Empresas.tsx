@@ -14,6 +14,26 @@ import { getImageUrl, getContractUrl, TIPO_CONTRATO } from '../../utils/api';
 import { dataUrlToFile } from '../../utils/files';
 import { buildContractPdfWithEvidence, downloadBlob } from '../../utils/contractPdf';
 
+const SUBSCRIPTION_BLOCKING_STATUSES = new Set([
+  'Ativo',
+  'Ativa',
+  'Pendente',
+  'Suspenso',
+  'Suspensa',
+]);
+
+const hasBlockingSubscription = (
+  plan: PlanResponse,
+  subscriptions: ClientSubscription[]
+) =>
+  subscriptions.some(
+    (sub) =>
+      SUBSCRIPTION_BLOCKING_STATUSES.has(String(sub.status)) &&
+      (sub.idPlano === plan.idPlano || sub.nomePlano === plan.nome)
+  );
+
+const allowsClientSelfSubscribe = (plan: PlanResponse) => plan.assinarPorCliente !== false;
+
 export const Empresas: React.FC = () => {
   const { addToast } = useToast();
   const [companies, setCompanies] = useState<ClientConnection[]>([]);
@@ -170,7 +190,36 @@ export const Empresas: React.FC = () => {
     refreshCompanyDetails(company);
   };
 
-  const handleSubscribeClick = (plan: any) => {
+  const handleSubscribeClick = (plan: PlanResponse) => {
+    if (!selectedCompany) return;
+
+    if (selectedCompany.status !== 'Ativo') {
+      addToast(
+        'error',
+        'Conexão pendente',
+        'Aceite ou aguarde a aprovação da conexão com este estabelecimento antes de assinar um plano.'
+      );
+      return;
+    }
+
+    if (!allowsClientSelfSubscribe(plan)) {
+      addToast(
+        'error',
+        'Plano indisponível',
+        'Este plano só pode ser contratado pelo estabelecimento. Entre em contato com a empresa.'
+      );
+      return;
+    }
+
+    if (hasBlockingSubscription(plan, companySubscriptions)) {
+      addToast(
+        'error',
+        'Plano já contratado',
+        'Você já possui este plano ativo, pendente ou suspenso neste estabelecimento.'
+      );
+      return;
+    }
+
     setSelectedPlan(plan);
     setSubscribeForm({
       periodo: '12',
@@ -366,6 +415,7 @@ export const Empresas: React.FC = () => {
 
       await userService.assinarPlano({
         idPlano: selectedPlan.idPlano,
+        idEmpresa: selectedCompany.idEmpresa,
         periodo,
         diaPagamento: Math.min(30, Math.max(1, Number(subscribeForm.diaPagamento))),
         contrato: contratoFile,
@@ -719,12 +769,31 @@ export const Empresas: React.FC = () => {
                                         </div>
 
                                          <div className="mt-auto">
-                                            <Button 
+                                            {hasBlockingSubscription(plan, companySubscriptions) ? (
+                                              <Button
+                                                className="w-full text-xs py-2 h-9"
+                                                variant="outline"
+                                                disabled
+                                              >
+                                                Já assinado
+                                              </Button>
+                                            ) : !allowsClientSelfSubscribe(plan) ? (
+                                              <Button
+                                                className="w-full text-xs py-2 h-9"
+                                                variant="outline"
+                                                disabled
+                                                title="Contratação apenas via estabelecimento"
+                                              >
+                                                Indisponível para autoassinatura
+                                              </Button>
+                                            ) : (
+                                              <Button 
                                                 className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs py-2 h-9"
                                                 onClick={() => handleSubscribeClick(plan)}
-                                            >
+                                              >
                                                 Assinar Agora
-                                            </Button>
+                                              </Button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
