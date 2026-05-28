@@ -128,6 +128,26 @@ export const Assinaturas: React.FC = () => {
       }
   }, [isRecurring]);
 
+  // Limpa os estados do formulário de criação ao fechar o modal
+  useEffect(() => {
+    if (!isModalOpen) {
+      setFormData({
+        idUser: '',
+        idPlano: '',
+        periodo: '12',
+        diaPagamento: Math.min(new Date().getDate(), 30).toString(),
+        desconto: '0',
+        tipoDesconto: String(TIPO_DESCONTO.Percentual),
+        observacao: ''
+      });
+      setIsRecurring(false);
+      setClientSearch('');
+      setPlanSearch('');
+      setIsClientListOpen(false);
+      setIsPlanListOpen(false);
+    }
+  }, [isModalOpen]);
+
   const fetchData = async () => {
     try {
         setIsLoading(true);
@@ -156,9 +176,21 @@ export const Assinaturas: React.FC = () => {
 
   // --- LOGICA DE CLIENTE ---
 
+  const selectedClient = clients.find(c => String(c.idUser) === String(formData.idUser));
+  const isExactClientMatch = selectedClient && (clientSearch === selectedClient.nome || clientSearch === `${selectedClient.nome} ${selectedClient.sobreNome}`);
+
   const filteredClientsForDropdown = clients.filter(c => 
-     c.nome.toLowerCase().includes(clientSearch.toLowerCase()) || 
-     c.email.toLowerCase().includes(clientSearch.toLowerCase())
+     isExactClientMatch ? true : (
+       c.nome.toLowerCase().includes(clientSearch.toLowerCase()) || 
+       c.email.toLowerCase().includes(clientSearch.toLowerCase())
+     )
+  );
+
+  const selectedPlanObj = plans.find(p => String(p.idPlano) === String(formData.idPlano));
+  const isExactPlanMatch = selectedPlanObj && planSearch === selectedPlanObj.nome;
+
+  const filteredPlansForDropdown = plans.filter(p => 
+     isExactPlanMatch ? true : p.nome.toLowerCase().includes(planSearch.toLowerCase())
   );
 
   const handleSelectClient = (client: User) => {
@@ -773,7 +805,7 @@ export const Assinaturas: React.FC = () => {
                                 <span className="block text-xs text-indigo-500 font-normal">Criar um novo plano disponível</span>
                             </div>
                         </div>
-                        {plans.filter(p => p.nome.toLowerCase().includes(planSearch.toLowerCase())).map(p => (
+                        {filteredPlansForDropdown.map(p => (
                             <div 
                                 key={p.idPlano}
                                 className={`px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center justify-between ${formData.idPlano === String(p.idPlano) ? 'bg-gray-50' : ''}`}

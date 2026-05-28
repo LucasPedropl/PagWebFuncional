@@ -30,6 +30,7 @@ import {
 export const Explorar: React.FC = () => {
   const { addToast } = useToast();
   const { companies, isLoading, error, refresh } = usePublicCompanies();
+  const [mySubscriptions, setMySubscriptions] = useState<ClientSubscription[]>([]);
   const subscribe = usePlanSubscribe({
     onSuccess: () => {
       void refreshConnections();
@@ -56,6 +57,34 @@ export const Explorar: React.FC = () => {
   const [establishmentPlans, setEstablishmentPlans] = useState<PlanResponse[]>([]);
   const [isLoadingEstablishmentPlans, setIsLoadingEstablishmentPlans] = useState(false);
 
+  useEffect(() => {
+    userService
+      .listConnections()
+      .then((connections) => {
+        const ids = connections
+          .filter((c) => c.status === 'Ativo' && c.idEmpresa)
+          .map((c) => c.idEmpresa);
+        setConnectedIds(new Set(ids));
+      })
+      .catch((err) => console.error('[PagWeb] Erro ao carregar conexões:', err));
+
+    userService
+      .listClientSubscriptions()
+      .then((subs) => {
+        setMySubscriptions(subs);
+      })
+      .catch((err) => console.error('[PagWeb] Erro ao carregar assinaturas:', err));
+  }, []);
+
+  const isPlanSubscribed = (idPlano: number) => {
+    return mySubscriptions.some(
+      (sub) =>
+        sub.idPlano === idPlano &&
+        sub.status &&
+        ['ativo', 'pendente', 'suspenso'].includes(sub.status.toLowerCase())
+    );
+  };
+
   const refreshConnections = async () => {
     try {
       const connections = await userService.listConnections();
@@ -74,16 +103,11 @@ export const Explorar: React.FC = () => {
   const refreshSubscriptions = async () => {
     try {
       const subs = await userService.listClientSubscriptions();
-      setClientSubscriptions(subs);
+      setMySubscriptions(subs);
     } catch (err) {
       console.error('[PagWeb] Erro ao carregar assinaturas:', err);
     }
   };
-
-  useEffect(() => {
-    void refreshConnections();
-    void refreshSubscriptions();
-  }, []);
 
   useEffect(() => {
     if (companies.length === 0) {
@@ -207,7 +231,7 @@ export const Explorar: React.FC = () => {
         plan: planCard.plan,
         idEmpresa: planCard.idEmpresa,
         establishmentName: planCard.establishmentName,
-        subscriptions: clientSubscriptions,
+        subscriptions: mySubscriptions,
       });
       setConnectedIds((prev) => new Set(prev).add(planCard.idEmpresa));
     } finally {
@@ -319,6 +343,7 @@ export const Explorar: React.FC = () => {
               key={`${plan.idEmpresa}-${plan.idPlano}`}
               plan={plan}
               isSubscribing={subscribingPlanId === plan.idPlano || subscribe.isConnecting}
+              isSubscribed={isPlanSubscribed(plan.idPlano)}
               onSubscribe={() => void handleSubscribePlan(plan)}
               onViewEstablishment={() => {
                 const est = establishments.find((e) => e.idEmpresa === plan.idEmpresa);
@@ -372,6 +397,7 @@ export const Explorar: React.FC = () => {
                       key={plan.idPlano}
                       plan={card}
                       isSubscribing={subscribingPlanId === plan.idPlano}
+                      isSubscribed={isPlanSubscribed(plan.idPlano)}
                       onSubscribe={() => void handleSubscribePlan(card)}
                     />
                   );

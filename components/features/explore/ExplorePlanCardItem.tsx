@@ -9,6 +9,7 @@ interface ExplorePlanCardItemProps {
   isSubscribing?: boolean;
   onSubscribe: () => void;
   onViewEstablishment?: () => void;
+  isSubscribed?: boolean;
 }
 
 export const ExplorePlanCardItem: React.FC<ExplorePlanCardItemProps> = ({
@@ -16,6 +17,7 @@ export const ExplorePlanCardItem: React.FC<ExplorePlanCardItemProps> = ({
   isSubscribing,
   onSubscribe,
   onViewEstablishment,
+  isSubscribed = false,
 }) => (
   <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-blue-300 flex flex-col h-full">
     <div className="flex items-center gap-3 mb-4 border-b border-gray-100 pb-4">
@@ -65,9 +67,10 @@ export const ExplorePlanCardItem: React.FC<ExplorePlanCardItemProps> = ({
     <Button
       className="w-full bg-slate-900 hover:bg-slate-800 text-white"
       isLoading={isSubscribing}
+      disabled={isSubscribed}
       onClick={onSubscribe}
     >
-      Assinar agora
+      {isSubscribed ? 'Plano já assinado' : 'Assinar agora'}
     </Button>
   </div>
 );
