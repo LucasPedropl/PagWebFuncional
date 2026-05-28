@@ -4,6 +4,7 @@ import { CreditCard, ArrowRight, Building2, User, Search, LayoutGrid, ChevronDow
 import { Button } from '../components/ui/Button';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePublicCompanies } from '../hooks/usePublicCompanies';
+import { CompanyBrandAvatar } from '../components/ui/CompanyBrandAvatar';
 import { mapPublicCompanyToCard } from '../utils/publicCompany';
 
 const containerVariants = {
@@ -258,13 +259,14 @@ export const Landing: React.FC = () => {
                     onClick={() => navigate(`/empresa/${company.idEmpresa}`)}
                     className="group flex flex-col bg-white rounded-3xl border border-slate-100 overflow-hidden hover:shadow-2xl hover:shadow-slate-200/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer"
                   >
-                    <div className="relative h-56 overflow-hidden bg-slate-100">
-                      <div className="absolute inset-0 bg-slate-900/10 group-hover:bg-transparent transition-colors duration-300 z-10" />
-                      <img 
-                        src={company.image} 
-                        alt={company.name} 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-in-out"
-                        referrerPolicy="no-referrer"
+                    <div className="relative h-56 overflow-hidden bg-slate-100 flex items-center justify-center">
+                      <div className="absolute inset-0 bg-slate-900/5 group-hover:bg-transparent transition-colors duration-300 z-10" />
+                      <CompanyBrandAvatar
+                        name={company.name}
+                        logoUrl={company.logoUrl}
+                        seed={company.idEmpresa}
+                        className="w-24 h-24 rounded-2xl z-0 group-hover:scale-105 transition-transform duration-500"
+                        textClassName="text-2xl font-black"
                       />
                       <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
                          <span className="inline-flex items-center bg-white/90 backdrop-blur-md shadow-sm px-3 py-1.5 rounded-full text-xs font-bold text-slate-800 self-start">

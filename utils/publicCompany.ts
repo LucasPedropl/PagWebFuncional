@@ -2,14 +2,17 @@ import { ExploreEstablishmentCard, PublicCompanyListItem } from '../types';
 import { getImageUrl } from './api';
 import { formatCNPJ, formatPhone } from './formatters';
 
-const PLACEHOLDER_IMAGE =
-	'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=800&h=600&fit=crop';
+export const resolveCompanyLogoUrl = (logoPath?: string | null): string | null => {
+	if (!logoPath?.trim()) return null;
+	const url = getImageUrl(logoPath);
+	return url || null;
+};
 
 export const mapPublicCompanyToCard = (
 	company: PublicCompanyListItem,
 	options?: { isConnected?: boolean; planCount?: number },
 ): ExploreEstablishmentCard => {
-	const logoUrl = getImageUrl(company.logoPath);
+	const logoUrl = resolveCompanyLogoUrl(company.logoPath);
 	const telefone = company.telefone?.trim();
 	const description = telefone
 		? `Contato: ${formatPhone(telefone)}`
@@ -19,7 +22,7 @@ export const mapPublicCompanyToCard = (
 		idEmpresa: company.idEmpresa,
 		name: company.nome,
 		description,
-		image: logoUrl || PLACEHOLDER_IMAGE,
+		logoUrl,
 		telefone,
 		isConnected: options?.isConnected ?? false,
 		planCount: options?.planCount ?? 0,

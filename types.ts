@@ -69,7 +69,7 @@ export interface ExploreEstablishmentCard {
   idEmpresa: number;
   name: string;
   description: string;
-  image: string;
+  logoUrl: string | null;
   telefone?: string;
   isConnected: boolean;
   planCount: number;
@@ -80,11 +80,11 @@ export interface ExplorePlanCard {
   idPlano: number;
   idEmpresa: number;
   establishmentName: string;
-  establishmentImage: string;
+  establishmentLogoUrl: string | null;
   name: string;
   price: number;
-  description: string;
   features: string[];
+  plan: PlanResponse;
 }
 
 export interface CompanyUpdatePayload {

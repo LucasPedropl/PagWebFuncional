@@ -23,6 +23,7 @@ import {
 } from '../utils/publicCompany';
 import { formatPhone } from '../utils/formatters';
 import { PlanResponse } from '../types';
+import { CompanyBrandAvatar } from '../components/ui/CompanyBrandAvatar';
 
 const pickPopularPlanId = (plans: PlanResponse[]): number | null => {
   const selfSubscribe = plans.find((p) => p.assinarPorCliente !== false);
@@ -125,12 +126,15 @@ export const CompanyDetails: React.FC = () => {
             transition={{ duration: 0.8 }}
             className="absolute inset-0"
           >
-            <img
-              src={card.image}
-              alt={card.name}
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
+            <div className="w-full h-full flex items-center justify-center bg-slate-900">
+              <CompanyBrandAvatar
+                name={card.name}
+                logoUrl={card.logoUrl}
+                seed={card.idEmpresa}
+                className="w-32 h-32 md:w-40 md:h-40 rounded-3xl"
+                textClassName="text-4xl font-black"
+              />
+            </div>
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
           </motion.div>
 
