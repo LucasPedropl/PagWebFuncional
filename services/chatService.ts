@@ -1,82 +1,212 @@
 import { Chat, ChatMessage, ChatMessageMetadata } from '../types';
 import { sessionService } from './session';
+import { companyService } from './companyService';
+import { parseApiError } from '../utils/formatters';
+import {
+  findCachedChatByThread,
+  getCachedChatsForBusiness,
+  getCachedChatsForClient,
+  touchCachedChatMessage,
+  upsertCachedChat,
+} from '../utils/chatCache';
+import {
+  ApiChatResponse,
+  dedupeChatsByThread,
+  mapApiChatsForBusiness,
+  mapApiChatsForClient,
+  mergeChatLists,
+} from './chatListMapper';
 
-const CHATS_KEY = 'pagweb_chats_store';
-const MESSAGES_KEY = 'pagweb_chats_messages_store';
+const API_BASE = 'https://lojas.vlks.com.br/api';
 
-// Inicialização de dados simulados padrão caso esteja vazio
-const defaultChats: Chat[] = [
-  {
-    idChat: 1,
-    idEmpresa: 1,
-    nomeEmpresa: 'FitLife Academia',
-    logoEmpresa: null,
-    idCliente: 1,
-    nomeCliente: 'Lucas Silva',
-    fotoCliente: null,
-    ultimaMensagem: 'Seja bem-vindo! Como podemos ajudar?',
-    ultimaMensagemData: new Date(Date.now() - 3600000 * 2).toISOString(),
-    naoLidas: 0,
-  },
-];
+const chatCreateInFlight = new Map<string, Promise<Chat>>();
 
-const defaultMessages: ChatMessage[] = [
-  {
-    idMensagem: 1,
-    idChat: 1,
-    texto: 'Olá, gostaria de tirar uma dúvida sobre as funcionalidades do plano mensal.',
-    tipoRemetente: 'Cliente',
-    idRemetente: 1,
-    dataEnvio: new Date(Date.now() - 3600000 * 2 - 60000).toISOString(),
-    lida: true,
-  },
-  {
-    idMensagem: 2,
-    idChat: 1,
-    texto: 'Seja bem-vindo! Como podemos ajudar?',
-    tipoRemetente: 'Empresa',
-    idRemetente: 1,
-    dataEnvio: new Date(Date.now() - 3600000 * 2).toISOString(),
-    lida: true,
-  },
-];
+const buildThreadKey = (idEmpresa: number, idCliente: number): string =>
+  `${idEmpresa}:${idCliente}`;
 
-const getStoredData = <T>(key: string, fallback: T): T => {
-  const data = localStorage.getItem(key);
-  return data ? JSON.parse(data) : fallback;
+const dispatchChatRefresh = (idChat?: number): void => {
+  window.dispatchEvent(new CustomEvent('pagweb:refresh-chat-counts'));
+  window.dispatchEvent(
+    new CustomEvent('pagweb:new-chat-message', { detail: { idChat } }),
+  );
 };
 
-const setStoredData = <T>(key: string, val: T): void => {
-  localStorage.setItem(key, JSON.stringify(val));
+const getAuthHeaders = (token: string, withJson = false): HeadersInit => {
+  const headers: Record<string, string> = {
+    accept: '*/*',
+    Authorization: `Bearer ${token}`,
+  };
+  if (withJson) {
+    headers['Content-Type'] = 'application/json';
+  }
+  return headers;
 };
+
+const getUserIdFromToken = (token: string): number => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      window
+        .atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const payload = JSON.parse(jsonPayload) as Record<string, unknown>;
+
+    const nameId =
+      payload.nameid ??
+      payload.sub ??
+      payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ??
+      payload.id ??
+      payload.idUser;
+
+    return nameId ? Number(nameId) : 0;
+  } catch (e) {
+    console.error('[chatService] Erro ao decodificar token JWT:', e);
+    return 0;
+  }
+};
+
+interface ApiMessageResponse {
+  id: number;
+  idMensagem: number;
+  conteudo: string;
+  idUsuario: number;
+  nomeUsuario: string;
+  tipo: number | string; // UserTipo (0/Admin ou 1/Cliente) ou string
+  dataEnvio: string;
+  lida: boolean;
+  arquivos?: { urlArquivo: string }[];
+  plano?: {
+    idPlano: number;
+    nomePlano: string;
+    valorPlano: number;
+  } | null;
+}
 
 export const chatService = {
-  initialize() {
-    if (!localStorage.getItem(CHATS_KEY)) {
-      setStoredData(CHATS_KEY, defaultChats);
-    }
-    if (!localStorage.getItem(MESSAGES_KEY)) {
-      setStoredData(MESSAGES_KEY, defaultMessages);
-    }
+  async getUnreadTotal(): Promise<number> {
+    const chats = await this.listChats();
+    return chats.reduce((sum, chat) => sum + Number(chat.naoLidas ?? 0), 0);
   },
 
   async listChats(): Promise<Chat[]> {
-    this.initialize();
-    const chats = getStoredData<Chat[]>(CHATS_KEY, []);
-    const { user } = sessionService.getSession();
-    if (!user) return [];
+    const { token, user } = sessionService.getSession();
+    if (!token || !user) return [];
 
     const activeView = localStorage.getItem('pagweb_active_view') || 'client';
+    const currentUserId = getUserIdFromToken(token) || user.idUser || 0;
+
+    let idEmpresaBusiness = 0;
+    let nomeEmpresaBusiness = user.nome || 'Empresa';
     if (activeView === 'business') {
-      return chats.filter((c) => c.idEmpresa === user.idUser);
+      try {
+        const company = await companyService.getMyCompany();
+        idEmpresaBusiness = company.idEmpresa;
+        nomeEmpresaBusiness = company.nome;
+      } catch (err) {
+        console.error('[chatService] Empresa do estabelecimento:', err);
+      }
     }
-    return chats.filter((c) => c.idCliente === user.idUser);
+
+    const cachedFallback =
+      activeView === 'business'
+        ? getCachedChatsForBusiness(idEmpresaBusiness)
+        : getCachedChatsForClient(currentUserId);
+
+    const response = await fetch(`${API_BASE}/Chats`, {
+      method: 'GET',
+      headers: getAuthHeaders(token),
+    });
+
+    if (!response.ok) {
+      console.warn(
+        `[chatService] GET /Chats falhou (${response.status}). Usando cache local.`,
+      );
+      return dedupeChatsByThread(cachedFallback);
+    }
+
+    const text = await response.text();
+    const emptyApiMessage =
+      !text ||
+      text.includes('Não há chats') ||
+      text.includes('Você não tem nenhum chat');
+
+    if (emptyApiMessage) {
+      return dedupeChatsByThread(cachedFallback);
+    }
+
+    let data: ApiChatResponse[];
+    try {
+      data = JSON.parse(text) as ApiChatResponse[];
+    } catch {
+      return dedupeChatsByThread(cachedFallback);
+    }
+
+    if (!Array.isArray(data)) {
+      return dedupeChatsByThread(cachedFallback);
+    }
+
+    const mapped =
+      activeView === 'business'
+        ? mapApiChatsForBusiness(data, idEmpresaBusiness, nomeEmpresaBusiness)
+        : mapApiChatsForClient(data, currentUserId, user.nome || 'Cliente');
+
+    const merged = mergeChatLists(mapped, cachedFallback);
+    merged.forEach((chat) => upsertCachedChat(chat));
+    return merged;
   },
 
   async getChatMessages(idChat: number): Promise<ChatMessage[]> {
-    this.initialize();
-    const messages = getStoredData<ChatMessage[]>(MESSAGES_KEY, []);
-    return messages.filter((m) => m.idChat === idChat);
+    const { token } = sessionService.getSession();
+    if (!token) return [];
+
+    const response = await fetch(`${API_BASE}/Chats/${idChat}/Mensagens`, {
+      method: 'GET',
+      headers: getAuthHeaders(token),
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const text = await response.text();
+    if (!text || text.includes('Não há mensagens')) {
+      return [];
+    }
+
+    let data: ApiMessageResponse[];
+    try {
+      data = JSON.parse(text) as ApiMessageResponse[];
+    } catch {
+      return [];
+    }
+
+    if (!Array.isArray(data)) return [];
+
+    return data.map((m) => {
+      let tipoRemetente: 'Cliente' | 'Empresa' = 'Cliente';
+      if (m.tipo === 0 || m.tipo === 'Admin' || m.tipo === 'Empresa') {
+        tipoRemetente = 'Empresa';
+      }
+
+      return {
+        idMensagem: Number(m.idMensagem ?? m.id),
+        idChat: idChat,
+        texto: String(m.conteudo || ''),
+        tipoRemetente,
+        idRemetente: Number(m.idUsuario),
+        dataEnvio: m.dataEnvio || new Date().toISOString(),
+        lida: Boolean(m.lida),
+        metadata: m.plano ? {
+          idPlano: Number(m.plano.idPlano),
+          nomePlano: String(m.plano.nomePlano || ''),
+          valorMensalidade: Number(m.plano.valorPlano ?? 0),
+        } : undefined,
+      };
+    });
   },
 
   async sendMessage(
@@ -84,48 +214,48 @@ export const chatService = {
     text: string,
     metadata?: ChatMessageMetadata
   ): Promise<ChatMessage> {
-    this.initialize();
-    const { user } = sessionService.getSession();
-    if (!user) throw new Error('Usuário não autenticado');
+    const { token, user } = sessionService.getSession();
+    if (!token || !user) throw new Error('Usuário não autenticado');
 
-    const activeView = localStorage.getItem('pagweb_active_view') || 'client';
-    const isEmpresa = activeView === 'business';
+    const formData = new FormData();
+    formData.append('texto', text);
+    if (metadata?.idPlano) {
+      formData.append('idPlano', String(metadata.idPlano));
+    }
 
-    const newMessage: ChatMessage = {
-      idMensagem: Date.now(),
-      idChat,
-      texto: text,
-      tipoRemetente: isEmpresa ? 'Empresa' : 'Cliente',
-      idRemetente: user.idUser ?? 1,
-      dataEnvio: new Date().toISOString(),
-      lida: false,
-      metadata,
+    const response = await fetch(`${API_BASE}/Chats/${idChat}/Mensagens`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await parseApiError(response);
+      throw new Error(errorText || 'Falha ao enviar mensagem');
+    }
+
+    touchCachedChatMessage(idChat, text);
+    dispatchChatRefresh(idChat);
+
+    const m = (await response.json()) as ApiMessageResponse;
+
+    let tipoRemetente: 'Cliente' | 'Empresa' = 'Cliente';
+    if (m.tipo === 0 || m.tipo === 'Admin' || m.tipo === 'Empresa') {
+      tipoRemetente = 'Empresa';
+    }
+
+    const currentUserId = getUserIdFromToken(token);
+
+    return {
+      idMensagem: Number(m.idMensagem ?? m.id ?? Date.now()),
+      idChat: idChat,
+      texto: String(m.conteudo || text),
+      tipoRemetente,
+      idRemetente: Number(m.idUsuario ?? currentUserId ?? user.idUser),
+      dataEnvio: m.dataEnvio || new Date().toISOString(),
+      lida: Boolean(m.lida),
+      metadata: metadata,
     };
-
-    const messages = getStoredData<ChatMessage[]>(MESSAGES_KEY, []);
-    messages.push(newMessage);
-    setStoredData(MESSAGES_KEY, messages);
-
-    const chats = getStoredData<Chat[]>(CHATS_KEY, []);
-    const chatIndex = chats.findIndex((c) => c.idChat === idChat);
-    if (chatIndex !== -1) {
-      chats[chatIndex].ultimaMensagem = text;
-      chats[chatIndex].ultimaMensagemData = newMessage.dataEnvio;
-      if (isEmpresa) {
-        // Incrementa não lidas se o destinatário for o cliente e ele não estiver no chat
-        chats[chatIndex].naoLidas += 1;
-      }
-      setStoredData(CHATS_KEY, chats);
-    }
-
-    // Simulação de resposta do Bot após 2 segundos se enviado pelo Cliente
-    if (!isEmpresa) {
-      setTimeout(() => {
-        this.simulateBotResponse(idChat, text, metadata);
-      }, 2000);
-    }
-
-    return newMessage;
   },
 
   async createOrGetChat(
@@ -134,80 +264,95 @@ export const chatService = {
     idClienteOpt?: number,
     nomeClienteOpt?: string
   ): Promise<Chat> {
-    this.initialize();
-    const chats = getStoredData<Chat[]>(CHATS_KEY, []);
-    const { user } = sessionService.getSession();
-    if (!user) throw new Error('Usuário não autenticado');
+    const { token, user } = sessionService.getSession();
+    if (!token || !user) throw new Error('Usuário não autenticado');
 
-    const idCliente = idClienteOpt ?? user.idUser ?? 1;
-    const nomeCliente = nomeClienteOpt ?? (idClienteOpt ? 'Cliente' : (user.nome || 'Cliente'));
-    let chat = chats.find((c) => c.idEmpresa === idEmpresa && c.idCliente === idCliente);
+    const currentUserId = getUserIdFromToken(token);
+    const idCliente = idClienteOpt || currentUserId || user.idUser || 0;
 
-    if (!chat) {
-      chat = {
-        idChat: Date.now(),
+    if (idEmpresa <= 0 || idCliente <= 0) {
+      throw new Error(`Dados incorretos para criar chat: idEmpresa=${idEmpresa}, idCliente=${idCliente}.`);
+    }
+
+    const threadKey = buildThreadKey(idEmpresa, idCliente);
+    const inFlight = chatCreateInFlight.get(threadKey);
+    if (inFlight) return inFlight;
+
+    const task = (async (): Promise<Chat> => {
+      const cached = findCachedChatByThread(idEmpresa, idCliente);
+      if (cached) {
+        const resolved = { ...cached, nomeEmpresa };
+        upsertCachedChat(resolved);
+        return resolved;
+      }
+
+      const existingChats = await this.listChats();
+      const found = existingChats.find(
+        (c) => c.idEmpresa === idEmpresa && c.idCliente === idCliente,
+      );
+
+      if (found) {
+        upsertCachedChat(found);
+        return found;
+      }
+
+      const formData = new FormData();
+      formData.append('idEmpresa', String(idEmpresa));
+      formData.append('idUsuario', String(idCliente));
+
+      const response = await fetch(`${API_BASE}/Chats`, {
+        method: 'POST',
+        headers: getAuthHeaders(token),
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await parseApiError(response);
+        throw new Error(errorText || 'Falha ao criar chat');
+      }
+
+      interface ApiChatCreateResponse {
+        id: number;
+        idChat?: number;
+        dataInicio?: string;
+      }
+
+      const createdChat = (await response.json()) as ApiChatCreateResponse;
+
+      const chat: Chat = {
+        idChat: Number(createdChat.id ?? createdChat.idChat ?? Date.now()),
         idEmpresa,
         nomeEmpresa,
         logoEmpresa: null,
         idCliente,
-        nomeCliente,
+        nomeCliente: nomeClienteOpt ?? user.nome ?? 'Cliente',
         fotoCliente: null,
         ultimaMensagem: 'Chat iniciado.',
-        ultimaMensagemData: new Date().toISOString(),
+        ultimaMensagemData: createdChat.dataInicio || new Date().toISOString(),
         naoLidas: 0,
       };
-      chats.push(chat);
-      setStoredData(CHATS_KEY, chats);
-    }
 
-    return chat;
+      upsertCachedChat(chat);
+      dispatchChatRefresh(chat.idChat);
+      return chat;
+    })();
+
+    chatCreateInFlight.set(threadKey, task);
+    try {
+      return await task;
+    } finally {
+      chatCreateInFlight.delete(threadKey);
+    }
   },
 
   async markChatAsRead(idChat: number): Promise<void> {
-    this.initialize();
-    const chats = getStoredData<Chat[]>(CHATS_KEY, []);
-    const idx = chats.findIndex((c) => c.idChat === idChat);
-    if (idx !== -1) {
-      chats[idx].naoLidas = 0;
-      setStoredData(CHATS_KEY, chats);
-    }
-  },
+    const { token } = sessionService.getSession();
+    if (!token) return;
 
-  simulateBotResponse(idChat: number, text: string, metadata?: ChatMessageMetadata) {
-    const chats = getStoredData<Chat[]>(CHATS_KEY, []);
-    const chat = chats.find((c) => c.idChat === idChat);
-    if (!chat) return;
-
-    let responseText = 'Olá! Recebemos sua mensagem e entraremos em contato em breve.';
-    if (metadata?.nomePlano) {
-      responseText = `Olá! Recebemos sua intenção de assinar o plano "${metadata.nomePlano}" no valor de R$ ${metadata.valorMensalidade?.toFixed(2).replace('.', ',')}. Um de nossos atendentes irá analisar sua solicitação para liberar o contrato de assinatura!`;
-    } else if (text.toLowerCase().includes('olá') || text.toLowerCase().includes('ola')) {
-      responseText = `Olá! Bem-vindo ao canal de atendimento da ${chat.nomeEmpresa}. Como posso ajudar você hoje?`;
-    }
-
-    const botMessage: ChatMessage = {
-      idMensagem: Date.now() + 1,
-      idChat,
-      texto: responseText,
-      tipoRemetente: 'Empresa',
-      idRemetente: chat.idEmpresa,
-      dataEnvio: new Date().toISOString(),
-      lida: false,
-    };
-
-    const messages = getStoredData<ChatMessage[]>(MESSAGES_KEY, []);
-    messages.push(botMessage);
-    setStoredData(MESSAGES_KEY, messages);
-
-    const chatIdx = chats.findIndex((c) => c.idChat === idChat);
-    if (chatIdx !== -1) {
-      chats[chatIdx].ultimaMensagem = responseText;
-      chats[chatIdx].ultimaMensagemData = botMessage.dataEnvio;
-      chats[chatIdx].naoLidas += 1;
-      setStoredData(CHATS_KEY, chats);
-    }
-
-    // Dispara evento customizado para notificar a UI de novas mensagens
-    window.dispatchEvent(new CustomEvent('pagweb:new-chat-message', { detail: { idChat } }));
+    await fetch(`${API_BASE}/Chats/${idChat}/Ler`, {
+      method: 'POST',
+      headers: getAuthHeaders(token),
+    });
+    dispatchChatRefresh(idChat);
   },
 };

@@ -2,106 +2,84 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { chatService } from '../../services/chatService';
-import { Chat as ChatType, ChatMessage } from '../../types';
+import { companyService } from '../../services/companyService';
+import { useChatInbox } from '../../hooks/useChatInbox';
+import { useToast } from '../../context/ToastContext';
 import { Send, ArrowLeft, User, MessageSquare, Tag } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { sessionService } from '../../services/session';
 
 export const Chat: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [chats, setChats] = useState<ChatType[]>([]);
-  const [selectedChat, setSelectedChat] = useState<ChatType | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const { addToast } = useToast();
+  const {
+    chats,
+    selectedChat,
+    setSelectedChat,
+    messages,
+    loading,
+    fetchChats,
+    selectChat,
+    sendText,
+  } = useChatInbox();
   const [newMessageText, setNewMessageText] = useState('');
-  const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const fetchChats = async () => {
-    try {
-      const list = await chatService.listChats();
-      setChats(list);
-    } catch (e) {
-      console.error('[PagWeb] Erro ao carregar chats do estabelecimento:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMessages = async (idChat: number) => {
-    try {
-      const list = await chatService.getChatMessages(idChat);
-      setMessages(list);
-      await chatService.markChatAsRead(idChat);
-      setChats((prev) =>
-        prev.map((c) => (c.idChat === idChat ? { ...c, naoLidas: 0 } : c))
-      );
-    } catch (e) {
-      console.error('[PagWeb] Erro ao carregar mensagens:', e);
-    }
-  };
+  const urlOpenGuardRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const clientId = searchParams.get('clientId');
+    const clientName = searchParams.get('clientName');
+    if (!clientId || !clientName) {
+      urlOpenGuardRef.current = null;
+      return;
+    }
+
+    if (urlOpenGuardRef.current === clientId) return;
+    urlOpenGuardRef.current = clientId;
+
     const handleUrlParams = async () => {
-      await fetchChats();
-      const clientId = searchParams.get('clientId');
-      const clientName = searchParams.get('clientName');
-
-      if (clientId && clientName) {
+      try {
         const idCliente = parseInt(clientId, 10);
-        const { user } = sessionService.getSession();
-        const idEmpresa = user?.idUser ?? 1;
-        const nomeEmpresa = user?.nome ?? 'Empresa';
-
-        const chat = await chatService.createOrGetChat(idEmpresa, nomeEmpresa, idCliente, clientName);
-        setSelectedChat(chat);
-        await loadMessages(chat.idChat);
+        const company = await companyService.getMyCompany();
+        const chat = await chatService.createOrGetChat(
+          company.idEmpresa,
+          company.nome,
+          idCliente,
+          clientName,
+        );
+        await fetchChats();
+        await selectChat(chat);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Não foi possível abrir o chat.';
+        console.error('[PagWeb] Erro ao iniciar chat com cliente:', err);
+        addToast('error', 'Chat', message);
+        urlOpenGuardRef.current = null;
+      } finally {
         setSearchParams({});
       }
     };
-    void handleUrlParams();
-  }, []);
 
-  // Escuta novas mensagens (como atualizações simuladas ou enviadas pelo bot)
-  useEffect(() => {
-    const handleNewMessage = (e: Event) => {
-      const eventChatId = (e as CustomEvent).detail?.idChat;
-      void fetchChats();
-      if (selectedChat && selectedChat.idChat === eventChatId) {
-        void loadMessages(selectedChat.idChat);
-      }
-    };
-    window.addEventListener('pagweb:new-chat-message', handleNewMessage);
-    return () => window.removeEventListener('pagweb:new-chat-message', handleNewMessage);
-  }, [selectedChat]);
+    void handleUrlParams();
+  }, [searchParams, fetchChats, selectChat, addToast, setSearchParams]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSelectChat = async (chat: ChatType) => {
-    setSelectedChat(chat);
-    await loadMessages(chat.idChat);
-  };
-
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedChat || !newMessageText.trim()) return;
-
-    try {
-      const text = newMessageText;
-      setNewMessageText('');
-      await chatService.sendMessage(selectedChat.idChat, text);
-      await loadMessages(selectedChat.idChat);
-      await fetchChats();
-    } catch (e) {
-      console.error('[PagWeb] Erro ao enviar mensagem:', e);
+    const text = newMessageText;
+    setNewMessageText('');
+    const ok = await sendText(text);
+    if (!ok) {
+      addToast('error', 'Chat', 'Não foi possível enviar a mensagem.');
+      setNewMessageText(text);
     }
   };
 
   return (
     <BusinessLayout>
       <div className="flex h-[calc(100vh-10rem)] md:h-[calc(100vh-12rem)] bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
-        {/* Lista de Conversas com Clientes */}
         <div
           className={`${
             selectedChat ? 'hidden md:flex' : 'flex'
@@ -122,7 +100,8 @@ export const Chat: React.FC = () => {
               chats.map((c) => (
                 <button
                   key={c.idChat}
-                  onClick={() => void handleSelectChat(c)}
+                  type="button"
+                  onClick={() => void selectChat(c)}
                   className={`w-full text-left p-4 hover:bg-gray-100 flex gap-3 transition-colors ${
                     selectedChat?.idChat === c.idChat ? 'bg-indigo-50/50' : ''
                   }`}
@@ -143,8 +122,8 @@ export const Chat: React.FC = () => {
                     <p className="text-xs text-gray-500 truncate mt-1">{c.ultimaMensagem}</p>
                   </div>
                   {c.naoLidas > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] font-bold h-5 w-5 rounded-full flex items-center justify-center shrink-0">
-                      {c.naoLidas}
+                    <span className="bg-red-500 text-white text-[10px] font-bold h-5 min-w-5 px-1 rounded-full flex items-center justify-center shrink-0">
+                      {c.naoLidas > 9 ? '9+' : c.naoLidas}
                     </span>
                   )}
                 </button>
@@ -153,7 +132,6 @@ export const Chat: React.FC = () => {
           </div>
         </div>
 
-        {/* Janela de Conversa com Cliente Ativo */}
         <div
           className={`${
             selectedChat ? 'flex' : 'hidden md:flex'
@@ -161,9 +139,9 @@ export const Chat: React.FC = () => {
         >
           {selectedChat ? (
             <>
-              {/* Header do Chat */}
               <div className="p-4 border-b border-gray-200 flex items-center gap-3 bg-white">
                 <button
+                  type="button"
                   onClick={() => setSelectedChat(null)}
                   className="md:hidden p-1 hover:bg-gray-100 rounded-full"
                 >
@@ -178,7 +156,6 @@ export const Chat: React.FC = () => {
                 </div>
               </div>
 
-              {/* Histórico de Mensagens */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50">
                 {messages.map((m) => {
                   const isMe = m.tipoRemetente === 'Empresa';
@@ -217,7 +194,6 @@ export const Chat: React.FC = () => {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input de Mensagem */}
               <form onSubmit={handleSend} className="p-4 border-t border-gray-200 bg-white flex gap-2">
                 <input
                   type="text"

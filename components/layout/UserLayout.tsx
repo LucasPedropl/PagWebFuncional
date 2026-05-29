@@ -26,6 +26,7 @@ import { userService } from '../../services/userService';
 import { companyService } from '../../services/companyService';
 import { AppNotification } from '../../types';
 import { getImageUrl } from '../../utils/api';
+import { useUnreadChatCount } from '../../hooks/useUnreadChatCount';
 
 interface UserLayoutProps {
   children: React.ReactNode;
@@ -82,6 +83,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   const [pendingConnectionsCount, setPendingConnectionsCount] = useState(0);
   const [pendingSubscriptionsCount, setPendingSubscriptionsCount] = useState(0);
   const [pendingInvoicesCount, setPendingInvoicesCount] = useState(0);
+  const unreadChatCount = useUnreadChatCount(sessionReady);
 
   useEffect(() => {
     localStorage.setItem('pagweb_sidebar_collapsed', JSON.stringify(isCollapsed));
@@ -300,7 +302,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: Store, label: 'Estabelecimentos', path: '/empresas', badge: pendingConnectionsCount }, 
     { icon: CreditCard, label: 'Assinaturas', path: '/assinaturas', badge: pendingSubscriptionsCount },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos', badge: pendingInvoicesCount }, 
-    { icon: MessageSquare, label: 'Chat', path: '/chat' },
+    { icon: MessageSquare, label: 'Chat', path: '/chat', badge: unreadChatCount },
     { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
     { icon: CreditCard, label: 'Cartões', path: '/metodos-pagamento' },
   ];
@@ -312,7 +314,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: Store, label: 'Estabelec.', path: '/empresas', badge: pendingConnectionsCount },
     { icon: CreditCard, label: 'Assin.', path: '/assinaturas', badge: pendingSubscriptionsCount },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos', badge: pendingInvoicesCount },
-    { icon: MessageSquare, label: 'Chat', path: '/chat' },
+    { icon: MessageSquare, label: 'Chat', path: '/chat', badge: unreadChatCount },
     { icon: MenuIcon, label: 'Menu', path: '/menu' },
   ];
 

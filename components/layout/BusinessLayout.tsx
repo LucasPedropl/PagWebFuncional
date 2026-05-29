@@ -28,6 +28,7 @@ import { userService } from '../../services/userService';
 import { companyService } from '../../services/companyService';
 import { AppNotification } from '../../types';
 import { getImageUrl } from '../../utils/api';
+import { useUnreadChatCount } from '../../hooks/useUnreadChatCount';
 
 interface BusinessLayoutProps {
   children: React.ReactNode;
@@ -64,6 +65,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
   };
 
   const [showSwitcherDropdown, setShowSwitcherDropdown] = useState(false);
+  const unreadChatCount = useUnreadChatCount(true);
   const { user } = sessionService.getSession();
   const isEmpresa = user?.tipo === 'Empresa';
   const activeView = localStorage.getItem('pagweb_active_view') || 'business';
@@ -234,7 +236,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: Layers, label: 'Planos', path: '/business/planos' },
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Gestão de Cobranças', path: '/business/pagamentos' },
-    { icon: MessageSquare, label: 'Chat com Clientes', path: '/business/chat' },
+    { icon: MessageSquare, label: 'Chat com Clientes', path: '/business/chat', badge: unreadChatCount },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
     { icon: MessageCircle, label: 'WhatsApp', path: '/business/whatsapp' },
   ];
@@ -244,7 +246,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: LayoutGrid, label: 'Início', path: '/business/dashboard' },
     { icon: Users, label: 'Clientes', path: '/business/clientes' },
     { icon: CreditCard, label: 'Assin.', path: '/business/assinaturas' },
-    { icon: MessageSquare, label: 'Chat', path: '/business/chat' },
+    { icon: MessageSquare, label: 'Chat', path: '/business/chat', badge: unreadChatCount },
     { icon: MenuIcon, label: 'Menu', path: '/business/menu' },
   ];
 
@@ -390,17 +392,31 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
                       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                   } ${isCollapsed ? 'justify-center px-0' : 'px-4'}`}
                 >
-                  <item.icon 
-                    size={20}
-                    className={`min-w-[20px] transition-all duration-200 ${
-                      isCollapsed ? '' : 'mr-3'
-                    } ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'}`} 
-                  />
-                  
-                  <span className={`font-normal text-base whitespace-nowrap transition-all duration-300 ${
-                    isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100 block'
-                  }`}>
+                  <div className="relative flex items-center justify-center">
+                    <item.icon
+                      size={20}
+                      className={`min-w-[20px] transition-all duration-200 ${
+                        isCollapsed ? '' : 'mr-3'
+                      } ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-700'}`}
+                    />
+                    {item.badge != null && item.badge > 0 && isCollapsed && (
+                      <span className="absolute -top-1 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-[9px] font-bold text-white ring-1 ring-white">
+                        {item.badge > 9 ? '9+' : item.badge}
+                      </span>
+                    )}
+                  </div>
+
+                  <span
+                    className={`font-normal text-base whitespace-nowrap transition-all duration-300 flex-1 flex items-center justify-between ${
+                      isCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100 flex'
+                    }`}
+                  >
                     {item.label}
+                    {item.badge != null && item.badge > 0 && !isCollapsed && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full ml-2">
+                        {item.badge > 9 ? '9+' : item.badge}
+                      </span>
+                    )}
                   </span>
                 </Link>
 
@@ -576,14 +592,21 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
             {mobileMenuItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
-                    <Link 
-                        key={item.path} 
+                    <Link
+                        key={item.path}
                         to={item.path}
-                        className={`flex flex-col items-center justify-center w-full py-1 gap-1 ${
+                        className={`flex flex-col items-center justify-center w-full py-1 gap-1 relative ${
                             isActive ? 'text-slate-900 font-medium' : 'text-gray-400'
                         }`}
                     >
-                        <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                        <div className="relative">
+                            <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+                            {item.badge != null && item.badge > 0 && (
+                                <span className="absolute -top-1 -right-2 flex items-center justify-center min-w-[14px] h-[14px] rounded-full bg-red-500 text-white text-[8px] font-bold px-1 ring-2 ring-white">
+                                    {item.badge > 9 ? '9+' : item.badge}
+                                </span>
+                            )}
+                        </div>
                         <span className="text-[10px]">{item.label}</span>
                     </Link>
                 )
