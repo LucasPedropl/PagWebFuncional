@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -9,6 +10,7 @@ import {
   Zap,
   Loader2,
   AlertCircle,
+  MessageSquare,
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { SearchSelect } from '../../components/ui/SearchSelect';
@@ -28,6 +30,7 @@ import {
 } from '../../types';
 
 export const Explorar: React.FC = () => {
+  const navigate = useNavigate();
   const { addToast } = useToast();
   const { companies, isLoading, error, refresh } = usePublicCompanies();
   const [mySubscriptions, setMySubscriptions] = useState<ClientSubscription[]>([]);
@@ -239,6 +242,16 @@ export const Explorar: React.FC = () => {
     }
   };
 
+  const handleContactPlan = (planCard: ExplorePlanCard) => {
+    navigate(
+      `/chat?companyId=${planCard.idEmpresa}&companyName=${encodeURIComponent(
+        planCard.establishmentName
+      )}&planId=${planCard.idPlano}&planName=${encodeURIComponent(
+        planCard.name
+      )}&price=${planCard.price}`
+    );
+  };
+
   const isPageLoading = isLoading || (activeTab === 'planos' && isLoadingPlans);
 
   return (
@@ -345,6 +358,7 @@ export const Explorar: React.FC = () => {
               isSubscribing={subscribingPlanId === plan.idPlano || subscribe.isConnecting}
               isSubscribed={isPlanSubscribed(plan.idPlano)}
               onSubscribe={() => void handleSubscribePlan(plan)}
+              onContact={() => handleContactPlan(plan)}
               onViewEstablishment={() => {
                 const est = establishments.find((e) => e.idEmpresa === plan.idEmpresa);
                 if (est) void openEstablishment(est);
@@ -362,18 +376,31 @@ export const Explorar: React.FC = () => {
       >
         {selectedEstablishment && (
           <div className="space-y-6">
-            <div className="flex gap-4">
-              <CompanyBrandAvatar
-                name={selectedEstablishment.name}
-                logoUrl={selectedEstablishment.logoUrl}
-                seed={selectedEstablishment.idEmpresa}
-                className="w-20 h-20 rounded-xl shrink-0"
-                textClassName="text-xl font-bold"
-              />
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">{selectedEstablishment.name}</h2>
-                <p className="text-gray-600 text-sm mt-1">{selectedEstablishment.description}</p>
+            <div className="flex justify-between items-start">
+              <div className="flex gap-4">
+                <CompanyBrandAvatar
+                  name={selectedEstablishment.name}
+                  logoUrl={selectedEstablishment.logoUrl}
+                  seed={selectedEstablishment.idEmpresa}
+                  className="w-20 h-20 rounded-xl shrink-0"
+                  textClassName="text-xl font-bold"
+                />
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">{selectedEstablishment.name}</h2>
+                  <p className="text-gray-600 text-sm mt-1">{selectedEstablishment.description}</p>
+                </div>
               </div>
+              <Button
+                variant="outline"
+                className="bg-white border-indigo-200 text-indigo-600 hover:bg-indigo-50 flex items-center gap-2 text-xs py-1.5 shrink-0"
+                onClick={() => {
+                  setSelectedEstablishment(null);
+                  navigate(`/chat?companyId=${selectedEstablishment.idEmpresa}&companyName=${encodeURIComponent(selectedEstablishment.name)}`);
+                }}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                Conversar
+              </Button>
             </div>
             {isLoadingEstablishmentPlans ? (
               <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto" />
@@ -399,6 +426,7 @@ export const Explorar: React.FC = () => {
                       isSubscribing={subscribingPlanId === plan.idPlano}
                       isSubscribed={isPlanSubscribed(plan.idPlano)}
                       onSubscribe={() => void handleSubscribePlan(card)}
+                      onContact={() => handleContactPlan(card)}
                     />
                   );
                 })}

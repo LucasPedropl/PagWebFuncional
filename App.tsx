@@ -25,6 +25,8 @@ import { MenuMobile } from './app/(business)/MenuMobile';
 import { Landing } from './app/Landing';
 import { CompanyDetails } from './app/CompanyDetails';
 import { sessionService } from './services/session';
+import { Chat as UserChat } from './app/(user)/Chat';
+import { Chat as BusinessChat } from './app/(business)/Chat';
 
 // --- Guards de Rota (Proteção por Tipo de Usuário) ---
 
@@ -169,6 +171,14 @@ const App: React.FC = () => {
             } 
           />
           <Route 
+            path="/chat" 
+            element={
+              <ClientRoute>
+                <UserChat />
+              </ClientRoute>
+            } 
+          />
+          <Route 
             path="/menu" 
             element={
               <ClientRoute>
@@ -239,6 +249,14 @@ const App: React.FC = () => {
             element={
               <BusinessRoute>
                 <ConectarWhatsapp />
+              </BusinessRoute>
+            } 
+          />
+          <Route 
+            path="/business/chat" 
+            element={
+              <BusinessRoute>
+                <BusinessChat />
               </BusinessRoute>
             } 
           />

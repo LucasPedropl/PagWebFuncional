@@ -290,3 +290,33 @@ export interface NotificationSettings {
   whatsApp: boolean;
   sms: boolean;
 }
+
+export interface ChatMessageMetadata {
+  idPlano?: number;
+  nomePlano?: string;
+  valorMensalidade?: number;
+}
+
+export interface ChatMessage {
+  idMensagem: number;
+  idChat: number;
+  texto: string;
+  tipoRemetente: 'Cliente' | 'Empresa';
+  idRemetente: number;
+  dataEnvio: string; // ISO
+  lida: boolean;
+  metadata?: ChatMessageMetadata;
+}
+
+export interface Chat {
+  idChat: number;
+  idEmpresa: number;
+  nomeEmpresa: string;
+  logoEmpresa: string | null;
+  idCliente: number;
+  nomeCliente: string;
+  fotoCliente: string | null;
+  ultimaMensagem: string;
+  ultimaMensagemData: string; // ISO
+  naoLidas: number;
+}

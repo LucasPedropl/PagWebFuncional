@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle, UserPlus, ChevronsUpDown, Check, Send, Mail, Repeat, FileText, Download } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle, UserPlus, ChevronsUpDown, Check, Send, Mail, Repeat, FileText, Download, MessageSquare } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { PlanResponse, SubscriptionResponse, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -14,6 +15,7 @@ import { TIPO_CONTRATO, TIPO_DESCONTO, getContractUrl } from '../../utils/api';
 import { normalizePaymentDay } from '../../utils/formatters';
 
 export const Assinaturas: React.FC = () => {
+  const navigate = useNavigate();
   const { addToast } = useToast();
   
   // Modals
@@ -332,6 +334,15 @@ export const Assinaturas: React.FC = () => {
     } finally {
         setIsSaving(false);
     }
+  };
+
+  const handleOpenChat = (sub: SubscriptionResponse) => {
+    const clientId = sub.idUser || sub.user?.idUser;
+    if (!clientId) {
+      addToast('error', 'Erro', 'Não foi possível encontrar o identificador do cliente para abrir o chat.');
+      return;
+    }
+    navigate(`/business/chat?clientId=${clientId}&clientName=${encodeURIComponent(sub.nomeCliente)}`);
   };
 
   const openDeleteModal = (id: number) => {
@@ -656,6 +667,13 @@ export const Assinaturas: React.FC = () => {
                                         <Download className="w-4 h-4" />
                                     </button>
                                 )}
+                                <button 
+                                    onClick={() => handleOpenChat(sub)}
+                                    className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                                    title="Conversar no Chat"
+                                >
+                                    <MessageSquare className="w-4 h-4" />
+                                </button>
                                 <button 
                                     onClick={() => openStatusModal(sub)}
                                     className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"

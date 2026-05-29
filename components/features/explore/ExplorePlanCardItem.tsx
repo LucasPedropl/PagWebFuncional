@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, MessageSquare } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { CompanyBrandAvatar } from '../../ui/CompanyBrandAvatar';
 import { ExplorePlanCard } from '../../../types';
@@ -10,6 +10,7 @@ interface ExplorePlanCardItemProps {
   onSubscribe: () => void;
   onViewEstablishment?: () => void;
   isSubscribed?: boolean;
+  onContact?: () => void;
 }
 
 export const ExplorePlanCardItem: React.FC<ExplorePlanCardItemProps> = ({
@@ -18,6 +19,7 @@ export const ExplorePlanCardItem: React.FC<ExplorePlanCardItemProps> = ({
   onSubscribe,
   onViewEstablishment,
   isSubscribed = false,
+  onContact,
 }) => (
   <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-blue-300 flex flex-col h-full">
     <div className="flex items-center gap-3 mb-4 border-b border-gray-100 pb-4">
@@ -64,13 +66,42 @@ export const ExplorePlanCardItem: React.FC<ExplorePlanCardItemProps> = ({
       <span className="text-sm text-gray-500">/mês</span>
     </div>
 
-    <Button
-      className="w-full bg-slate-900 hover:bg-slate-800 text-white"
-      isLoading={isSubscribing}
-      disabled={isSubscribed}
-      onClick={onSubscribe}
-    >
-      {isSubscribed ? 'Plano já assinado' : 'Assinar agora'}
-    </Button>
+    <div className="flex gap-2 w-full mt-auto">
+      <div className="flex-1">
+        {isSubscribed ? (
+          <Button
+            className="w-full bg-slate-900 text-white"
+            disabled
+          >
+            Plano já assinado
+          </Button>
+        ) : plan.plan?.assinarPorCliente === false ? (
+          <Button
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
+            onClick={onContact}
+          >
+            Entrar em contato
+          </Button>
+        ) : (
+          <Button
+            className="w-full bg-slate-900 hover:bg-slate-800 text-white"
+            isLoading={isSubscribing}
+            onClick={onSubscribe}
+          >
+            Assinar agora
+          </Button>
+        )}
+      </div>
+      {onContact && (
+        <Button
+          variant="outline"
+          className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0 p-2.5"
+          title="Tirar dúvidas no chat"
+          onClick={onContact}
+        >
+          <MessageSquare className="w-4 h-4" />
+        </Button>
+      )}
+    </div>
   </div>
 );

@@ -20,7 +20,8 @@ import {
   ChevronsUpDown,
   Store,
   UserCircle,
-  Check
+  Check,
+  MessageSquare
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
@@ -233,6 +234,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: Layers, label: 'Planos', path: '/business/planos' },
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Gestão de Cobranças', path: '/business/pagamentos' },
+    { icon: MessageSquare, label: 'Chat com Clientes', path: '/business/chat' },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
     { icon: MessageCircle, label: 'WhatsApp', path: '/business/whatsapp' },
   ];
@@ -242,7 +244,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: LayoutGrid, label: 'Início', path: '/business/dashboard' },
     { icon: Users, label: 'Clientes', path: '/business/clientes' },
     { icon: CreditCard, label: 'Assin.', path: '/business/assinaturas' },
-    { icon: DollarSign, label: 'Cobr.', path: '/business/pagamentos' },
+    { icon: MessageSquare, label: 'Chat', path: '/business/chat' },
     { icon: MenuIcon, label: 'Menu', path: '/business/menu' },
   ];
 

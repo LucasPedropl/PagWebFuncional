@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   Compass,
   BarChart3,
-  ChevronsUpDown
+  ChevronsUpDown,
+  MessageSquare
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
@@ -299,6 +300,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: Store, label: 'Estabelecimentos', path: '/empresas', badge: pendingConnectionsCount }, 
     { icon: CreditCard, label: 'Assinaturas', path: '/assinaturas', badge: pendingSubscriptionsCount },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos', badge: pendingInvoicesCount }, 
+    { icon: MessageSquare, label: 'Chat', path: '/chat' },
     { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
     { icon: CreditCard, label: 'Cartões', path: '/metodos-pagamento' },
   ];
@@ -310,7 +312,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: Store, label: 'Estabelec.', path: '/empresas', badge: pendingConnectionsCount },
     { icon: CreditCard, label: 'Assin.', path: '/assinaturas', badge: pendingSubscriptionsCount },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos', badge: pendingInvoicesCount },
-    { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
+    { icon: MessageSquare, label: 'Chat', path: '/chat' },
     { icon: MenuIcon, label: 'Menu', path: '/menu' },
   ];
 

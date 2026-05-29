@@ -1,9 +1,10 @@
 
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { Store, Mail, FileText, Loader2, LogOut, AlertTriangle, Calendar, CreditCard, Filter, Search, Download, Repeat, PenLine, Camera, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Store, Mail, FileText, Loader2, LogOut, AlertTriangle, Calendar, CreditCard, Filter, Search, Download, Repeat, PenLine, Camera, CheckCircle2, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { ClientConnection, ClientSubscription, PlanResponse } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -41,6 +42,7 @@ const hasBlockingSubscription = (
 const allowsClientSelfSubscribe = (plan: PlanResponse) => plan.assinarPorCliente !== false;
 
 export const Empresas: React.FC = () => {
+  const navigate = useNavigate();
   const { addToast } = useToast();
   const [companies, setCompanies] = useState<ClientConnection[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -194,6 +196,14 @@ export const Empresas: React.FC = () => {
 
     setIsLoadingSubscriptions(true);
     refreshCompanyDetails(company);
+  };
+
+  const handleOpenChat = (company: ClientConnection, plan?: PlanResponse) => {
+    let url = `/chat?companyId=${company.idEmpresa}&companyName=${encodeURIComponent(company.nomeEmpresa)}`;
+    if (plan) {
+      url += `&planId=${plan.idPlano}&planName=${encodeURIComponent(plan.nome)}&price=${plan.valorMensalidade}`;
+    }
+    navigate(url);
   };
 
   const handleSubscribeClick = (plan: PlanResponse) => {
@@ -642,13 +652,23 @@ export const Empresas: React.FC = () => {
                             </Button>
                         )}
                         {company.status !== 'Pendente' && (
+                          <div className="flex gap-2 w-full">
                             <Button 
                                 variant="outline" 
-                                className="w-full"
+                                className="flex-1"
                                 onClick={() => handleDetailsClick(company)}
                             >
                                 Ver Detalhes
                             </Button>
+                            <Button
+                                variant="outline"
+                                className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
+                                title="Conversar no Chat"
+                                onClick={() => handleOpenChat(company)}
+                            >
+                                <MessageSquare className="w-4 h-4" />
+                            </Button>
+                          </div>
                         )}
                         <Button 
                             variant="outline" 
@@ -706,28 +726,41 @@ export const Empresas: React.FC = () => {
       >
         {selectedCompany && (
             <div className="space-y-6 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
-                <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                    <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center text-slate-700 font-bold text-2xl uppercase border border-gray-200 shadow-sm overflow-hidden">
-                        {selectedCompany.logo ? (
-                            <img src={getImageUrl(selectedCompany.logo)} alt="Logo" className="w-full h-full object-contain p-2" />
-                        ) : (
-                            selectedCompany.nomeEmpresa.substring(0,2)
-                        )}
-                    </div>
-                    <div>
-                        <h3 className="text-xl font-bold text-gray-900">{selectedCompany.nomeEmpresa}</h3>
-                        <p className="text-sm text-gray-500">Responsável: {selectedCompany.nomeDono}</p>
-                        <div className="flex flex-wrap gap-4 mt-2">
-                            <div className="flex items-center text-sm text-gray-600">
-                                <FileText className="w-4 h-4 mr-1.5 text-gray-400" />
-                                {formatCNPJ(selectedCompany.cnpjEmpresa)}
-                            </div>
-                            <div className="flex items-center text-sm text-gray-600">
-                                <Mail className="w-4 h-4 mr-1.5 text-gray-400" />
-                                {selectedCompany.emailEmpresa}
+                <div className="flex justify-between items-start p-4 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="flex gap-4">
+                        <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center text-slate-700 font-bold text-2xl uppercase border border-gray-200 shadow-sm overflow-hidden">
+                            {selectedCompany.logo ? (
+                                <img src={getImageUrl(selectedCompany.logo)} alt="Logo" className="w-full h-full object-contain p-2" />
+                            ) : (
+                                selectedCompany.nomeEmpresa.substring(0,2)
+                            )}
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900">{selectedCompany.nomeEmpresa}</h3>
+                            <p className="text-sm text-gray-500">Responsável: {selectedCompany.nomeDono}</p>
+                            <div className="flex flex-wrap gap-4 mt-2">
+                                <div className="flex items-center text-sm text-gray-600">
+                                    <FileText className="w-4 h-4 mr-1.5 text-gray-400" />
+                                    {formatCNPJ(selectedCompany.cnpjEmpresa)}
+                                </div>
+                                <div className="flex items-center text-sm text-gray-600">
+                                    <Mail className="w-4 h-4 mr-1.5 text-gray-400" />
+                                    {selectedCompany.emailEmpresa}
+                                </div>
                             </div>
                         </div>
                     </div>
+                    <Button
+                        variant="outline"
+                        className="bg-white border-indigo-200 text-indigo-600 hover:bg-indigo-50 flex items-center gap-2 text-xs py-1.5 shrink-0"
+                        onClick={() => {
+                            setIsDetailsModalOpen(false);
+                            handleOpenChat(selectedCompany);
+                        }}
+                    >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        Conversar
+                    </Button>
                 </div>
 
                 {/* Tabs */}
@@ -795,33 +828,47 @@ export const Empresas: React.FC = () => {
                                             </ul>
                                         </div>
 
-                                         <div className="mt-auto">
-                                            {hasBlockingSubscription(plan, companySubscriptions) ? (
-                                              <Button
-                                                className="w-full text-xs py-2 h-9"
-                                                variant="outline"
-                                                disabled
-                                              >
-                                                Já assinado
-                                              </Button>
-                                            ) : !allowsClientSelfSubscribe(plan) ? (
-                                              <Button
-                                                className="w-full text-xs py-2 h-9"
-                                                variant="outline"
-                                                disabled
-                                                title="Contratação apenas via estabelecimento"
-                                              >
-                                                Indisponível para autoassinatura
-                                              </Button>
-                                            ) : (
-                                              <Button 
-                                                className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs py-2 h-9"
-                                                onClick={() => handleSubscribeClick(plan)}
-                                              >
-                                                Assinar Agora
-                                              </Button>
-                                            )}
-                                        </div>
+                                          <div className="mt-auto flex gap-2 w-full">
+                                             <div className="flex-1">
+                                                {hasBlockingSubscription(plan, companySubscriptions) ? (
+                                                  <Button
+                                                    className="w-full text-xs py-2 h-9"
+                                                    variant="outline"
+                                                    disabled
+                                                  >
+                                                    Já assinado
+                                                  </Button>
+                                                ) : !allowsClientSelfSubscribe(plan) ? (
+                                                  <Button
+                                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-2 h-9 font-semibold"
+                                                    onClick={() => {
+                                                      setIsDetailsModalOpen(false);
+                                                      handleOpenChat(selectedCompany, plan);
+                                                    }}
+                                                  >
+                                                    Entrar em contato
+                                                  </Button>
+                                                ) : (
+                                                  <Button 
+                                                    className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs py-2 h-9"
+                                                    onClick={() => handleSubscribeClick(plan)}
+                                                  >
+                                                    Assinar Agora
+                                                  </Button>
+                                                )}
+                                             </div>
+                                             <Button
+                                               variant="outline"
+                                               className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0 p-2.5 h-9"
+                                               title="Tirar dúvidas no chat"
+                                               onClick={() => {
+                                                 setIsDetailsModalOpen(false);
+                                                 handleOpenChat(selectedCompany, plan);
+                                               }}
+                                             >
+                                               <MessageSquare className="w-4 h-4" />
+                                             </Button>
+                                          </div>
                                     </div>
                                 ))}
                                 {companyPlans.length === 0 && (

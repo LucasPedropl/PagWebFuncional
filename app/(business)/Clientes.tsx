@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { BusinessLayout } from '../../components/layout/BusinessLayout';
-import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Filter, Loader2, Send, CheckCircle2, Mail, Unplug, AlertTriangle, User as UserIcon, Calendar, CreditCard } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Search, Filter, Loader2, Send, CheckCircle2, Mail, Unplug, AlertTriangle, User as UserIcon, Calendar, CreditCard, MessageSquare } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { User, SubscriptionResponse } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { SearchSelect } from '../../components/ui/SearchSelect';
 
+import React, { useState, useEffect } from 'react';
+import { BusinessLayout } from '../../components/layout/BusinessLayout';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { Modal } from '../../components/ui/Modal';
+
 export const Clientes: React.FC = () => {
+  const navigate = useNavigate();
   const { addToast } = useToast();
   
   // Modal States
@@ -47,6 +50,11 @@ export const Clientes: React.FC = () => {
         setSuccessEmail(null);
     }
   }, [isModalOpen]);
+
+  const handleOpenChat = (client: User, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    navigate(`/business/chat?clientId=${client.idUser}&clientName=${encodeURIComponent(client.nome)}`);
+  };
 
   const fetchClients = async () => {
     try {
@@ -278,6 +286,15 @@ export const Clientes: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
+                        {client.status === 'Ativo' && (
+                          <button 
+                              onClick={(e) => handleOpenChat(client, e)}
+                              className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                              title="Conversar no Chat"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </button>
+                        )}
                         <button 
                             onClick={(e) => client.idUser && openDeleteModal(client.idUser, client.nome, e)}
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -330,22 +347,34 @@ export const Clientes: React.FC = () => {
                         </p>
                       </div>
 
-                      {selectedClient?.status === 'Pendente' ? (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 self-start">
-                          <span className="w-2 h-2 rounded-full mr-2 bg-amber-500 animate-pulse"></span>
-                          Pendente de Aceite
-                        </span>
-                      ) : selectedClient?.status === 'Inativo' ? (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-800 border border-gray-200 self-start">
-                          <span className="w-2 h-2 rounded-full mr-2 bg-gray-500"></span>
-                          Conta Inativa
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200 self-start">
-                          <span className="w-2 h-2 rounded-full mr-2 bg-green-600"></span>
-                          Cliente Ativo
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {selectedClient?.status === 'Ativo' && (
+                          <Button
+                            variant="outline"
+                            className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 flex items-center gap-1.5 text-xs py-1 h-8 shrink-0"
+                            onClick={() => selectedClient && handleOpenChat(selectedClient)}
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            Conversar
+                          </Button>
+                        )}
+                        {selectedClient?.status === 'Pendente' ? (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            <span className="w-2 h-2 rounded-full mr-2 bg-amber-500 animate-pulse"></span>
+                            Pendente de Aceite
+                          </span>
+                        ) : selectedClient?.status === 'Inativo' ? (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-800 border border-gray-200">
+                            <span className="w-2 h-2 rounded-full mr-2 bg-gray-500"></span>
+                            Conta Inativa
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200">
+                            <span className="w-2 h-2 rounded-full mr-2 bg-green-600"></span>
+                            Cliente Ativo
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
