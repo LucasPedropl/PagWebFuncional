@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { chatService } from '../services/chatService';
+import { ChatAudience, chatService } from '../services/chatService';
 import { Chat, ChatMessage } from '../types';
 
 const LIST_POLL_MS = 5000;
@@ -7,11 +7,13 @@ const MESSAGE_POLL_MS = 3000;
 
 interface UseChatInboxOptions {
   enabled?: boolean;
+  audience?: ChatAudience;
 }
 
 /** Lista de chats + mensagens do chat selecionado com polling. */
 export function useChatInbox(options?: UseChatInboxOptions) {
   const enabled = options?.enabled ?? true;
+  const audience = options?.audience ?? 'client';
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -20,7 +22,7 @@ export function useChatInbox(options?: UseChatInboxOptions) {
 
   const fetchChats = useCallback(async () => {
     try {
-      const list = await chatService.listChats();
+      const list = await chatService.listChats(audience);
       const sorted = [...list].sort(
         (a, b) =>
           new Date(b.ultimaMensagemData).getTime() -
@@ -34,16 +36,15 @@ export function useChatInbox(options?: UseChatInboxOptions) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [audience]);
 
   const loadMessages = useCallback(async (idChat: number, markRead = true) => {
     try {
       const list = await chatService.getChatMessages(idChat);
       setMessages(list);
 
-      const activeView = localStorage.getItem('pagweb_active_view') || 'client';
       const mySide: ChatMessage['tipoRemetente'] =
-        activeView === 'business' ? 'Empresa' : 'Cliente';
+        audience === 'business' ? 'Empresa' : 'Cliente';
       const unread = list.filter((m) => !m.lida && m.tipoRemetente !== mySide).length;
 
       setChats((prev) =>
@@ -60,7 +61,7 @@ export function useChatInbox(options?: UseChatInboxOptions) {
     } catch (err) {
       console.error('[PagWeb] Erro ao carregar mensagens:', err);
     }
-  }, []);
+  }, [audience]);
 
   const selectChat = useCallback(
     async (chat: Chat) => {

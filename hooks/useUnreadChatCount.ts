@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { chatService } from '../services/chatService';
+import { chatService, ChatAudience } from '../services/chatService';
 
 const POLL_MS = 5000;
 
 /** Contagem de mensagens não lidas para badge na sidebar. */
-export function useUnreadChatCount(enabled: boolean): number {
+export function useUnreadChatCount(enabled: boolean, audience: ChatAudience = 'client'): number {
   const [count, setCount] = useState(0);
 
   const refresh = useCallback(async () => {
@@ -13,12 +13,12 @@ export function useUnreadChatCount(enabled: boolean): number {
       return;
     }
     try {
-      const total = await chatService.getUnreadTotal();
+      const total = await chatService.getUnreadTotal(audience);
       setCount(total);
     } catch (err) {
       console.error('[PagWeb] Contagem de chats não lidos:', err);
     }
-  }, [enabled]);
+  }, [enabled, audience]);
 
   useEffect(() => {
     void refresh();

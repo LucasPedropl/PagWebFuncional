@@ -23,7 +23,7 @@ export const Chat: React.FC = () => {
     fetchChats,
     selectChat,
     sendText,
-  } = useChatInbox();
+  } = useChatInbox({ audience: 'client' });
   const [newMessageText, setNewMessageText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const urlOpenGuardRef = useRef<string | null>(null);

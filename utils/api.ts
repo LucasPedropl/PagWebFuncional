@@ -64,7 +64,7 @@ export const toAssinaturaStatusCode = (status: string | number): number => {
   return map[normalized] ?? ASSINATURA_STATUS.Ativo;
 };
 
-/** Garante caminho de arquivo servido em `/uploads/...` (planos usam `empresas/...` sem prefixo). */
+/** Normaliza caminho relativo de contrato. Arquivos de plano ficam em `/empresas/...` (sem `/uploads/`). */
 export const normalizeContractStoragePath = (raw: string | null | undefined): string | null => {
   if (!raw?.trim()) return null;
 
@@ -77,12 +77,7 @@ export const normalizeContractStoragePath = (raw: string | null | undefined): st
     return normalized;
   }
 
-  let path = normalized.startsWith('/') ? normalized : `/${normalized}`;
-  if (!path.startsWith('/uploads/') && /^\/?empresas\//i.test(path.replace(/^\//, ''))) {
-    path = path.startsWith('/empresas/') ? `/uploads${path}` : `/uploads/${path.replace(/^\//, '')}`;
-  }
-
-  return path;
+  return normalized.startsWith('/') ? normalized : `/${normalized}`;
 };
 
 /**
@@ -124,7 +119,19 @@ export const getImageUrl = (path: string | null | undefined): string => {
 /** URL para exibir contrato (iframe / nova aba) */
 export const getContractUrl = (path: string | null | undefined): string => {
   if (!path) return '';
-  return buildAssetUrl(path);
+
+  const normalized = normalizeContractStoragePath(path);
+  if (!normalized) return '';
+
+  if (normalized.startsWith('http') || normalized.startsWith('blob:')) {
+    return normalized;
+  }
+
+  if (typeof window !== 'undefined' && import.meta.env.DEV) {
+    return getContractFetchUrl(normalized);
+  }
+
+  return buildAssetUrl(normalized);
 };
 
 /**

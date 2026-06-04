@@ -9,18 +9,18 @@ import { InfoTooltip } from '../../components/ui/InfoTooltip';
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color, isNegative = false, onClick, className, infoText }: any) => (
   <div 
-    className={`bg-white p-6 rounded-xl shadow-sm border border-gray-100 transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:border-slate-200' : ''} ${className}`}
+    className={`bg-white p-6 rounded-[5px] shadow-sm border border-gray-100 transition-all ${onClick ? 'cursor-pointer hover:shadow-md hover:border-slate-200' : ''} ${className}`}
     onClick={onClick}
   >
     <div className="flex justify-between items-start mb-4">
       <div>
         <div className="flex items-center">
             <p className="text-sm font-medium text-gray-500">{title}</p>
-            {infoText && <InfoTooltip text={infoText} />}
+            {infoText && <InfoTooltip text={infoText} popoverRadiusClass="rounded-[5px]" />}
         </div>
         <h3 className="text-2xl font-bold text-gray-900 mt-1">{value}</h3>
       </div>
-      <div className={`p-2 rounded-lg ${color}`}>
+      <div className={`p-2 rounded-[5px] ${color}`}>
         <Icon className={`w-5 h-5`} />
       </div>
     </div>
@@ -34,16 +34,16 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color, isNegative = fals
 
 // Card Menor para métricas secundárias
 const MiniStatCard = ({ title, value, icon: Icon, infoText, subValue }: any) => (
-    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
+    <div className="bg-white p-4 rounded-[5px] shadow-sm border border-gray-100 flex items-center justify-between">
         <div>
             <div className="flex items-center mb-0.5">
                 <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{title}</p>
-                {infoText && <InfoTooltip text={infoText} />}
+                {infoText && <InfoTooltip text={infoText} popoverRadiusClass="rounded-[5px]" />}
             </div>
             <p className="text-lg font-bold text-slate-900">{value}</p>
             {subValue && <p className="text-[10px] text-gray-500">{subValue}</p>}
         </div>
-        <div className="bg-gray-50 p-2 rounded-lg">
+        <div className="bg-gray-50 p-2 rounded-[5px]">
             <Icon className="w-4 h-4 text-gray-500" />
         </div>
     </div>
@@ -103,7 +103,7 @@ export const BusinessDashboard: React.FC = () => {
             <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center">
                 <AlertCircle className="w-12 h-12 text-red-400 mb-4" />
                 <h2 className="text-lg font-bold text-gray-900 mb-2">Não foi possível carregar os dados</h2>
-                <Button onClick={loadDashboard}>
+                <Button onClick={loadDashboard} className="!rounded-[5px]">
                     <RefreshCcw className="w-4 h-4 mr-2" />
                     Tentar Novamente
                 </Button>
@@ -215,12 +215,12 @@ export const BusinessDashboard: React.FC = () => {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Chart: Tendência Futura */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2 flex flex-col">
+        <div className="bg-white p-6 rounded-[5px] shadow-sm border border-gray-100 lg:col-span-2 flex flex-col">
           <div className="mb-6 flex items-center">
             <div>
                 <div className="flex items-center">
                     <h3 className="text-lg font-semibold text-gray-900">Previsão de Faturamento</h3>
-                    <InfoTooltip text="Projeção para os próximos 6 meses baseada nos contratos ativos atuais. Não considera cancelamentos futuros." />
+                    <InfoTooltip text="Projeção para os próximos 6 meses baseada nos contratos ativos atuais. Não considera cancelamentos futuros." popoverRadiusClass="rounded-[5px]" />
                 </div>
                 <p className="text-xs text-gray-400">Próximos 6 meses (Cenário sem cancelamentos)</p>
             </div>
@@ -304,7 +304,7 @@ export const BusinessDashboard: React.FC = () => {
         <div className="flex flex-col gap-6">
             
             {/* Pie Chart: Preferência de Planos */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex-1">
+            <div className="bg-white p-6 rounded-[5px] shadow-sm border border-gray-100 flex-1">
                 <div className="mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Planos</h3>
                     <p className="text-xs text-gray-400">Distribuição da base.</p>
@@ -343,7 +343,7 @@ export const BusinessDashboard: React.FC = () => {
             </div>
 
             {/* Upcoming Renewals List */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex-1">
+            <div className="bg-white p-6 rounded-[5px] shadow-sm border border-gray-100 flex-1">
                 <div className="mb-4">
                     <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                         <Calendar className="w-4 h-4" /> 

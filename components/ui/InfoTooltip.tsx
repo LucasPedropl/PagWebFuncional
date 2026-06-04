@@ -5,9 +5,10 @@ import { HelpCircle } from 'lucide-react';
 
 interface InfoTooltipProps {
   text: string;
+  popoverRadiusClass?: string;
 }
 
-export const InfoTooltip: React.FC<InfoTooltipProps> = ({ text }) => {
+export const InfoTooltip: React.FC<InfoTooltipProps> = ({ text, popoverRadiusClass = 'rounded-lg' }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [coords, setCoords] = useState({ left: 0, top: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -46,7 +47,7 @@ export const InfoTooltip: React.FC<InfoTooltipProps> = ({ text }) => {
       
       {isVisible && createPortal(
         <div
-          className="fixed z-[9999] px-3 py-2 bg-slate-800 text-white text-xs rounded-lg shadow-xl pointer-events-none max-w-[250px] text-center leading-relaxed animate-fadeIn"
+          className={`fixed z-[9999] px-3 py-2 bg-slate-800 text-white text-xs ${popoverRadiusClass} shadow-xl pointer-events-none max-w-[250px] text-center leading-relaxed animate-fadeIn`}
           style={{
             left: coords.left,
             top: coords.top,

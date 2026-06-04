@@ -59,8 +59,8 @@ export const ExplorePlanCardItem: React.FC<ExplorePlanCardItemProps> = ({
 
     {plan.features.length > 0 && (
       <ul className="mb-4 space-y-1.5 flex-1">
-        {plan.features.slice(0, 5).map((feature) => (
-          <li key={feature} className="flex items-start text-sm text-gray-600">
+        {plan.features.slice(0, 5).map((feature, index) => (
+          <li key={`${plan.idPlano}-feature-${index}`} className="flex items-start text-sm text-gray-600">
             <CheckCircle2 className="w-3.5 h-3.5 text-green-500 mr-2 shrink-0 mt-0.5" />
             <span className="line-clamp-2">{feature}</span>
           </li>

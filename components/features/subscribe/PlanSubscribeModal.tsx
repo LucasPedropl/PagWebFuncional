@@ -204,8 +204,8 @@ const PlanStep: React.FC<{ plan: PlanSubscribeController['plan']; establishmentN
       </div>
       {plan.funcionalidades && plan.funcionalidades.length > 0 && (
         <ul className="bg-gray-50 rounded-lg p-4 border border-gray-100 space-y-1.5">
-          {plan.funcionalidades.map((func) => (
-            <li key={func} className="flex items-start text-sm text-gray-600">
+          {plan.funcionalidades.map((func, index) => (
+            <li key={`${plan.idPlano}-func-${index}`} className="flex items-start text-sm text-gray-600">
               <CheckCircle2 className="w-3.5 h-3.5 text-green-500 mr-2 shrink-0 mt-0.5" />
               {func}
             </li>

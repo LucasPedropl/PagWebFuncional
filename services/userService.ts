@@ -6,6 +6,7 @@ import {
   getPlanTipoContrato,
   requiresSignedContractType,
   resolveContractPath,
+  toAssinaturaStatusCode,
 } from "../utils/api";
 
 const BASE_URL = "https://lojas.vlks.com.br/api/v1";
@@ -363,17 +364,101 @@ export const userService = {
     }
   },
 
-  async acceptSubscription(idAssinatura: number, contrato?: File | null): Promise<void> {
+  async updateSubscriptionStatus(
+    idAssinatura: number,
+    targetStatus: number,
+    contrato?: File | null,
+  ): Promise<Response> {
     let options: RequestInit = { method: 'PATCH' };
     if (contrato) {
       const formData = new FormData();
-      formData.append('Contrato', contrato);
+      formData.append(
+        'Contrato',
+        contrato,
+        contrato.name || 'contrato-assinado.pdf',
+      );
       options.body = formData;
     }
-    const response = await authRequest(`/User/minha-assinatura/${idAssinatura}/${ASSINATURA_STATUS.Ativo}`, options);
+    return authRequest(
+      `/User/minha-assinatura/${idAssinatura}/${targetStatus}`,
+      options,
+    );
+  },
+
+  /**
+   * Anexa PDF assinado. Pendente → Ativo com Contrato; se já Ativo, reabre via Suspenso/Pendente.
+   */
+  async attachSignedContractToSubscription(
+    idAssinatura: number,
+    contrato: File,
+  ): Promise<void> {
+    const subs = await this.listClientSubscriptions();
+    const sub = subs.find((s) => s.idAssinatura === idAssinatura);
+    const currentStatus = toAssinaturaStatusCode(
+      sub?.status ?? ASSINATURA_STATUS.Pendente,
+    );
+
+    const activateWithContract = async (): Promise<boolean> => {
+      const response = await this.updateSubscriptionStatus(
+        idAssinatura,
+        ASSINATURA_STATUS.Ativo,
+        contrato,
+      );
+      return response.ok;
+    };
+
+    if (currentStatus === ASSINATURA_STATUS.Pendente) {
+      const response = await this.updateSubscriptionStatus(
+        idAssinatura,
+        ASSINATURA_STATUS.Ativo,
+        contrato,
+      );
+      if (response.ok) return;
+      const msg = await parseApiError(response);
+      throw new Error(msg || 'Falha ao anexar o contrato assinado.');
+    }
+
+    if (currentStatus === ASSINATURA_STATUS.Ativo) {
+      for (const interimStatus of [
+        ASSINATURA_STATUS.Suspenso,
+        ASSINATURA_STATUS.Pendente,
+      ]) {
+        const interimRes = await this.updateSubscriptionStatus(
+          idAssinatura,
+          interimStatus,
+        );
+        if (!interimRes.ok) continue;
+        if (await activateWithContract()) return;
+      }
+      throw new Error(
+        'Não foi possível salvar o contrato assinado na assinatura já ativa.',
+      );
+    }
+
+    const response = await this.updateSubscriptionStatus(
+      idAssinatura,
+      ASSINATURA_STATUS.Ativo,
+      contrato,
+    );
+    if (response.ok) return;
+
+    const msg = await parseApiError(response);
+    throw new Error(msg || 'Falha ao anexar o contrato assinado.');
+  },
+
+  async acceptSubscription(idAssinatura: number, contrato?: File | null): Promise<void> {
+    if (contrato) {
+      await this.attachSignedContractToSubscription(idAssinatura, contrato);
+      return;
+    }
+
+    const response = await this.updateSubscriptionStatus(
+      idAssinatura,
+      ASSINATURA_STATUS.Ativo,
+    );
     if (!response.ok) {
       const msg = await parseApiError(response);
-      throw new Error(msg || "Falha ao aceitar assinatura.");
+      throw new Error(msg || 'Falha ao aceitar assinatura.');
     }
   },
 
@@ -588,9 +673,9 @@ export const userService = {
     }
 
     const diaPagamento = Math.min(30, Math.max(1, parseInt(String(payload.diaPagamento), 10)));
-    const temContrato = !!payload.contrato;
+    const contrato = payload.contrato ?? null;
+    const requiresContractFile = Boolean(contrato);
 
-    // Função auxiliar para enviar como JSON (PascalCase compatível com Dto em C#)
     const enviarComoJson = async () => {
       const jsonPayload = {
         IdUser: idUser,
@@ -599,16 +684,15 @@ export const userService = {
         DiaPagamento: diaPagamento,
         Desconto: payload.desconto ?? 0,
         TipoDesconto: payload.tipoDesconto ?? 0,
-        Observacao: payload.observacao ?? ''
+        Observacao: payload.observacao ?? '',
       };
-      return await authRequest('/User/assinar-plano', {
+      return authRequest('/User/assinar-plano', {
         method: 'POST',
-        body: JSON.stringify(jsonPayload)
+        body: JSON.stringify(jsonPayload),
       });
     };
 
-    // Função auxiliar para enviar como FormData (multipart/form-data)
-    const enviarComoFormData = async () => {
+    const enviarComoFormData = async (includeContrato = false) => {
       const formData = new FormData();
       formData.append('IdUser', String(idUser));
       formData.append('IdPlano', String(payload.idPlano));
@@ -619,49 +703,99 @@ export const userService = {
       if (payload.observacao) {
         formData.append('Observacao', payload.observacao);
       }
-      if (payload.contrato) {
-        formData.append('Contrato', payload.contrato);
+      if (includeContrato && contrato) {
+        formData.append('Contrato', contrato, contrato.name || 'contrato-assinado.pdf');
       }
-      return await authRequest('/User/assinar-plano', {
+      return authRequest('/User/assinar-plano', {
         method: 'POST',
-        body: formData
+        body: formData,
       });
     };
 
-    let response: Response;
-
-    if (temContrato) {
-      console.log("[userService] Enviando assinatura com contrato usando FormData.");
-      response = await enviarComoFormData();
-
-      if (!response.ok) {
-        const msg = await parseApiError(response);
-        throw new Error(
-          msg ||
-            "Falha ao enviar o contrato assinado. Tente novamente; se persistir, contate o suporte."
-        );
+    const parseCreateResult = async (
+      response: Response,
+    ): Promise<{ idAssinatura?: number; IdAssinatura?: number; message?: string }> => {
+      try {
+        return await response.json();
+      } catch {
+        return { message: 'Assinatura realizada com sucesso.' };
       }
-    } else {
-      // Se não possui arquivo de contrato, enviamos como JSON diretamente (padrão mais aceito em nuvem)
-      console.log("[userService] Enviando assinatura sem contrato usando JSON.");
-      response = await enviarComoJson();
+    };
 
-      if (response.status === 415) {
-        // Fallback para FormData caso a nuvem rejeite JSON
-        console.warn("[userService] Rota /User/assinar-plano retornou 415 para JSON. Tentando fallback com FormData.");
-        response = await enviarComoFormData();
+    const resolveCreatedSubscriptionId = async (
+      result: { idAssinatura?: number; IdAssinatura?: number },
+    ): Promise<number | undefined> => {
+      let idAssinatura = result.idAssinatura ?? result.IdAssinatura;
+      if (idAssinatura) return idAssinatura;
+
+      const subs = await this.listClientSubscriptions();
+      const matched = subs
+        .filter((sub) => sub.idPlano === payload.idPlano)
+        .sort((a, b) => (b.idAssinatura ?? 0) - (a.idAssinatura ?? 0))[0];
+      return matched?.idAssinatura;
+    };
+
+    if (requiresContractFile && contrato) {
+      let atomicResponse = await enviarComoFormData(true);
+      if (atomicResponse.ok) {
+        const result = await parseCreateResult(atomicResponse);
+        return {
+          idAssinatura: await resolveCreatedSubscriptionId(result),
+          message: result.message ?? 'Assinatura realizada com sucesso.',
+        };
       }
+
+      if (atomicResponse.status !== 415) {
+        const msg = await parseApiError(atomicResponse);
+        throw new Error(msg || 'Falha ao enviar assinatura com contrato.');
+      }
+
+      console.warn(
+        '[userService] assinar-plano rejeitou multipart com Contrato (415). Usando fluxo em duas etapas.',
+      );
+    }
+
+    let response = await enviarComoJson();
+    if (response.status === 415) {
+      response = await enviarComoFormData(false);
     }
 
     if (!response.ok) {
       const msg = await parseApiError(response);
-      throw new Error(msg || "Falha ao realizar assinatura do plano.");
+      throw new Error(msg || 'Falha ao realizar assinatura do plano.');
     }
 
-    try {
-      return await response.json();
-    } catch {
-      return { message: 'Assinatura realizada com sucesso.' };
+    const result = await parseCreateResult(response);
+    let idAssinatura = await resolveCreatedSubscriptionId(result);
+
+    if (requiresContractFile && contrato) {
+      if (!idAssinatura) {
+        throw new Error(
+          'Assinatura criada, mas não foi possível identificar o registro para anexar o contrato.',
+        );
+      }
+
+      try {
+        await this.attachSignedContractToSubscription(idAssinatura, contrato);
+      } catch (attachError) {
+        try {
+          await this.cancelSubscription(idAssinatura);
+        } catch (rollbackError) {
+          console.error('[PagWeb] Rollback após falha no contrato:', rollbackError);
+        }
+        const detail =
+          attachError instanceof Error
+            ? attachError.message
+            : 'Falha ao anexar o contrato assinado.';
+        throw new Error(
+          `${detail} A assinatura foi cancelada porque o PDF com assinatura e foto é obrigatório.`,
+        );
+      }
     }
+
+    return {
+      idAssinatura,
+      message: result.message ?? 'Assinatura realizada com sucesso.',
+    };
   }
 };

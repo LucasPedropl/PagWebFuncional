@@ -440,6 +440,18 @@ export const Empresas: React.FC = () => {
         addToast('error', 'Contrato', 'Registre sua foto antes de continuar.');
         return;
       }
+      if (isBuildingMergedPdf) {
+        addToast('error', 'Contrato', 'Aguarde a montagem do PDF com assinatura e foto.');
+        return;
+      }
+      if (!mergedContractBlob) {
+        addToast(
+          'error',
+          'Contrato',
+          'O PDF com assinatura e foto ainda não está pronto. Aguarde ou volte à etapa do contrato.',
+        );
+        return;
+      }
     }
 
     setIsSubscribing(true);
@@ -450,20 +462,11 @@ export const Empresas: React.FC = () => {
 
       let contratoFile: File | null = null;
       if (requiresSignedContract(selectedPlan)) {
-        if (isBuildingMergedPdf) {
-          addToast('error', 'Contrato', 'Aguarde a montagem do PDF com assinatura e foto.');
-          return;
-        }
-        if (mergedContractBlob) {
-          contratoFile = new File([mergedContractBlob], 'contrato-assinado.pdf', {
-            type: 'application/pdf',
-          });
-        } else {
-          contratoFile = await buildSignedContractFile(
-            selectedPlan.contratoPath ?? null,
-            subscribeForm.signatureDataUrl,
-            subscribeForm.photoDataUrl,
-          );
+        contratoFile = new File([mergedContractBlob!], 'contrato-assinado.pdf', {
+          type: 'application/pdf',
+        });
+        if (contratoFile.size === 0) {
+          throw new Error('O PDF do contrato assinado está vazio.');
         }
       }
 

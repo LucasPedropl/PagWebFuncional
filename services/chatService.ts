@@ -86,33 +86,35 @@ interface ApiMessageResponse {
   } | null;
 }
 
+export type ChatAudience = 'client' | 'business';
+
 export const chatService = {
-  async getUnreadTotal(): Promise<number> {
-    const chats = await this.listChats();
+  async getUnreadTotal(audience: ChatAudience = 'client'): Promise<number> {
+    const chats = await this.listChats(audience);
     return chats.reduce((sum, chat) => sum + Number(chat.naoLidas ?? 0), 0);
   },
 
-  async listChats(): Promise<Chat[]> {
+  async listChats(audience: ChatAudience = 'client'): Promise<Chat[]> {
     const { token, user } = sessionService.getSession();
     if (!token || !user) return [];
 
-    const activeView = localStorage.getItem('pagweb_active_view') || 'client';
     const currentUserId = getUserIdFromToken(token) || user.idUser || 0;
 
     let idEmpresaBusiness = 0;
     let nomeEmpresaBusiness = user.nome || 'Empresa';
-    if (activeView === 'business') {
+    if (audience === 'business') {
       try {
         const company = await companyService.getMyCompany();
         idEmpresaBusiness = company.idEmpresa;
         nomeEmpresaBusiness = company.nome;
       } catch (err) {
-        console.error('[chatService] Empresa do estabelecimento:', err);
+        console.warn('[chatService] Empresa do estabelecimento indisponível:', err);
+        return getCachedChatsForBusiness(idEmpresaBusiness);
       }
     }
 
     const cachedFallback =
-      activeView === 'business'
+      audience === 'business'
         ? getCachedChatsForBusiness(idEmpresaBusiness)
         : getCachedChatsForClient(currentUserId);
 
@@ -150,7 +152,7 @@ export const chatService = {
     }
 
     const mapped =
-      activeView === 'business'
+      audience === 'business'
         ? mapApiChatsForBusiness(data, idEmpresaBusiness, nomeEmpresaBusiness)
         : mapApiChatsForClient(data, currentUserId, user.nome || 'Cliente');
 

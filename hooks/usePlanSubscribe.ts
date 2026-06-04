@@ -272,6 +272,14 @@ export function usePlanSubscribe(options?: UsePlanSubscribeOptions) {
         addToast('error', 'Contrato', 'Aguarde a montagem do PDF com assinatura e foto.');
         return;
       }
+      if (!mergedContractBlob) {
+        addToast(
+          'error',
+          'Contrato',
+          'O PDF com assinatura e foto ainda não está pronto. Aguarde ou volte à etapa do contrato.',
+        );
+        return;
+      }
     }
 
     setIsSubscribing(true);
@@ -282,16 +290,11 @@ export function usePlanSubscribe(options?: UsePlanSubscribeOptions) {
 
       let contratoFile: File | null = null;
       if (requiresSignedContract(plan)) {
-        if (mergedContractBlob) {
-          contratoFile = new File([mergedContractBlob], 'contrato-assinado.pdf', {
-            type: 'application/pdf',
-          });
-        } else {
-          contratoFile = await buildSignedContractFile(
-            plan.contratoPath ?? null,
-            subscribeForm.signatureDataUrl,
-            subscribeForm.photoDataUrl,
-          );
+        contratoFile = new File([mergedContractBlob!], 'contrato-assinado.pdf', {
+          type: 'application/pdf',
+        });
+        if (contratoFile.size === 0) {
+          throw new Error('O PDF do contrato assinado está vazio.');
         }
       }
 
