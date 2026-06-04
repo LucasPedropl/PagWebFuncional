@@ -7,16 +7,8 @@ import {
   requiresContractAckType,
   requiresSignedContractType,
 } from '../utils/api';
-import { dataUrlToFile } from '../utils/files';
-import { buildContractPdfWithEvidence } from '../utils/contractPdf';
-
-const SUBSCRIPTION_BLOCKING_STATUSES = new Set([
-  'Ativo',
-  'Ativa',
-  'Pendente',
-  'Suspenso',
-  'Suspensa',
-]);
+import { buildContractPdfWithEvidence, buildSignedContractFile } from '../utils/contractPdf';
+import { hasBlockingSubscription } from '../utils/planSubscribeEligibility';
 
 export interface SubscribeFormState {
   periodo: string;
@@ -107,13 +99,7 @@ export function usePlanSubscribe(options?: UsePlanSubscribeOptions) {
         return;
       }
 
-      const blocked = (params.subscriptions ?? []).some(
-        (sub) =>
-          SUBSCRIPTION_BLOCKING_STATUSES.has(String(sub.status)) &&
-          (sub.idPlano === params.plan.idPlano || sub.nomePlano === params.plan.nome),
-      );
-
-      if (blocked) {
+      if (hasBlockingSubscription(params.plan, params.subscriptions ?? [])) {
         addToast('error', 'Plano já contratado', 'Você já possui este plano ativo ou pendente.');
         return;
       }
@@ -273,21 +259,41 @@ export function usePlanSubscribe(options?: UsePlanSubscribeOptions) {
       return;
     }
 
+    if (requiresSignedContract(plan)) {
+      if (!subscribeForm.signatureDataUrl) {
+        addToast('error', 'Contrato', 'Desenhe sua assinatura antes de confirmar.');
+        return;
+      }
+      if (!subscribeForm.photoDataUrl) {
+        addToast('error', 'Contrato', 'Registre sua foto antes de confirmar.');
+        return;
+      }
+      if (isBuildingMergedPdf) {
+        addToast('error', 'Contrato', 'Aguarde a montagem do PDF com assinatura e foto.');
+        return;
+      }
+    }
+
     setIsSubscribing(true);
     try {
       const periodo = subscribeForm.isRecorrente
         ? 0
         : Math.max(1, Number(subscribeForm.periodo));
 
-      const contratoFile = requiresSignedContract(plan)
-        ? mergedContractBlob
-          ? new File([mergedContractBlob], 'contrato-assinado.pdf', {
-              type: 'application/pdf',
-            })
-          : subscribeForm.signatureDataUrl
-            ? dataUrlToFile(subscribeForm.signatureDataUrl, 'contrato-assinado.png')
-            : null
-        : null;
+      let contratoFile: File | null = null;
+      if (requiresSignedContract(plan)) {
+        if (mergedContractBlob) {
+          contratoFile = new File([mergedContractBlob], 'contrato-assinado.pdf', {
+            type: 'application/pdf',
+          });
+        } else {
+          contratoFile = await buildSignedContractFile(
+            plan.contratoPath ?? null,
+            subscribeForm.signatureDataUrl,
+            subscribeForm.photoDataUrl,
+          );
+        }
+      }
 
       await userService.assinarPlano({
         idPlano: plan.idPlano,
@@ -314,6 +320,7 @@ export function usePlanSubscribe(options?: UsePlanSubscribeOptions) {
     idEmpresa,
     subscribeForm,
     mergedContractBlob,
+    isBuildingMergedPdf,
     close,
     addToast,
     options,

@@ -3,13 +3,16 @@ import { CheckCircle2, MessageSquare } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { CompanyBrandAvatar } from '../../ui/CompanyBrandAvatar';
 import { ExplorePlanCard } from '../../../types';
+import { PlanSubscribedTag } from '../plans/PlanSubscribedTag';
 
 interface ExplorePlanCardItemProps {
   plan: ExplorePlanCard;
   isSubscribing?: boolean;
   onSubscribe: () => void;
   onViewEstablishment?: () => void;
-  isSubscribed?: boolean;
+  isAlreadySubscribed?: boolean;
+  needsChatRequest?: boolean;
+  onRequestViaChat?: () => void;
   onContact?: () => void;
 }
 
@@ -18,10 +21,15 @@ export const ExplorePlanCardItem: React.FC<ExplorePlanCardItemProps> = ({
   isSubscribing,
   onSubscribe,
   onViewEstablishment,
-  isSubscribed = false,
+  isAlreadySubscribed = false,
+  needsChatRequest = false,
+  onRequestViaChat,
   onContact,
 }) => (
-  <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:border-blue-300 flex flex-col h-full">
+  <div className="relative overflow-hidden bg-white rounded-2xl border border-gray-200 p-5 hover:border-blue-300 flex flex-col h-full">
+    {isAlreadySubscribed && (
+      <PlanSubscribedTag className="absolute top-3 right-3 z-10 shadow-sm" />
+    )}
     <div className="flex items-center gap-3 mb-4 border-b border-gray-100 pb-4">
       <CompanyBrandAvatar
         name={plan.establishmentName}
@@ -43,7 +51,11 @@ export const ExplorePlanCardItem: React.FC<ExplorePlanCardItemProps> = ({
       </div>
     </div>
 
-    <h4 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2">{plan.name}</h4>
+    <h4
+      className={`font-bold text-gray-900 text-lg mb-2 line-clamp-2 ${isAlreadySubscribed ? 'pr-24' : ''}`}
+    >
+      {plan.name}
+    </h4>
 
     {plan.features.length > 0 && (
       <ul className="mb-4 space-y-1.5 flex-1">
@@ -68,19 +80,13 @@ export const ExplorePlanCardItem: React.FC<ExplorePlanCardItemProps> = ({
 
     <div className="flex gap-2 w-full mt-auto">
       <div className="flex-1">
-        {isSubscribed ? (
-          <Button
-            className="w-full bg-slate-900 text-white"
-            disabled
-          >
-            Plano já assinado
-          </Button>
-        ) : plan.plan?.assinarPorCliente === false ? (
+        {needsChatRequest ? (
           <Button
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold"
-            onClick={onContact}
+            onClick={onRequestViaChat}
           >
-            Entrar em contato
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Solicitar assinatura no chat
           </Button>
         ) : (
           <Button
@@ -92,7 +98,7 @@ export const ExplorePlanCardItem: React.FC<ExplorePlanCardItemProps> = ({
           </Button>
         )}
       </div>
-      {onContact && (
+      {!needsChatRequest && onContact && (
         <Button
           variant="outline"
           className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0 p-2.5"

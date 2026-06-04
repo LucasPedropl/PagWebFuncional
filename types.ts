@@ -238,6 +238,8 @@ export interface ClientSubscription {
   status: string;
   contratoPath?: string | null;
   contrato?: string | null;
+  /** PDF modelo do plano (sem assinatura do cliente); usado só no fluxo de aceite. */
+  planoContratoPath?: string | null;
   idPlano?: number;
   periodo?: number;
   diaPagamento?: number;

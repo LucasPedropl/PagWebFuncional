@@ -203,6 +203,20 @@ export async function buildContractPdfWithEvidence(
   return new Blob([pdfBytes], { type: 'application/pdf' });
 }
 
+/** Monta o PDF final com contrato do plano + assinatura/foto para envio à API. */
+export async function buildSignedContractFile(
+  contractPath: string | null,
+  signatureDataUrl: string | null,
+  photoDataUrl: string | null
+): Promise<File> {
+  const blob = await buildContractPdfWithEvidence(
+    contractPath,
+    signatureDataUrl,
+    photoDataUrl
+  );
+  return new File([blob], 'contrato-assinado.pdf', { type: 'application/pdf' });
+}
+
 export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

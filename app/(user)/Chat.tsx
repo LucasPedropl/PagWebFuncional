@@ -6,6 +6,10 @@ import { useChatInbox } from '../../hooks/useChatInbox';
 import { useToast } from '../../context/ToastContext';
 import { Send, ArrowLeft, Store, MessageSquare, Tag } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import {
+  buildPlanChatRequestMessage,
+  PlanChatRequestReason,
+} from '../../utils/planChatRequest';
 
 export const Chat: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -48,7 +52,19 @@ export const Chat: React.FC = () => {
         await selectChat(chat);
 
         if (planId && planName) {
-          const txt = `Olá! Tenho interesse em assinar o plano "${planName}".`;
+          const reasonParam = searchParams.get('reason');
+          const reason: PlanChatRequestReason =
+            reasonParam === 'company_only' ||
+            reasonParam === 'already_subscribed' ||
+            reasonParam === 'questions' ||
+            reasonParam === 'interest'
+              ? reasonParam
+              : 'interest';
+          const txt = buildPlanChatRequestMessage(
+            planName,
+            reason,
+            companyName
+          );
           await sendText(txt, {
             idPlano: parseInt(planId, 10),
             nomePlano: planName,

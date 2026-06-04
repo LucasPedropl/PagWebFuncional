@@ -18,32 +18,25 @@ import {
   requiresContractAckType,
   requiresSignedContractType,
 } from '../../utils/api';
-import { dataUrlToFile } from '../../utils/files';
-import { buildContractPdfWithEvidence, downloadBlob } from '../../utils/contractPdf';
-
-const SUBSCRIPTION_BLOCKING_STATUSES = new Set([
-  'Ativo',
-  'Ativa',
-  'Pendente',
-  'Suspenso',
-  'Suspensa',
-]);
-
-const hasBlockingSubscription = (
-  plan: PlanResponse,
-  subscriptions: ClientSubscription[]
-) =>
-  subscriptions.some(
-    (sub) =>
-      SUBSCRIPTION_BLOCKING_STATUSES.has(String(sub.status)) &&
-      (sub.idPlano === plan.idPlano || sub.nomePlano === plan.nome)
-  );
-
-const allowsClientSelfSubscribe = (plan: PlanResponse) => plan.assinarPorCliente !== false;
+import {
+  buildContractPdfWithEvidence,
+  buildSignedContractFile,
+  downloadBlob,
+} from '../../utils/contractPdf';
+import { PlanChatRequestModal } from '../../components/features/plans/PlanChatRequestModal';
+import { PlanSubscribedTag } from '../../components/features/plans/PlanSubscribedTag';
+import { usePlanChatRequestModal } from '../../hooks/usePlanChatRequestModal';
+import {
+  allowsClientSelfSubscribe,
+  hasBlockingSubscription,
+  needsChatRequestForPlan,
+} from '../../utils/planSubscribeEligibility';
+import { PlanChatRequestReason } from '../../utils/planChatRequest';
 
 export const Empresas: React.FC = () => {
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const planChatRequest = usePlanChatRequestModal();
   const [companies, setCompanies] = useState<ClientConnection[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
@@ -198,12 +191,38 @@ export const Empresas: React.FC = () => {
     refreshCompanyDetails(company);
   };
 
-  const handleOpenChat = (company: ClientConnection, plan?: PlanResponse) => {
-    let url = `/chat?companyId=${company.idEmpresa}&companyName=${encodeURIComponent(company.nomeEmpresa)}`;
-    if (plan) {
-      url += `&planId=${plan.idPlano}&planName=${encodeURIComponent(plan.nome)}&price=${plan.valorMensalidade}`;
-    }
-    navigate(url);
+  const getPlanChatRequestReason = (plan: PlanResponse): PlanChatRequestReason => {
+    if (!allowsClientSelfSubscribe(plan)) return 'company_only';
+    if (hasBlockingSubscription(plan, companySubscriptions)) return 'already_subscribed';
+    return 'interest';
+  };
+
+  const openPlanChatRequest = (company: ClientConnection, plan: PlanResponse) => {
+    planChatRequest.open({
+      idEmpresa: company.idEmpresa,
+      establishmentName: company.nomeEmpresa,
+      idPlano: plan.idPlano,
+      planName: plan.nome,
+      price: plan.valorMensalidade,
+      reason: getPlanChatRequestReason(plan),
+    });
+  };
+
+  const openPlanQuestionsChat = (company: ClientConnection, plan: PlanResponse) => {
+    planChatRequest.open({
+      idEmpresa: company.idEmpresa,
+      establishmentName: company.nomeEmpresa,
+      idPlano: plan.idPlano,
+      planName: plan.nome,
+      price: plan.valorMensalidade,
+      reason: 'questions',
+    });
+  };
+
+  const handleOpenChat = (company: ClientConnection) => {
+    navigate(
+      `/chat?companyId=${company.idEmpresa}&companyName=${encodeURIComponent(company.nomeEmpresa)}`
+    );
   };
 
   const handleSubscribeClick = (plan: PlanResponse) => {
@@ -218,21 +237,8 @@ export const Empresas: React.FC = () => {
       return;
     }
 
-    if (!allowsClientSelfSubscribe(plan)) {
-      addToast(
-        'error',
-        'Plano indisponível',
-        'Este plano só pode ser contratado pelo estabelecimento. Entre em contato com a empresa.'
-      );
-      return;
-    }
-
-    if (hasBlockingSubscription(plan, companySubscriptions)) {
-      addToast(
-        'error',
-        'Plano já contratado',
-        'Você já possui este plano ativo, pendente ou suspenso neste estabelecimento.'
-      );
+    if (needsChatRequestForPlan(plan, companySubscriptions)) {
+      openPlanChatRequest(selectedCompany, plan);
       return;
     }
 
@@ -442,13 +448,24 @@ export const Empresas: React.FC = () => {
         ? 0
         : Math.max(1, Number(subscribeForm.periodo));
 
-      const contratoFile = requiresSignedContract(selectedPlan)
-        ? mergedContractBlob
-          ? new File([mergedContractBlob], 'contrato-assinado.pdf', { type: 'application/pdf' })
-          : subscribeForm.signatureDataUrl
-            ? dataUrlToFile(subscribeForm.signatureDataUrl, 'contrato-assinado.png')
-            : null
-        : null;
+      let contratoFile: File | null = null;
+      if (requiresSignedContract(selectedPlan)) {
+        if (isBuildingMergedPdf) {
+          addToast('error', 'Contrato', 'Aguarde a montagem do PDF com assinatura e foto.');
+          return;
+        }
+        if (mergedContractBlob) {
+          contratoFile = new File([mergedContractBlob], 'contrato-assinado.pdf', {
+            type: 'application/pdf',
+          });
+        } else {
+          contratoFile = await buildSignedContractFile(
+            selectedPlan.contratoPath ?? null,
+            subscribeForm.signatureDataUrl,
+            subscribeForm.photoDataUrl,
+          );
+        }
+      }
 
       await userService.assinarPlano({
         idPlano: selectedPlan.idPlano,
@@ -798,9 +815,16 @@ export const Empresas: React.FC = () => {
                                 {companyPlans.map((plan) => (
                                     <div key={plan.idPlano} className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col hover:shadow-md transition-shadow relative overflow-hidden h-[300px]">
                                         <div className="absolute top-0 right-0 w-12 h-12 bg-slate-50 rounded-bl-full -z-10"></div>
-                                        
-                                        <div className="flex justify-between items-start">
-                                            <h5 className="text-sm font-bold text-gray-900 leading-tight line-clamp-1">{plan.nome}</h5>
+                                        {hasBlockingSubscription(plan, companySubscriptions) && (
+                                          <PlanSubscribedTag className="absolute top-3 right-3 z-10 shadow-sm" />
+                                        )}
+
+                                        <div
+                                          className={`flex justify-between items-start gap-2 ${
+                                            hasBlockingSubscription(plan, companySubscriptions) ? 'pr-20' : ''
+                                          }`}
+                                        >
+                                            <h5 className="text-sm font-bold text-gray-900 leading-tight line-clamp-1 min-w-0">{plan.nome}</h5>
                                             {plan.contratoPath && (
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); handleDownloadContract(plan.contratoPath); }}
@@ -830,26 +854,20 @@ export const Empresas: React.FC = () => {
 
                                           <div className="mt-auto flex gap-2 w-full">
                                              <div className="flex-1">
-                                                {hasBlockingSubscription(plan, companySubscriptions) ? (
-                                                  <Button
-                                                    className="w-full text-xs py-2 h-9"
-                                                    variant="outline"
-                                                    disabled
-                                                  >
-                                                    Já assinado
-                                                  </Button>
-                                                ) : !allowsClientSelfSubscribe(plan) ? (
+                                                {selectedCompany &&
+                                                needsChatRequestForPlan(plan, companySubscriptions) ? (
                                                   <Button
                                                     className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-2 h-9 font-semibold"
                                                     onClick={() => {
                                                       setIsDetailsModalOpen(false);
-                                                      handleOpenChat(selectedCompany, plan);
+                                                      openPlanChatRequest(selectedCompany, plan);
                                                     }}
                                                   >
-                                                    Entrar em contato
+                                                    <MessageSquare className="w-3.5 h-3.5 mr-1.5 inline" />
+                                                    Solicitar no chat
                                                   </Button>
                                                 ) : (
-                                                  <Button 
+                                                  <Button
                                                     className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs py-2 h-9"
                                                     onClick={() => handleSubscribeClick(plan)}
                                                   >
@@ -857,17 +875,21 @@ export const Empresas: React.FC = () => {
                                                   </Button>
                                                 )}
                                              </div>
+                                             {!needsChatRequestForPlan(plan, companySubscriptions) && (
                                              <Button
                                                variant="outline"
                                                className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0 p-2.5 h-9"
                                                title="Tirar dúvidas no chat"
                                                onClick={() => {
                                                  setIsDetailsModalOpen(false);
-                                                 handleOpenChat(selectedCompany, plan);
+                                                 if (selectedCompany) {
+                                                   openPlanQuestionsChat(selectedCompany, plan);
+                                                 }
                                                }}
                                              >
                                                <MessageSquare className="w-4 h-4" />
                                              </Button>
+                                             )}
                                           </div>
                                     </div>
                                 ))}
@@ -1341,6 +1363,13 @@ export const Empresas: React.FC = () => {
         onClose={() => setIsCameraModalOpen(false)}
         initialPhoto={subscribeForm.photoDataUrl}
         onCapture={(dataUrl) => setSubscribeForm((prev) => ({ ...prev, photoDataUrl: dataUrl }))}
+      />
+
+      <PlanChatRequestModal
+        isOpen={planChatRequest.isOpen}
+        onClose={planChatRequest.close}
+        onConfirm={planChatRequest.confirm}
+        context={planChatRequest.context}
       />
 
     </UserLayout>

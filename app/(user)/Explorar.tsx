@@ -18,10 +18,18 @@ import { CompanyBrandAvatar } from '../../components/ui/CompanyBrandAvatar';
 import { ExploreEstablishmentCardItem } from '../../components/features/explore/ExploreEstablishmentCardItem';
 import { ExplorePlanCardItem } from '../../components/features/explore/ExplorePlanCardItem';
 import { PlanSubscribeModal } from '../../components/features/subscribe/PlanSubscribeModal';
+import { PlanChatRequestModal } from '../../components/features/plans/PlanChatRequestModal';
 import { usePublicCompanies } from '../../hooks/usePublicCompanies';
 import { usePlanSubscribe } from '../../hooks/usePlanSubscribe';
+import { usePlanChatRequestModal } from '../../hooks/usePlanChatRequestModal';
 import { mapPublicCompanyToCard } from '../../utils/publicCompany';
 import { userService } from '../../services/userService';
+import {
+  allowsClientSelfSubscribe,
+  hasBlockingSubscription,
+  needsChatRequestForPlan,
+} from '../../utils/planSubscribeEligibility';
+import { PlanChatRequestReason } from '../../utils/planChatRequest';
 import {
   ClientSubscription,
   ExploreEstablishmentCard,
@@ -40,6 +48,7 @@ export const Explorar: React.FC = () => {
       void refreshSubscriptions();
     },
   });
+  const planChatRequest = usePlanChatRequestModal();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'estabelecimentos' | 'planos'>('estabelecimentos');
@@ -79,13 +88,22 @@ export const Explorar: React.FC = () => {
       .catch((err) => console.error('[PagWeb] Erro ao carregar assinaturas:', err));
   }, []);
 
-  const isPlanSubscribed = (idPlano: number) => {
-    return mySubscriptions.some(
-      (sub) =>
-        sub.idPlano === idPlano &&
-        sub.status &&
-        ['ativo', 'pendente', 'suspenso'].includes(sub.status.toLowerCase())
-    );
+  const getChatRequestReason = (plan: PlanResponse): PlanChatRequestReason => {
+    if (!allowsClientSelfSubscribe(plan)) return 'company_only';
+    if (hasBlockingSubscription(plan, mySubscriptions)) return 'already_subscribed';
+    return 'interest';
+  };
+
+  const openPlanChatRequest = (planCard: ExplorePlanCard) => {
+    if (!planCard.plan) return;
+    planChatRequest.open({
+      idEmpresa: planCard.idEmpresa,
+      establishmentName: planCard.establishmentName,
+      idPlano: planCard.idPlano,
+      planName: planCard.name,
+      price: planCard.price,
+      reason: getChatRequestReason(planCard.plan),
+    });
   };
 
   const refreshConnections = async () => {
@@ -243,13 +261,15 @@ export const Explorar: React.FC = () => {
   };
 
   const handleContactPlan = (planCard: ExplorePlanCard) => {
-    navigate(
-      `/chat?companyId=${planCard.idEmpresa}&companyName=${encodeURIComponent(
-        planCard.establishmentName
-      )}&planId=${planCard.idPlano}&planName=${encodeURIComponent(
-        planCard.name
-      )}&price=${planCard.price}`
-    );
+    if (!planCard.plan) return;
+    planChatRequest.open({
+      idEmpresa: planCard.idEmpresa,
+      establishmentName: planCard.establishmentName,
+      idPlano: planCard.idPlano,
+      planName: planCard.name,
+      price: planCard.price,
+      reason: 'questions',
+    });
   };
 
   const isPageLoading = isLoading || (activeTab === 'planos' && isLoadingPlans);
@@ -356,7 +376,13 @@ export const Explorar: React.FC = () => {
               key={`${plan.idEmpresa}-${plan.idPlano}`}
               plan={plan}
               isSubscribing={subscribingPlanId === plan.idPlano || subscribe.isConnecting}
-              isSubscribed={isPlanSubscribed(plan.idPlano)}
+              isAlreadySubscribed={
+                !!plan.plan && hasBlockingSubscription(plan.plan, mySubscriptions)
+              }
+              needsChatRequest={
+                !!plan.plan && needsChatRequestForPlan(plan.plan, mySubscriptions)
+              }
+              onRequestViaChat={() => openPlanChatRequest(plan)}
               onSubscribe={() => void handleSubscribePlan(plan)}
               onContact={() => handleContactPlan(plan)}
               onViewEstablishment={() => {
@@ -424,7 +450,9 @@ export const Explorar: React.FC = () => {
                       key={plan.idPlano}
                       plan={card}
                       isSubscribing={subscribingPlanId === plan.idPlano}
-                      isSubscribed={isPlanSubscribed(plan.idPlano)}
+                      isAlreadySubscribed={hasBlockingSubscription(plan, mySubscriptions)}
+                      needsChatRequest={needsChatRequestForPlan(plan, mySubscriptions)}
+                      onRequestViaChat={() => openPlanChatRequest(card)}
                       onSubscribe={() => void handleSubscribePlan(card)}
                       onContact={() => handleContactPlan(card)}
                     />
@@ -437,6 +465,13 @@ export const Explorar: React.FC = () => {
       </Modal>
 
       <PlanSubscribeModal controller={subscribe} />
+
+      <PlanChatRequestModal
+        isOpen={planChatRequest.isOpen}
+        onClose={planChatRequest.close}
+        onConfirm={planChatRequest.confirm}
+        context={planChatRequest.context}
+      />
     </UserLayout>
   );
 };

@@ -64,6 +64,27 @@ export const toAssinaturaStatusCode = (status: string | number): number => {
   return map[normalized] ?? ASSINATURA_STATUS.Ativo;
 };
 
+/** Garante caminho de arquivo servido em `/uploads/...` (planos usam `empresas/...` sem prefixo). */
+export const normalizeContractStoragePath = (raw: string | null | undefined): string | null => {
+  if (!raw?.trim()) return null;
+
+  const normalized = raw.replace(/\\/g, '/').trim();
+  if (
+    normalized.startsWith('http://') ||
+    normalized.startsWith('https://') ||
+    normalized.startsWith('blob:')
+  ) {
+    return normalized;
+  }
+
+  let path = normalized.startsWith('/') ? normalized : `/${normalized}`;
+  if (!path.startsWith('/uploads/') && /^\/?empresas\//i.test(path.replace(/^\//, ''))) {
+    path = path.startsWith('/empresas/') ? `/uploads${path}` : `/uploads/${path.replace(/^\//, '')}`;
+  }
+
+  return path;
+};
+
 /**
  * Normaliza campos de contrato vindos da API (PascalCase/camelCase).
  */
@@ -76,13 +97,13 @@ export const resolveContractPath = (
   } | null
 ): string | null => {
   if (!source) return null;
-  return (
+  const raw =
     source.contratoPath ??
     source.ContratoPath ??
     source.contrato ??
     source.Contrato ??
-    null
-  );
+    null;
+  return normalizeContractStoragePath(raw);
 };
 
 const buildAssetUrl = (path: string): string => {

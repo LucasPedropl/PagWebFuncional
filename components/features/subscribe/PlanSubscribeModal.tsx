@@ -81,7 +81,8 @@ export const PlanSubscribeModal: React.FC<PlanSubscribeModalProps> = ({ controll
             {isLast ? (
               <Button
                 onClick={() => void confirmSubscription()}
-                isLoading={isSubscribing}
+                isLoading={isSubscribing || isBuildingMergedPdf}
+                disabled={isBuildingMergedPdf}
                 className="bg-slate-900 hover:bg-slate-800 text-white"
               >
                 Confirmar Assinatura

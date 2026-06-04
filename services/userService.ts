@@ -1,7 +1,12 @@
 import { ActivatePayload, AppNotification, AuthResponse, ClientConnection, ClientInvoice, ClientSubscription, LoginPayload, NotificationSettings, RegisterPayload, SavedCard, UserAccountResponse, UserUpdatePayload, AssinarPlanoPayload, PlanResponse } from "../types";
 import { sessionService } from "./session";
 import { parseApiError } from "../utils/formatters";
-import { ASSINATURA_STATUS, resolveContractPath } from "../utils/api";
+import {
+  ASSINATURA_STATUS,
+  getPlanTipoContrato,
+  requiresSignedContractType,
+  resolveContractPath,
+} from "../utils/api";
 
 const BASE_URL = "https://lojas.vlks.com.br/api/v1";
 
@@ -448,10 +453,17 @@ export const userService = {
 
       if (!matchedPlan) return sub;
 
+      const subscriptionContract = resolveContractPath(sub);
+      const planContract = resolveContractPath(matchedPlan);
+      const tipoContrato = getPlanTipoContrato(matchedPlan);
+
       return {
         ...sub,
         idPlano: sub.idPlano ?? matchedPlan.idPlano,
-        contratoPath: sub.contratoPath ?? resolveContractPath(matchedPlan),
+        contratoPath:
+          subscriptionContract ??
+          (requiresSignedContractType(tipoContrato) ? null : planContract),
+        planoContratoPath: planContract,
         tipoContratoPlano: matchedPlan.tipoContrato,
       };
     });
@@ -619,14 +631,15 @@ export const userService = {
     let response: Response;
 
     if (temContrato) {
-      // Se possui arquivo de contrato, tentamos enviar como FormData (multipart) primeiro
       console.log("[userService] Enviando assinatura com contrato usando FormData.");
       response = await enviarComoFormData();
 
-      if (response.status === 415) {
-        // Fallback para JSON caso a nuvem rejeite FormData
-        console.warn("[userService] Rota /User/assinar-plano retornou 415 para FormData com contrato. Tentando fallback com JSON.");
-        response = await enviarComoJson();
+      if (!response.ok) {
+        const msg = await parseApiError(response);
+        throw new Error(
+          msg ||
+            "Falha ao enviar o contrato assinado. Tente novamente; se persistir, contate o suporte."
+        );
       }
     } else {
       // Se não possui arquivo de contrato, enviamos como JSON diretamente (padrão mais aceito em nuvem)

@@ -16,8 +16,11 @@ import {
 } from '../../utils/api';
 import { SignaturePadModal } from '../../components/ui/SignaturePadModal';
 import { CameraCaptureModal } from '../../components/ui/CameraCaptureModal';
-import { dataUrlToFile } from '../../utils/files';
-import { buildContractPdfWithEvidence, downloadBlob } from '../../utils/contractPdf';
+import {
+  buildContractPdfWithEvidence,
+  buildSignedContractFile,
+  downloadBlob,
+} from '../../utils/contractPdf';
 
 export const Assinaturas: React.FC = () => {
   const { addToast } = useToast();
@@ -116,6 +119,9 @@ export const Assinaturas: React.FC = () => {
   const requiresContractAck = (sub: ClientSubscription) =>
     requiresContractAckType(getSubscriptionTipoContrato(sub));
 
+  const getPlanContractPathForAccept = (sub: ClientSubscription) =>
+    sub.planoContratoPath ?? sub.contratoPath ?? null;
+
   const handleAcceptClick = (sub: ClientSubscription) => {
     setSubToAccept(sub);
     setAcceptForm({
@@ -201,7 +207,9 @@ export const Assinaturas: React.FC = () => {
     const hasEvidence =
       acceptForm.signatureDataUrl || acceptForm.photoDataUrl;
 
-    if (!hasEvidence && !subToAccept.contratoPath) {
+    const planContractPath = getPlanContractPathForAccept(subToAccept);
+
+    if (!hasEvidence && !planContractPath) {
       setMergedContractPdfUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
@@ -216,7 +224,7 @@ export const Assinaturas: React.FC = () => {
       setIsBuildingMergedPdf(true);
       try {
         const blob = await buildContractPdfWithEvidence(
-          subToAccept.contratoPath ?? null,
+          planContractPath,
           acceptForm.signatureDataUrl,
           acceptForm.photoDataUrl
         );
@@ -291,13 +299,24 @@ export const Assinaturas: React.FC = () => {
 
     try {
       setIsAccepting(subToAccept.idAssinatura);
-      const contratoFile = requiresSignedContract(subToAccept)
-        ? mergedContractBlob
-          ? new File([mergedContractBlob], 'contrato-assinado.pdf', { type: 'application/pdf' })
-          : acceptForm.signatureDataUrl
-            ? dataUrlToFile(acceptForm.signatureDataUrl, 'contrato-assinado.png')
-            : null
-        : null;
+      let contratoFile: File | null = null;
+      if (requiresSignedContract(subToAccept)) {
+        if (isBuildingMergedPdf) {
+          addToast('error', 'Contrato', 'Aguarde a montagem do PDF com assinatura e foto.');
+          return;
+        }
+        if (mergedContractBlob) {
+          contratoFile = new File([mergedContractBlob], 'contrato-assinado.pdf', {
+            type: 'application/pdf',
+          });
+        } else {
+          contratoFile = await buildSignedContractFile(
+            getPlanContractPathForAccept(subToAccept),
+            acceptForm.signatureDataUrl,
+            acceptForm.photoDataUrl,
+          );
+        }
+      }
 
       await userService.acceptSubscription(subToAccept.idAssinatura, contratoFile);
       addToast('success', 'Sucesso', 'Assinatura aceita com sucesso.');
@@ -801,11 +820,11 @@ export const Assinaturas: React.FC = () => {
                       </p>
                     </div>
 
-                    {subToAccept.contratoPath ? (
+                    {getPlanContractPathForAccept(subToAccept) ? (
                       <>
                         <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
                           <iframe
-                            src={getContractUrl(subToAccept.contratoPath)}
+                            src={getContractUrl(getPlanContractPathForAccept(subToAccept))}
                             title="Contrato do plano"
                             className="w-full h-40"
                           />
@@ -814,7 +833,9 @@ export const Assinaturas: React.FC = () => {
                           type="button"
                           variant="outline"
                           className="w-full justify-start text-sm py-2"
-                          onClick={() => handleDownloadContract(subToAccept.contratoPath as string)}
+                          onClick={() =>
+                            handleDownloadContract(getPlanContractPathForAccept(subToAccept) as string)
+                          }
                         >
                           <Download className="w-4 h-4 mr-2" />
                           Abrir contrato em nova aba
@@ -925,7 +946,7 @@ export const Assinaturas: React.FC = () => {
                     </div>
 
                     {(mergedContractPdfUrl ||
-                      subToAccept.contratoPath ||
+                      getPlanContractPathForAccept(subToAccept) ||
                       (requiresSignedContract(subToAccept) &&
                         (acceptForm.signatureDataUrl || acceptForm.photoDataUrl))) && (
                       <div className="space-y-2">
@@ -966,10 +987,10 @@ export const Assinaturas: React.FC = () => {
                               className="w-full h-56"
                             />
                           </div>
-                        ) : subToAccept.contratoPath ? (
+                        ) : getPlanContractPathForAccept(subToAccept) ? (
                           <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
                             <iframe
-                              src={getContractUrl(subToAccept.contratoPath)}
+                              src={getContractUrl(getPlanContractPathForAccept(subToAccept))}
                               title="Contrato do plano"
                               className="w-full h-56"
                             />
