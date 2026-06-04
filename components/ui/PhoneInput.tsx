@@ -13,6 +13,9 @@ interface PhoneInputProps {
   onPhoneChange: (phone: string) => void;
   error?: string;
   disabled?: boolean;
+  /** Raio da borda do campo de telefone (padrão: rounded-lg). */
+  inputRadiusClass?: string;
+  selectRadiusClass?: string;
 }
 
 export const PhoneInput: React.FC<PhoneInputProps> = ({
@@ -23,6 +26,8 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
   onPhoneChange,
   error,
   disabled = false,
+  inputRadiusClass = 'rounded-lg',
+  selectRadiusClass = 'rounded-lg',
 }) => {
   const countryOptions = countries.map(c => ({
     value: c.ddi,
@@ -44,6 +49,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
             onChange={(val) => onDdiChange(val.toString())}
             disabled={disabled}
             className="h-full"
+            roundedClass={selectRadiusClass}
             placeholder="+00"
           />
         </div>
@@ -53,7 +59,7 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
             disabled={disabled}
             value={phoneNumber}
             onChange={(e) => onPhoneChange(e.target.value)}
-            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all bg-white text-gray-900 placeholder-gray-400 ${
+            className={`w-full px-3 py-2 border ${inputRadiusClass} focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all bg-white text-gray-900 placeholder-gray-400 ${
               error ? 'border-red-500 ring-red-200' : 'border-gray-300'
             } ${disabled ? 'bg-gray-50 cursor-not-allowed text-gray-500' : 'hover:border-gray-400 shadow-sm'}`}
             placeholder="(00) 00000-0000"

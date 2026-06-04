@@ -1,222 +1,207 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
+import { ShieldCheck } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { companyService } from '../../services/companyService';
 import { AuthLayout } from '../../components/layout/AuthLayout';
-import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { AuthOtpInput } from '../../components/features/auth/AuthOtpInput';
+import { AuthAlert } from '../../components/features/auth/AuthAlert';
+import { getAuthTheme } from '../../utils/authTheme';
+
+const OTP_LENGTH = 6;
 
 export const Activate: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
-  
+
   const [email, setEmail] = useState('');
   const [token, setToken] = useState('');
-  
   const autoActivateAttempted = useRef(false);
 
-  // Data passed from Register screen
-  // inviteCompanyId: ID da empresa que convidou o usuário (se houver)
-  const { password, isBusinessRegistration, companyData, inviteCompanyId } = location.state || {};
-
-  useEffect(() => {
-    const urlEmail = searchParams.get('email');
-    const urlToken = searchParams.get('token');
-
-    if (urlEmail) setEmail(urlEmail);
-    else if (location.state?.email) setEmail(location.state.email);
-
-    if (urlToken) setToken(urlToken);
-
-    // Auto-activate if both are present in URL
-    if (urlEmail && urlToken && !autoActivateAttempted.current) {
-      autoActivateAttempted.current = true;
-      handleAutoActivate(urlEmail, urlToken);
-    }
-  }, [searchParams, location.state]);
-
-  useEffect(() => {
-    const currentEmail = searchParams.get('email') || location.state?.email;
-    if (currentEmail && sessionStorage.getItem('isRandomTest') === 'true') {
-      const fetchToken = async () => {
-        try {
-          const res = await fetch('https://lojas.vlks.com.br/api/zTemporario/dev/lista-usuarios');
-          if (res.ok) {
-            const data = await res.json();
-            const user = data.find((u: any) => u.email === currentEmail);
-            if (user && user.verificationToken) {
-              setToken(user.verificationToken);
-              sessionStorage.removeItem('isRandomTest');
-            }
-          }
-        } catch (e) {
-          console.error('Erro ao buscar token dev:', e);
-        }
-      };
-      fetchToken();
-    }
-  }, [searchParams, location.state]);
+  const { password, isBusinessRegistration, companyData, inviteCompanyId } =
+    location.state || {};
+  const audience = isBusinessRegistration ? 'business' : 'client';
+  const theme = getAuthTheme(audience);
 
   const handleAutoActivate = async (autoEmail: string, autoToken: string) => {
     setIsLoading(true);
     setError(null);
-    setStatusMessage("Verificando link de ativação...");
-
+    setStatusMessage('Verificando link de ativação...');
     try {
       await userService.activate({ email: autoEmail, token: autoToken });
-      setStatusMessage("Conta ativada com sucesso! Redirecionando para login...");
       setIsSuccess(true);
-      setTimeout(() => navigate('/login'), 3000);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Link de ativação inválido ou expirado. Tente novamente.');
+      setStatusMessage('Conta ativada! Redirecionando...');
+      setTimeout(
+        () => navigate(`/login?type=${audience === 'business' ? 'business' : 'client'}`),
+        3000
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Link inválido ou expirado.';
+      setError(message);
       setStatusMessage(null);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    const urlEmail = searchParams.get('email');
+    const urlToken = searchParams.get('token');
+    if (urlEmail) setEmail(urlEmail);
+    else if (location.state?.email) setEmail(location.state.email);
+    if (urlToken) setToken(urlToken.toUpperCase());
+
+    if (urlEmail && urlToken && !autoActivateAttempted.current) {
+      autoActivateAttempted.current = true;
+      void handleAutoActivate(urlEmail, urlToken);
+    }
+  }, [searchParams, location.state, audience, navigate]);
+
+  useEffect(() => {
+    const currentEmail = searchParams.get('email') || location.state?.email;
+    if (currentEmail && sessionStorage.getItem('isRandomTest') === 'true') {
+      void (async () => {
+        try {
+          const res = await fetch('https://lojas.vlks.com.br/api/zTemporario/dev/lista-usuarios');
+          if (!res.ok) return;
+          const data = await res.json();
+          const user = data.find((u: { email: string }) => u.email === currentEmail);
+          if (user?.verificationToken) {
+            setToken(String(user.verificationToken).toUpperCase());
+            sessionStorage.removeItem('isRandomTest');
+          }
+        } catch (e) {
+          console.error('[PagWeb] Erro ao buscar token dev:', e);
+        }
+      })();
+    }
+  }, [searchParams, location.state]);
+
+  const runActivation = async (tokenValue: string) => {
+    if (!email.trim()) {
+      setError('E-mail não encontrado. Volte ao cadastro ou use o link completo do e-mail.');
+      return;
+    }
+    if (tokenValue.length < OTP_LENGTH) {
+      setError(`Informe o código completo (${OTP_LENGTH} caracteres).`);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setStatusMessage(null);
 
     try {
-      // 1. Activate User
-      setStatusMessage("Ativando conta de usuário...");
-      await userService.activate({ email, token });
+      setStatusMessage('Ativando sua conta...');
+      await userService.activate({ email, token: tokenValue });
 
-      // === Client Registration Flow ===
       if (!isBusinessRegistration) {
-         if (password) {
-             // Auto-login se a senha estiver disponível
-             setStatusMessage("Autenticando...");
-             await userService.login(email, password);
-
-             // Se houver um ID de convite, fazemos a vinculação
-             if (inviteCompanyId) {
-                try {
-                    setStatusMessage("Vinculando à empresa...");
-                    await userService.linkToCompany(inviteCompanyId);
-                } catch (linkError) {
-                    console.warn("Erro ao vincular automaticamente:", linkError);
-                    // Não bloqueamos o fluxo se falhar o vínculo, mas logamos
-                }
-             }
-
-             setStatusMessage("Redirecionando...");
-             navigate('/dashboard');
-         } else {
-             // Fluxo manual
-             setStatusMessage("Conta ativada! Redirecionando para login...");
-             setIsSuccess(true);
-             setTimeout(() => navigate('/login'), 2000);
-         }
-         return;
+        if (password) {
+          setStatusMessage('Autenticando...');
+          await userService.login(email, password);
+          if (inviteCompanyId) {
+            try {
+              await userService.linkToCompany(inviteCompanyId);
+            } catch (linkError) {
+              console.warn('[PagWeb] Vínculo automático:', linkError);
+            }
+          }
+          navigate('/dashboard');
+        } else {
+          setIsSuccess(true);
+          setStatusMessage('Conta ativada! Redirecionando para login...');
+          setTimeout(() => navigate('/login?type=client'), 2000);
+        }
+        return;
       }
 
-      // === Business Registration Flow ===
-      if (isBusinessRegistration && password && companyData) {
-         
-         // 2. Login as Client to get Token
-         setStatusMessage("Autenticando usuário...");
-         const authResponse = await userService.login(email, password);
-         const clientToken = authResponse.token;
-
-         // 3. Create Company
-         setStatusMessage("Registrando empresa...");
-         await companyService.create(clientToken, companyData);
-
-         // 4. Login as Admin
-         setStatusMessage("Acessando painel administrativo...");
-         await companyService.login(email, password);
-
-         // 5. Redirect to Dashboard
-         setStatusMessage("Tudo pronto!");
-         navigate('/business/dashboard');
+      if (password && companyData) {
+        setStatusMessage('Configurando empresa...');
+        const authResponse = await userService.login(email, password);
+        await companyService.create(authResponse.token, companyData);
+        setStatusMessage('Acessando painel...');
+        await companyService.login(email, password);
+        navigate('/business/dashboard');
       }
-
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Token inválido ou erro durante a configuração da conta.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Falha na ativação.';
+      setError(message);
       setStatusMessage(null);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void runActivation(token);
+  };
+
+  const subtitle = email
+    ? `Digite o código de ${OTP_LENGTH} caracteres enviado para ${email}.`
+    : `Digite o código de ${OTP_LENGTH} caracteres que você recebeu por e-mail.`;
+
   if (isSuccess) {
     return (
-      <AuthLayout title="Conta Ativada!" subtitle="Sua conta foi verificada com sucesso.">
-        <div className="flex flex-col items-center justify-center py-8 space-y-4">
-          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-2">
-            <CheckCircle2 className="w-8 h-8" />
+      <AuthLayout audience={audience} title="Conta ativada!" subtitle="Tudo certo com sua verificação.">
+        <div className="flex flex-col items-center py-6 text-center space-y-4">
+          <div className="w-16 h-16 rounded-[5px] bg-emerald-100 text-emerald-600 flex items-center justify-center">
+            <ShieldCheck className="w-8 h-8" />
           </div>
-          <p className="text-slate-600 text-center">
-            {statusMessage || "Redirecionando para o login..."}
-          </p>
-          <Loader2 className="w-6 h-6 text-blue-600 animate-spin mt-4" />
+          <p className="text-sm text-slate-600">{statusMessage}</p>
         </div>
       </AuthLayout>
     );
   }
 
   return (
-    <AuthLayout 
-      title="Ativar Conta" 
-      subtitle="Verifique seu email e insira o código de ativação enviado."
+    <AuthLayout
+      audience={audience}
+      title="Ativar conta"
+      subtitle={subtitle}
+      footer={
+        <p className="text-center text-sm text-slate-600">
+          <Link
+            to={`/login?type=${audience === 'business' ? 'business' : 'client'}`}
+            className={`font-semibold hover:underline ${theme.linkClass}`}
+          >
+            Voltar ao login
+          </Link>
+        </p>
+      }
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <Input
-          label="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          placeholder="seu@email.com"
-          disabled={!!location.state?.email || !!searchParams.get('email')}
-        />
+      <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="space-y-3">
+          <p className="text-center text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Código de ativação
+          </p>
+          <AuthOtpInput
+            value={token}
+            onChange={setToken}
+            length={OTP_LENGTH}
+            disabled={isLoading}
+          />
+        </div>
 
-        <Input
-          label="Token de Ativação"
-          type="text"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          required
-          placeholder="Ex: 123456"
-        />
+        {statusMessage && <AuthAlert variant="info">{statusMessage}</AuthAlert>}
+        {error && <AuthAlert variant="error">{error}</AuthAlert>}
 
-        {statusMessage && !isSuccess && (
-            <div className="flex items-center justify-center p-3 bg-blue-50 text-blue-700 text-sm rounded-lg">
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {statusMessage}
-            </div>
-        )}
-
-        {error && (
-          <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100">
-            {error}
-          </div>
-        )}
-
-        <Button type="submit" className="w-full" isLoading={isLoading}>
-          {isBusinessRegistration ? 'Ativar e Configurar Empresa' : (inviteCompanyId ? 'Ativar e Vincular' : 'Ativar Conta')}
+        <Button
+          type="submit"
+          isLoading={isLoading}
+          disabled={token.length < OTP_LENGTH || isLoading}
+          className={`w-full h-12 rounded-[5px] text-white border-0 ${theme.buttonClass}`}
+        >
+          {isBusinessRegistration ? 'Ativar e configurar empresa' : 'Confirmar ativação'}
         </Button>
       </form>
-
-      <div className="mt-6 text-center">
-        <Link to="/login" className="text-sm font-medium text-slate-600 hover:text-slate-800 underline">
-          Voltar para Login
-        </Link>
-      </div>
     </AuthLayout>
   );
 };

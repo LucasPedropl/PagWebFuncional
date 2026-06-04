@@ -17,6 +17,7 @@ interface SearchSelectProps {
   error?: string;
   className?: string;
   disabled?: boolean;
+  roundedClass?: string;
 }
 
 export const SearchSelect: React.FC<SearchSelectProps> = ({
@@ -28,6 +29,7 @@ export const SearchSelect: React.FC<SearchSelectProps> = ({
   error,
   className = '',
   disabled = false,
+  roundedClass = 'rounded-lg',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -68,7 +70,7 @@ export const SearchSelect: React.FC<SearchSelectProps> = ({
           type="button"
           disabled={disabled}
           onClick={() => !disabled && setIsOpen(!isOpen)}
-          className={`w-full flex items-center justify-between px-3 py-2 border rounded-lg bg-white transition-all text-left focus:outline-none focus:ring-2 focus:ring-slate-900 ${
+          className={`w-full flex items-center justify-between px-3 py-2 border ${roundedClass} bg-white transition-all text-left focus:outline-none focus:ring-2 focus:ring-slate-900 ${
             error ? 'border-red-500 ring-red-200' : 'border-gray-300'
           } ${disabled ? 'bg-gray-50 cursor-not-allowed text-gray-500' : 'text-gray-900 hover:border-gray-400 shadow-sm'}`}
         >
@@ -82,7 +84,7 @@ export const SearchSelect: React.FC<SearchSelectProps> = ({
         </button>
 
         {isOpen && (
-          <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl animate-in fade-in zoom-in-95 duration-200">
+          <div className={`absolute z-50 mt-1 w-full bg-white border border-gray-200 ${roundedClass} shadow-xl animate-in fade-in zoom-in-95 duration-200`}>
             <div className="p-2 border-b border-gray-100 flex items-center gap-2">
               <Search className="w-4 h-4 text-gray-400 shrink-0" />
               <input
