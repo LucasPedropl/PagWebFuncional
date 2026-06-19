@@ -5,7 +5,12 @@ import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { Plus, Check, Edit2, Trash2, Loader2, AlertTriangle, ExternalLink, Box, FileText, Download } from 'lucide-react';
 import { businessService } from '../../services/businessService';
+import { companyService } from '../../services/companyService';
 import { PlanResponse } from '../../types';
+import { PlanServiceBenefitsEditor } from '../../components/features/services/PlanServiceBenefitsEditor';
+import { useLocalServices } from '../../features/services/hooks/useLocalServices';
+import { localServiceStore } from '../../features/services/services/localServiceStore';
+import { PlanServiceBenefit } from '../../features/services/schemas/serviceTypes';
 import { useToast } from '../../context/ToastContext';
 import { TIPO_CONTRATO } from '../../utils/api';
 import { getContractUrl } from '../../utils/api';
@@ -32,16 +37,40 @@ export const Planos: React.FC = () => {
     valorMensalidade: '',
     percentualMulta: '',
     percentualJurosMensal: '',
-    funcionalidades: '',
     contrato: null as File | null,
     tipoContrato: String(TIPO_CONTRATO.Nenhum),
     cancelamentoDias: '7',
     assinarPorCliente: true,
   });
+  const [planBenefits, setPlanBenefits] = useState<PlanServiceBenefit[]>([]);
+  const [idEmpresa, setIdEmpresa] = useState<number | null>(null);
+  const { services: catalogServices } = useLocalServices(idEmpresa ?? undefined);
+
+  useEffect(() => {
+    companyService
+      .getMyCompany()
+      .then((c) => setIdEmpresa(c.idEmpresa))
+      .catch((err) => console.error('[Planos] Erro ao carregar empresa:', err));
+  }, []);
 
   useEffect(() => {
     fetchPlans();
   }, []);
+
+  const resetPlanForm = () => {
+    setFormData({
+      nome: '',
+      valorMensalidade: '',
+      percentualMulta: '',
+      percentualJurosMensal: '',
+      contrato: null,
+      tipoContrato: String(TIPO_CONTRATO.Nenhum),
+      cancelamentoDias: '7',
+      assinarPorCliente: true,
+    });
+    setPlanBenefits([]);
+    setSelectedPlan(null);
+  };
 
   const fetchPlans = async () => {
     try {
@@ -76,8 +105,7 @@ export const Planos: React.FC = () => {
   // --- ACTIONS ---
 
   const openNewPlanModal = () => {
-      setSelectedPlan(null);
-      setFormData({ nome: '', valorMensalidade: '', percentualMulta: '', percentualJurosMensal: '', funcionalidades: '', contrato: null, tipoContrato: String(TIPO_CONTRATO.Nenhum), cancelamentoDias: '7', assinarPorCliente: true });
+      resetPlanForm();
       setIsEditModalOpen(true);
   };
 
@@ -93,19 +121,18 @@ export const Planos: React.FC = () => {
       if (isViewModalOpen) setIsViewModalOpen(false);
 
       setSelectedPlan(plan);
-      const funcs = Array.isArray(plan.funcionalidades) ? plan.funcionalidades.join('\n') : '';
       
       setFormData({
           nome: plan.nome,
           valorMensalidade: plan.valorMensalidade.toString(),
           percentualMulta: plan.percentualMulta?.toString() || '0',
           percentualJurosMensal: plan.percentualJurosMensal?.toString() || '0',
-          funcionalidades: funcs,
           contrato: null,
           tipoContrato: String(plan.tipoContrato ?? TIPO_CONTRATO.Nenhum),
           cancelamentoDias: String(plan.cancelamentoDias ?? 7),
           assinarPorCliente: plan.assinarPorCliente ?? true,
       });
+      setPlanBenefits(localServiceStore.getPlanBenefits(plan.idPlano));
       setIsEditModalOpen(true);
   };
 
@@ -136,10 +163,10 @@ export const Planos: React.FC = () => {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      const funcionalidadesArray = formData.funcionalidades
-        .split('\n')
-        .map(f => f.trim())
-        .filter(f => f !== '');
+      const funcionalidadesArray = localServiceStore.benefitsToFuncionalidades(
+        planBenefits,
+        catalogServices,
+      );
       
       const payload = {
         nome: formData.nome,
@@ -155,18 +182,22 @@ export const Planos: React.FC = () => {
 
       if (selectedPlan) {
           await businessService.updatePlan(selectedPlan.idPlano, payload);
+          localServiceStore.savePlanBenefits(selectedPlan.idPlano, planBenefits);
           addToast('success', 'Plano Atualizado', 'As alterações foram salvas com sucesso.');
       } else {
-          await businessService.createPlan(payload);
+          const created = await businessService.createPlan(payload);
+          if (created?.idPlano) {
+            localServiceStore.savePlanBenefits(created.idPlano, planBenefits);
+          }
           addToast('success', 'Plano Criado', 'Novo plano adicionado ao catálogo.');
       }
 
       await fetchPlans();
       setIsEditModalOpen(false);
-      setFormData({ nome: '', valorMensalidade: '', percentualMulta: '', percentualJurosMensal: '', funcionalidades: '', contrato: null, tipoContrato: String(TIPO_CONTRATO.Nenhum), cancelamentoDias: '7', assinarPorCliente: true });
-      setSelectedPlan(null);
-    } catch (error: any) {
-      addToast('error', 'Erro ao salvar', error.message || "Verifique os dados.");
+      resetPlanForm();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Verifique os dados.';
+      addToast('error', 'Erro ao salvar', message);
     } finally {
       setIsSaving(false);
     }
@@ -200,7 +231,17 @@ export const Planos: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {plans.map((plan) => {
-             const features = Array.isArray(plan.funcionalidades) ? plan.funcionalidades : [];
+             const localBenefits = localServiceStore.getPlanBenefits(plan.idPlano);
+             const localFeatures = localServiceStore.benefitsToFuncionalidades(
+               localBenefits,
+               catalogServices,
+             );
+             const features =
+               localFeatures.length > 0
+                 ? localFeatures
+                 : Array.isArray(plan.funcionalidades)
+                   ? plan.funcionalidades
+                   : [];
              const visibleFeatures = features.slice(0, 4); // Mostra até 4
              const remainingCount = features.length - 4;
 
@@ -260,11 +301,11 @@ export const Planos: React.FC = () => {
                         ))}
                         {remainingCount > 0 && (
                             <li className="flex items-center text-xs font-semibold text-slate-900 pl-6 pt-1">
-                            + {remainingCount} funcionalidades...
+                            + {remainingCount} serviços...
                             </li>
                         )}
                         {visibleFeatures.length === 0 && (
-                            <li className="text-sm text-gray-400 italic pl-6">Sem funcionalidades listadas</li>
+                            <li className="text-sm text-gray-400 italic pl-6">Nenhum serviço vinculado</li>
                         )}
                     </ul>
                   </div>
@@ -351,10 +392,22 @@ export const Planos: React.FC = () => {
              <div>
                 <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
                     <Box className="w-4 h-4 mr-2" /> 
-                    Funcionalidades Inclusas
+                    Serviços inclusos no plano
                 </h4>
                 <div className="bg-white border border-gray-200 rounded-lg p-4 max-h-60 overflow-y-auto">
-                    {selectedPlan?.funcionalidades && selectedPlan.funcionalidades.length > 0 ? (
+                    {selectedPlan && localServiceStore.getPlanBenefits(selectedPlan.idPlano).length > 0 ? (
+                        <ul className="space-y-3">
+                            {localServiceStore.getPlanBenefits(selectedPlan.idPlano).map((b, i) => {
+                              const svc = catalogServices.find((s) => s.id === b.serviceId);
+                              return (
+                                <li key={i} className="flex items-start text-sm text-gray-700">
+                                    <Check className="w-4 h-4 text-green-600 mr-3 mt-0.5 shrink-0" />
+                                    {b.quantidade}x {svc?.nome ?? 'Serviço'} (incluso no plano)
+                                </li>
+                              );
+                            })}
+                        </ul>
+                    ) : selectedPlan?.funcionalidades && selectedPlan.funcionalidades.length > 0 ? (
                         <ul className="space-y-3">
                             {selectedPlan.funcionalidades.map((f, i) => (
                                 <li key={i} className="flex items-start text-sm text-gray-700">
@@ -364,7 +417,7 @@ export const Planos: React.FC = () => {
                             ))}
                         </ul>
                     ) : (
-                        <p className="text-sm text-gray-400 italic">Nenhuma funcionalidade cadastrada.</p>
+                        <p className="text-sm text-gray-400 italic">Nenhum serviço vinculado ao plano.</p>
                     )}
                 </div>
              </div>
@@ -514,19 +567,11 @@ export const Planos: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-gray-700">
-              Funcionalidades <span className="text-gray-400 font-normal">(uma por linha)</span>
-            </label>
-            <textarea
-              name="funcionalidades"
-              value={formData.funcionalidades}
-              onChange={handleInputChange}
-              rows={6}
-              placeholder={`Suporte 24h\nAcesso ilimitado\n...`}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all bg-white text-gray-900 placeholder-gray-400 resize-none"
-            />
-          </div>
+          <PlanServiceBenefitsEditor
+            services={catalogServices}
+            benefits={planBenefits}
+            onChange={setPlanBenefits}
+          />
         </div>
       </Modal>
 

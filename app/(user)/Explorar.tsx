@@ -11,6 +11,7 @@ import {
   Loader2,
   AlertCircle,
   MessageSquare,
+  Scissors,
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { SearchSelect } from '../../components/ui/SearchSelect';
@@ -30,6 +31,12 @@ import {
   needsChatRequestForPlan,
 } from '../../utils/planSubscribeEligibility';
 import { PlanChatRequestReason } from '../../utils/planChatRequest';
+import { ExploreServiceCardItem } from '../../components/features/services/ExploreServiceCardItem';
+import { ScheduleServiceModal } from '../../components/features/services/ScheduleServiceModal';
+import { useLocalServices } from '../../features/services/hooks/useLocalServices';
+import { useScheduledServices } from '../../features/services/hooks/useScheduledServices';
+import { sessionService } from '../../services/session';
+import { LocalService } from '../../features/services/schemas/serviceTypes';
 import {
   ClientSubscription,
   ExploreEstablishmentCard,
@@ -51,7 +58,7 @@ export const Explorar: React.FC = () => {
   const planChatRequest = usePlanChatRequestModal();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'estabelecimentos' | 'planos'>('estabelecimentos');
+  const [activeTab, setActiveTab] = useState<'estabelecimentos' | 'planos' | 'servicos'>('estabelecimentos');
   const [showFilters, setShowFilters] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('Todos');
   const [minPrice, setMinPrice] = useState('');
@@ -68,6 +75,14 @@ export const Explorar: React.FC = () => {
     useState<ExploreEstablishmentCard | null>(null);
   const [establishmentPlans, setEstablishmentPlans] = useState<PlanResponse[]>([]);
   const [isLoadingEstablishmentPlans, setIsLoadingEstablishmentPlans] = useState(false);
+
+  const { services: allServices } = useLocalServices();
+  const { scheduleService } = useScheduledServices();
+  const [serviceToSchedule, setServiceToSchedule] = useState<{
+    service: LocalService;
+    establishmentName: string;
+  } | null>(null);
+  const [isScheduling, setIsScheduling] = useState(false);
 
   useEffect(() => {
     userService
@@ -230,6 +245,66 @@ export const Explorar: React.FC = () => {
     });
   }, [allPlans, searchTerm, minPrice, maxPrice]);
 
+  const companyNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    establishments.forEach((est) => map.set(est.idEmpresa, est.name));
+    return map;
+  }, [establishments]);
+
+  const filteredServices = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return allServices.filter((service) => {
+      const establishmentName =
+        companyNameById.get(service.idEmpresa) ?? `Empresa #${service.idEmpresa}`;
+      const matchesSearch =
+        !query ||
+        service.nome.toLowerCase().includes(query) ||
+        establishmentName.toLowerCase().includes(query) ||
+        (service.descricao?.toLowerCase().includes(query) ?? false);
+      const matchesMin = !minPrice || service.preco >= Number(minPrice);
+      const matchesMax = !maxPrice || service.preco <= Number(maxPrice);
+      return matchesSearch && matchesMin && matchesMax;
+    });
+  }, [allServices, searchTerm, minPrice, maxPrice, companyNameById]);
+
+  const handleScheduleService = async (payload: {
+    data: string;
+    horario: string;
+    observacao?: string;
+  }) => {
+    if (!serviceToSchedule) return;
+    const { user } = sessionService.getSession();
+    if (!user?.idUser) {
+      addToast('error', 'Sessão', 'Faça login para agendar um serviço.');
+      navigate('/login?type=client');
+      return;
+    }
+
+    setIsScheduling(true);
+    try {
+      scheduleService({
+        serviceId: serviceToSchedule.service.id,
+        serviceNome: serviceToSchedule.service.nome,
+        idEmpresa: serviceToSchedule.service.idEmpresa,
+        empresaNome: serviceToSchedule.establishmentName,
+        idUser: user.idUser,
+        userNome: user.nome,
+        userEmail: user.email,
+        preco: serviceToSchedule.service.preco,
+        data: payload.data,
+        horario: payload.horario,
+        observacao: payload.observacao,
+      });
+      addToast('success', 'Agendado!', 'Seu serviço foi solicitado com sucesso.');
+      setServiceToSchedule(null);
+    } catch (err) {
+      console.error('[Explorar] Erro ao agendar serviço:', err);
+      addToast('error', 'Erro', 'Não foi possível concluir o agendamento.');
+    } finally {
+      setIsScheduling(false);
+    }
+  };
+
   const openEstablishment = async (est: ExploreEstablishmentCard) => {
     setSelectedEstablishment(est);
     setEstablishmentPlans([]);
@@ -343,6 +418,9 @@ export const Explorar: React.FC = () => {
         <TabButton active={activeTab === 'planos'} onClick={() => setActiveTab('planos')} icon={<Zap className="w-4 h-4" />}>
           Planos
         </TabButton>
+        <TabButton active={activeTab === 'servicos'} onClick={() => setActiveTab('servicos')} icon={<Scissors className="w-4 h-4" />}>
+          Serviços
+        </TabButton>
       </div>
 
       {isPageLoading ? (
@@ -367,28 +445,54 @@ export const Explorar: React.FC = () => {
             ))}
           </div>
         )
-      ) : filteredPlans.length === 0 ? (
-        <StateBox icon={<Zap className="w-12 h-12 text-gray-300" />} text="Nenhum plano encontrado." />
+      ) : activeTab === 'planos' ? (
+        filteredPlans.length === 0 ? (
+          <StateBox icon={<Zap className="w-12 h-12 text-gray-300" />} text="Nenhum plano encontrado." />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
+            {filteredPlans.map((plan) => (
+              <ExplorePlanCardItem
+                key={`${plan.idEmpresa}-${plan.idPlano}`}
+                plan={plan}
+                isSubscribing={subscribingPlanId === plan.idPlano || subscribe.isConnecting}
+                isAlreadySubscribed={
+                  !!plan.plan && hasBlockingSubscription(plan.plan, mySubscriptions)
+                }
+                needsChatRequest={
+                  !!plan.plan && needsChatRequestForPlan(plan.plan, mySubscriptions)
+                }
+                onRequestViaChat={() => openPlanChatRequest(plan)}
+                onSubscribe={() => void handleSubscribePlan(plan)}
+                onContact={() => handleContactPlan(plan)}
+                onViewEstablishment={() => {
+                  const est = establishments.find((e) => e.idEmpresa === plan.idEmpresa);
+                  if (est) void openEstablishment(est);
+                }}
+              />
+            ))}
+          </div>
+        )
+      ) : filteredServices.length === 0 ? (
+        <StateBox
+          icon={<Scissors className="w-12 h-12 text-gray-300" />}
+          text="Nenhum serviço disponível. Estabelecimentos podem cadastrar serviços no painel deles."
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
-          {filteredPlans.map((plan) => (
-            <ExplorePlanCardItem
-              key={`${plan.idEmpresa}-${plan.idPlano}`}
-              plan={plan}
-              isSubscribing={subscribingPlanId === plan.idPlano || subscribe.isConnecting}
-              isAlreadySubscribed={
-                !!plan.plan && hasBlockingSubscription(plan.plan, mySubscriptions)
+          {filteredServices.map((service) => (
+            <ExploreServiceCardItem
+              key={service.id}
+              service={service}
+              establishmentName={
+                companyNameById.get(service.idEmpresa) ?? `Empresa #${service.idEmpresa}`
               }
-              needsChatRequest={
-                !!plan.plan && needsChatRequestForPlan(plan.plan, mySubscriptions)
+              onSchedule={() =>
+                setServiceToSchedule({
+                  service,
+                  establishmentName:
+                    companyNameById.get(service.idEmpresa) ?? `Empresa #${service.idEmpresa}`,
+                })
               }
-              onRequestViaChat={() => openPlanChatRequest(plan)}
-              onSubscribe={() => void handleSubscribePlan(plan)}
-              onContact={() => handleContactPlan(plan)}
-              onViewEstablishment={() => {
-                const est = establishments.find((e) => e.idEmpresa === plan.idEmpresa);
-                if (est) void openEstablishment(est);
-              }}
             />
           ))}
         </div>
@@ -471,6 +575,15 @@ export const Explorar: React.FC = () => {
         onClose={planChatRequest.close}
         onConfirm={planChatRequest.confirm}
         context={planChatRequest.context}
+      />
+
+      <ScheduleServiceModal
+        isOpen={!!serviceToSchedule}
+        onClose={() => setServiceToSchedule(null)}
+        service={serviceToSchedule?.service ?? null}
+        establishmentName={serviceToSchedule?.establishmentName ?? ''}
+        isSaving={isScheduling}
+        onSubmit={handleScheduleService}
       />
     </UserLayout>
   );

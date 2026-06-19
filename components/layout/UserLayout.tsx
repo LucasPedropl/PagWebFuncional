@@ -11,6 +11,7 @@ import {
   Compass,
   BarChart3,
   MessageSquare,
+  Calendar,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
@@ -273,6 +274,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
     { icon: Compass, label: 'Explorar', path: '/explorar' },
+    { icon: Calendar, label: 'Agendamentos', path: '/meus-agendamentos' },
     { icon: Store, label: 'Estabelecimentos', path: '/empresas', badge: pendingConnectionsCount }, 
     { icon: CreditCard, label: 'Assinaturas', path: '/assinaturas', badge: pendingSubscriptionsCount },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos', badge: pendingInvoicesCount }, 

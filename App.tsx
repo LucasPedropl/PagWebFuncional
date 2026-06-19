@@ -13,9 +13,11 @@ import { MetodosPagamento as UserMetodosPagamento } from './app/(user)/MetodosPa
 import { Configuracoes as UserConfiguracoes } from './app/(user)/Configuracoes';
 import { MenuMobile as UserMenuMobile } from './app/(user)/MenuMobile';
 import { Explorar as UserExplorar } from './app/(user)/Explorar';
+import { MeusAgendamentos } from './app/(user)/MeusAgendamentos';
 import { BusinessDashboard } from './app/(business)/Dashboard';
 import { Clientes } from './app/(business)/Clientes';
 import { Planos } from './app/(business)/Planos';
+import { Servicos } from './app/(business)/Servicos';
 import { Assinaturas } from './app/(business)/Assinaturas';
 import { Pagamentos } from './app/(business)/Pagamentos';
 import { Relatorios } from './app/(business)/Relatorios';
@@ -131,6 +133,14 @@ const App: React.FC = () => {
             } 
           />
           <Route 
+            path="/meus-agendamentos" 
+            element={
+              <ClientRoute>
+                <MeusAgendamentos />
+              </ClientRoute>
+            } 
+          />
+          <Route 
             path="/assinaturas" 
             element={
               <ClientRoute>
@@ -209,6 +219,14 @@ const App: React.FC = () => {
             element={
               <BusinessRoute>
                 <Planos />
+              </BusinessRoute>
+            } 
+          />
+          <Route 
+            path="/business/servicos" 
+            element={
+              <BusinessRoute>
+                <Servicos />
               </BusinessRoute>
             } 
           />

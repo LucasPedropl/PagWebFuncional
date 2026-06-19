@@ -12,7 +12,8 @@ import {
   Plus,
   ChevronRight,
   LogOut,
-  MessageCircle
+  MessageCircle,
+  Scissors,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 
@@ -22,13 +23,14 @@ export const MenuMobile: React.FC = () => {
   const quickActions = [
     { label: 'Novo Cliente', path: '/business/clientes', icon: Users },
     { label: 'Novo Plano', path: '/business/planos', icon: Layers },
-    { label: 'Nova Assinatura', path: '/business/assinaturas', icon: CreditCard },
+    { label: 'Novo Serviço', path: '/business/servicos', icon: Scissors },
   ];
 
   const allPages = [
     { icon: LayoutGrid, label: 'Overview / Dashboard', path: '/business/dashboard' },
     { icon: Users, label: 'Clientes', path: '/business/clientes' },
     { icon: Layers, label: 'Planos', path: '/business/planos' },
+    { icon: Scissors, label: 'Serviços', path: '/business/servicos' },
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Gestão de Cobranças', path: '/business/pagamentos' },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
