@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Settings } from 'lucide-react';
 import type { ShellAudience, ShellBrand, ShellNavItem } from './shellTypes';
+import { ShellNavSubmenu } from './ShellNavSubmenu';
 import {
   getShellAccent,
   getShellSidebarBg,
@@ -21,6 +22,64 @@ interface AppSidebarProps {
   currentPath: string;
   topSlot?: React.ReactNode;
 }
+
+const ShellNavLink: React.FC<{
+  item: ShellNavItem;
+  isCollapsed: boolean;
+  isActive: boolean;
+  accent: ReturnType<typeof getShellAccent>;
+}> = ({ item, isCollapsed, isActive, accent }) => {
+  const ItemIcon = item.icon;
+  return (
+    <div className="relative group">
+      <Link
+        to={item.path!}
+        className={`relative flex items-center ${SHELL_R} transition-all duration-200 select-none ${
+          isActive ? accent.navActive : accent.navInactive
+        } ${isCollapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2.5'}`}
+      >
+        {isActive && !isCollapsed && (
+          <span
+            className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-[5px] ${accent.navIndicator}`}
+          />
+        )}
+        <span className="relative flex items-center justify-center shrink-0">
+          <ItemIcon
+            size={20}
+            strokeWidth={isActive ? 2.25 : 2}
+            className={isActive ? accent.navIconActive : 'text-slate-500 group-hover:text-slate-300'}
+          />
+          {item.badge != null && item.badge > 0 && isCollapsed && (
+            <span
+              className={`absolute -top-0.5 -right-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-blue-600 px-0.5 text-[9px] font-semibold text-white ring-2 ${accent.badgeRing}`}
+            >
+              {item.badge > 9 ? '9+' : item.badge}
+            </span>
+          )}
+        </span>
+        {!isCollapsed && (
+          <>
+            <span className={`flex-1 text-sm truncate ${isActive ? 'font-medium' : ''}`}>{item.label}</span>
+            {item.badge != null && item.badge > 0 && (
+              <span
+                className={`shrink-0 tabular-nums min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center ${SHELL_R} bg-blue-600 text-[10px] font-semibold text-white`}
+              >
+                {item.badge > 9 ? '9+' : item.badge}
+              </span>
+            )}
+          </>
+        )}
+      </Link>
+      {isCollapsed && (
+        <div
+          className={`absolute left-full ${SHELL_POPOVER_GAP} top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-slate-800 text-white text-xs font-medium ${SHELL_R} opacity-0 pointer-events-none group-hover:opacity-100 whitespace-nowrap z-[60] shadow-lg transition-opacity select-none`}
+        >
+          {item.label}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const AppSidebar: React.FC<AppSidebarProps> = ({
   audience,
@@ -75,62 +134,27 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         }`}
       >
         {menuItems.map((item) => {
+          if (item.children?.length) {
+            return (
+              <ShellNavSubmenu
+                key={item.label}
+                item={item}
+                isCollapsed={isCollapsed}
+                currentPath={currentPath}
+                accent={accent}
+              />
+            );
+          }
+
           const isActive = currentPath === item.path;
-          const ItemIcon = item.icon;
           return (
-            <div key={item.path} className="relative group">
-              <Link
-                to={item.path}
-                className={`relative flex items-center ${SHELL_R} transition-all duration-200 select-none ${
-                  isActive ? accent.navActive : accent.navInactive
-                } ${isCollapsed ? 'justify-center p-3' : 'gap-3 px-3 py-2.5'}`}
-              >
-                {isActive && !isCollapsed && (
-                  <span
-                    className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-[5px] ${accent.navIndicator}`}
-                  />
-                )}
-                <span className="relative flex items-center justify-center shrink-0">
-                  <ItemIcon
-                    size={20}
-                    strokeWidth={isActive ? 2.25 : 2}
-                    className={
-                      isActive
-                        ? accent.navIconActive
-                        : 'text-slate-500 group-hover:text-slate-300'
-                    }
-                  />
-                  {item.badge != null && item.badge > 0 && isCollapsed && (
-                    <span
-                      className={`absolute -top-0.5 -right-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-blue-600 px-0.5 text-[9px] font-semibold text-white ring-2 ${accent.badgeRing}`}
-                    >
-                      {item.badge > 9 ? '9+' : item.badge}
-                    </span>
-                  )}
-                </span>
-                {!isCollapsed && (
-                  <>
-                    <span className={`flex-1 text-sm truncate ${isActive ? 'font-medium' : ''}`}>
-                      {item.label}
-                    </span>
-                    {item.badge != null && item.badge > 0 && (
-                      <span
-                        className={`shrink-0 tabular-nums min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center ${SHELL_R} bg-blue-600 text-[10px] font-semibold text-white`}
-                      >
-                        {item.badge > 9 ? '9+' : item.badge}
-                      </span>
-                    )}
-                  </>
-                )}
-              </Link>
-              {isCollapsed && (
-                <div
-                  className={`absolute left-full ${SHELL_POPOVER_GAP} top-1/2 -translate-y-1/2 px-2.5 py-1.5 bg-slate-800 text-white text-xs font-medium ${SHELL_R} opacity-0 pointer-events-none group-hover:opacity-100 whitespace-nowrap z-[60] shadow-lg transition-opacity select-none`}
-                >
-                  {item.label}
-                </div>
-              )}
-            </div>
+            <ShellNavLink
+              key={item.path}
+              item={item}
+              isCollapsed={isCollapsed}
+              isActive={isActive}
+              accent={accent}
+            />
           );
         })}
       </nav>

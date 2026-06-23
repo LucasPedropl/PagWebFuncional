@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Scissors,
   Calendar,
+  Clock,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
@@ -25,6 +26,7 @@ import { AppTopHeader } from './shell/AppTopHeader';
 import { AppMobileBottomNav } from './shell/AppMobileBottomNav';
 import { ViewSwitcher } from './shell/ViewSwitcher';
 import type { ShellAudience } from './shell/shellTypes';
+import { resolveShellPageTitle } from './shell/shellTypes';
 import { SHELL_MAIN_OFFSET_COLLAPSED, SHELL_MAIN_OFFSET_EXPANDED, shellPageBackdrop } from './shell/shellTheme';
 
 interface BusinessLayoutProps {
@@ -210,8 +212,15 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: LayoutGrid, label: 'Visão geral', path: '/business/dashboard' },
     { icon: Users, label: 'Clientes', path: '/business/clientes' },
     { icon: Layers, label: 'Planos', path: '/business/planos' },
-    { icon: Scissors, label: 'Serviços', path: '/business/servicos' },
-    { icon: Calendar, label: 'Agendamentos', path: '/business/agendamentos' },
+    {
+      icon: Scissors,
+      label: 'Serviços',
+      children: [
+        { label: 'Catálogo', path: '/business/servicos', icon: Scissors },
+        { label: 'Agendamentos', path: '/business/agendamentos', icon: Calendar },
+        { label: 'Horários', path: '/business/horarios-agendamento', icon: Clock },
+      ],
+    },
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Gestão de Cobranças', path: '/business/pagamentos' },
     { icon: MessageSquare, label: 'Chat com Clientes', path: '/business/chat', badge: unreadChatCount },
@@ -229,7 +238,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
   ];
 
   const pageTitle =
-    menuItems.find((i) => i.path === location.pathname)?.label ||
+    resolveShellPageTitle(menuItems, location.pathname) ||
     (location.pathname.includes('configuracoes')
       ? 'Configurações'
       : location.pathname.includes('menu')
