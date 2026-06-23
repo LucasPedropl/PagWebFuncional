@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import type { ShellNavItem } from './shellTypes';
-import { SHELL_POPOVER_GAP, SHELL_R } from './shellTheme';
+import { SHELL_R } from './shellTheme';
 
 interface ShellAccentNav {
   navActive: string;
@@ -51,27 +51,31 @@ export const ShellNavSubmenu: React.FC<ShellNavSubmenuProps> = ({
           />
         </button>
         <div
-          className={`absolute left-full ${SHELL_POPOVER_GAP} top-0 min-w-[11rem] py-1.5 bg-slate-800 border border-slate-700 ${SHELL_R} opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto z-[60] shadow-xl transition-opacity`}
+          className="absolute left-full top-0 z-[60] pl-4 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto"
         >
-          <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            {item.label}
-          </p>
-          {children.map((child) => {
-            const isActive = currentPath === child.path;
-            const ChildIcon = child.icon;
-            return (
-              <Link
-                key={child.path}
-                to={child.path}
-                className={`flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
-                  isActive ? 'bg-white/10 text-white font-medium' : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                {ChildIcon && <ChildIcon size={16} className="shrink-0 opacity-80" />}
-                {child.label}
-              </Link>
-            );
-          })}
+          <div
+            className={`min-w-[11rem] py-1.5 bg-slate-800 border border-slate-700 ${SHELL_R} shadow-xl`}
+          >
+            <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              {item.label}
+            </p>
+            {children.map((child) => {
+              const isActive = currentPath === child.path;
+              const ChildIcon = child.icon;
+              return (
+                <Link
+                  key={child.path}
+                  to={child.path}
+                  className={`flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
+                    isActive ? 'bg-white/10 text-white font-medium' : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                  }`}
+                >
+                  {ChildIcon && <ChildIcon size={16} className="shrink-0 opacity-80" />}
+                  {child.label}
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </div>
     );

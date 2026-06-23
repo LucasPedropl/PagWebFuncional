@@ -25,4 +25,14 @@ export const WEEKDAY_LABELS: Record<WeekdayKey, string> = {
   dom: 'Domingo',
 };
 
+export const WEEKDAY_SHORT: Record<WeekdayKey, string> = {
+  seg: 'Seg',
+  ter: 'Ter',
+  qua: 'Qua',
+  qui: 'Qui',
+  sex: 'Sex',
+  sab: 'Sáb',
+  dom: 'Dom',
+};
+
 export const SCHEDULE_INTERVAL_OPTIONS = [15, 30, 45, 60] as const;
