@@ -14,6 +14,7 @@ import { Configuracoes as UserConfiguracoes } from './app/(user)/Configuracoes';
 import { MenuMobile as UserMenuMobile } from './app/(user)/MenuMobile';
 import { Explorar as UserExplorar } from './app/(user)/Explorar';
 import { MeusAgendamentos } from './app/(user)/MeusAgendamentos';
+import { HistoricoServicos } from './app/(user)/HistoricoServicos';
 import { BusinessDashboard } from './app/(business)/Dashboard';
 import { Clientes } from './app/(business)/Clientes';
 import { Planos } from './app/(business)/Planos';
@@ -22,6 +23,7 @@ import { Agendamentos } from './app/(business)/Agendamentos';
 import { HorariosAgendamento } from './app/(business)/HorariosAgendamento';
 import { Assinaturas } from './app/(business)/Assinaturas';
 import { Pagamentos } from './app/(business)/Pagamentos';
+import { PagamentoUnico } from './app/(business)/PagamentoUnico';
 import { Relatorios } from './app/(business)/Relatorios';
 import { Configuracoes } from './app/(business)/Configuracoes';
 import { ConectarWhatsapp } from './app/(business)/ConectarWhatsapp';
@@ -139,6 +141,14 @@ const App: React.FC = () => {
             element={
               <ClientRoute>
                 <MeusAgendamentos />
+              </ClientRoute>
+            } 
+          />
+          <Route 
+            path="/historico-servicos" 
+            element={
+              <ClientRoute>
+                <HistoricoServicos />
               </ClientRoute>
             } 
           />
@@ -261,6 +271,14 @@ const App: React.FC = () => {
             element={
               <BusinessRoute>
                 <Pagamentos />
+              </BusinessRoute>
+            } 
+          />
+          <Route 
+            path="/business/pagamento-unico" 
+            element={
+              <BusinessRoute>
+                <PagamentoUnico />
               </BusinessRoute>
             } 
           />

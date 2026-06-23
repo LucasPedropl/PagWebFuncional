@@ -12,12 +12,14 @@ import {
   BarChart3,
   MessageSquare,
   Calendar,
+  Banknote,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
 import { companyService } from '../../services/companyService';
 import { AppNotification } from '../../types';
 import { useUnreadChatCount } from '../../hooks/useUnreadChatCount';
+import { localSinglePaymentStore } from '../../features/single-payment/services/localSinglePaymentStore';
 import { AppSidebar } from './shell/AppSidebar';
 import { AppTopHeader } from './shell/AppTopHeader';
 import { AppMobileBottomNav } from './shell/AppMobileBottomNav';
@@ -177,7 +179,17 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
       
       // Filtrar faturas em aberto ou atrasadas
       const invoicesData = Array.isArray(invoices) ? invoices : [];
-      setPendingInvoicesCount(invoicesData.filter(i => i.status === 'Aberto' || i.status === 'Atrasado').length);
+      const { user } = sessionService.getSession();
+      const localPending =
+        user?.idUser != null
+          ? localSinglePaymentStore
+              .listPayments({ idUser: user.idUser })
+              .filter((p) => p.status === 'Aberto' || p.status === 'Atrasado').length
+          : 0;
+      const apiPending = invoicesData.filter(
+        (i) => i.status === 'Aberto' || i.status === 'Atrasado',
+      ).length;
+      setPendingInvoicesCount(apiPending + localPending);
     } catch (error) {
       console.error("Erro ao carregar contagens pendentes", error);
     }
@@ -275,6 +287,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
     { icon: Compass, label: 'Explorar', path: '/explorar' },
     { icon: Calendar, label: 'Agendamentos', path: '/meus-agendamentos' },
+    { icon: Banknote, label: 'Cobranças', path: '/historico-servicos' },
     { icon: Store, label: 'Estabelecimentos', path: '/empresas', badge: pendingConnectionsCount }, 
     { icon: CreditCard, label: 'Assinaturas', path: '/assinaturas', badge: pendingSubscriptionsCount },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos', badge: pendingInvoicesCount }, 

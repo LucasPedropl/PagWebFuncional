@@ -261,6 +261,11 @@ export interface ClientInvoice {
   metodo: string;
   valor: number;
   status: string;
+  /** Fatura avulsa criada pelo estabelecimento (localStorage até backend). */
+  isPagamentoUnico?: boolean;
+  localPaymentId?: string;
+  observacao?: string;
+  descricaoServico?: string;
 }
 
 export interface SavedCard {

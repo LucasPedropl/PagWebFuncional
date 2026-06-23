@@ -16,6 +16,7 @@ import {
   Scissors,
   Calendar,
   Clock,
+  Banknote,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 
@@ -37,6 +38,7 @@ export const MenuMobile: React.FC = () => {
     { icon: Clock, label: 'Horários de Atendimento', path: '/business/horarios-agendamento' },
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Gestão de Cobranças', path: '/business/pagamentos' },
+    { icon: Banknote, label: 'Pagamento Único', path: '/business/pagamento-unico' },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
     { icon: MessageCircle, label: 'WhatsApp', path: '/business/whatsapp' },
     { icon: Settings, label: 'Configurações', path: '/business/configuracoes' },

@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -7,12 +8,21 @@ import { Download, Filter, Search, FileText, Loader2, ArrowRight, CreditCard, Qr
 import { userService } from '../../services/userService';
 import { ClientInvoice, SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
+import { localSinglePaymentStore } from '../../features/single-payment/services/localSinglePaymentStore';
+import { mergeClientInvoices } from '../../features/single-payment/utils/singlePaymentMappers';
+import { listClientSinglePayments } from '../../features/single-payment/utils/listClientSinglePayments';
+import {
+  getSessionClientIdentity,
+  notifySinglePaymentChanged,
+  SINGLE_PAYMENT_CHANGED_EVENT,
+} from '../../utils/sessionUser';
 import { jsPDF } from 'jspdf';
 import { SearchSelect } from '../../components/ui/SearchSelect';
 import { formFilterInputClass, formSearchInputClass } from '../../components/ui/formStyles';
 
 export const Pagamentos: React.FC = () => {
   const { addToast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [invoices, setInvoices] = useState<ClientInvoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,6 +56,17 @@ export const Pagamentos: React.FC = () => {
 
   useEffect(() => {
     fetchInvoices();
+
+    const onRefresh = () => fetchInvoices();
+    window.addEventListener(SINGLE_PAYMENT_CHANGED_EVENT, onRefresh);
+    window.addEventListener('pagweb:refresh-counts', onRefresh);
+    window.addEventListener('storage', onRefresh);
+
+    return () => {
+      window.removeEventListener(SINGLE_PAYMENT_CHANGED_EVENT, onRefresh);
+      window.removeEventListener('pagweb:refresh-counts', onRefresh);
+      window.removeEventListener('storage', onRefresh);
+    };
   }, []);
 
   // Fetch saved cards when opening modal with Credit Card selected or switching to it
@@ -54,6 +75,27 @@ export const Pagamentos: React.FC = () => {
           loadSavedCards();
       }
   }, [isPaymentModalOpen, paymentMethod]);
+
+  useEffect(() => {
+    const paymentId = searchParams.get('paymentId');
+    if (!paymentId || isLoading) return;
+
+    const invoice = invoices.find((inv) => inv.localPaymentId === paymentId);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('paymentId');
+    setSearchParams(nextParams, { replace: true });
+
+    if (!invoice) return;
+
+    if (invoice.status === 'Aberto' || invoice.status === 'Atrasado') {
+      setSelectedInvoice(invoice);
+      setPaymentMethod('PIX');
+      setPaymentSuccess(false);
+      setCardForm({ number: '', holder: '', expiry: '', cvv: '' });
+      setSelectedCardId('new');
+      setIsPaymentModalOpen(true);
+    }
+  }, [searchParams, isLoading, invoices, setSearchParams]);
 
   const loadSavedCards = async () => {
       try {
@@ -71,7 +113,9 @@ export const Pagamentos: React.FC = () => {
   const fetchInvoices = async () => {
     try {
       const data = await userService.listClientInvoices();
-      const sorted = data.sort((a, b) => b.idMensalidade - a.idMensalidade);
+      const localPayments = listClientSinglePayments();
+      const merged = mergeClientInvoices(data, localPayments);
+      const sorted = merged.sort((a, b) => b.idMensalidade - a.idMensalidade);
       setInvoices(sorted);
     } catch (error) {
       console.error(error);
@@ -221,8 +265,12 @@ export const Pagamentos: React.FC = () => {
           
           const methodEnum = methodMap[paymentMethod];
 
-          // Chama serviço de pagamento
-          await userService.payInvoice(selectedInvoice.idMensalidade, methodEnum);
+          if (selectedInvoice.isPagamentoUnico && selectedInvoice.localPaymentId) {
+            localSinglePaymentStore.markAsPaid(selectedInvoice.localPaymentId);
+            notifySinglePaymentChanged();
+          } else {
+            await userService.payInvoice(selectedInvoice.idMensalidade, methodEnum);
+          }
           
           setPaymentSuccess(true);
           addToast('success', 'Pagamento Confirmado', 'Sua fatura foi quitada com sucesso!');
@@ -429,7 +477,14 @@ export const Pagamentos: React.FC = () => {
                             <tr key={inv.idMensalidade} className="hover:bg-gray-50 transition-colors">
                                 <td className="px-6 py-4 font-mono text-gray-600">{inv.vencimento}</td>
                                 <td className="px-6 py-4 font-medium text-gray-900">{inv.nomeEmpresa}</td>
-                                <td className="px-6 py-4 text-gray-500">{inv.mesReferencia}</td>
+                                <td className="px-6 py-4 text-gray-500">
+                                  {inv.mesReferencia}
+                                  {inv.isPagamentoUnico && (
+                                    <span className="ml-2 inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-100 text-violet-700">
+                                      Avulso
+                                    </span>
+                                  )}
+                                </td>
                                 <td className="px-6 py-4 font-bold text-gray-900">R$ {inv.valor.toFixed(2).replace('.', ',')}</td>
                                 <td className="px-6 py-4">
                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -516,6 +571,9 @@ export const Pagamentos: React.FC = () => {
                         <div>
                             <p className="text-xs text-gray-400">Referência</p>
                             <p className="font-medium text-gray-900">{selectedInvoice?.mesReferencia}</p>
+                            {selectedInvoice?.observacao && (
+                              <p className="text-xs text-gray-500 mt-1">{selectedInvoice.observacao}</p>
+                            )}
                         </div>
                         <div>
                             <p className="text-xs text-gray-400">Vencimento</p>

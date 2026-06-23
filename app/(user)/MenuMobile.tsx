@@ -14,6 +14,7 @@ import {
   Compass,
   BarChart3,
   Calendar,
+  Banknote,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 
@@ -24,6 +25,7 @@ export const MenuMobile: React.FC = () => {
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
     { icon: Compass, label: 'Explorar', path: '/explorar' },
     { icon: Calendar, label: 'Meus Agendamentos', path: '/meus-agendamentos' },
+    { icon: Banknote, label: 'Cobranças', path: '/historico-servicos' },
     { icon: Store, label: 'Estabelecimentos', path: '/empresas' },
     { icon: CreditCard, label: 'Minhas Assinaturas', path: '/assinaturas' },
     { icon: Receipt, label: 'Minhas Faturas', path: '/pagamentos' }, 
