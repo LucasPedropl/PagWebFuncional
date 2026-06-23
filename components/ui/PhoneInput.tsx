@@ -1,19 +1,17 @@
 import React from 'react';
 import { SearchSelect } from './SearchSelect';
 import { countries } from '../../data/countries';
+import { formLabelClass, FORM_RADIUS, resolveFormFieldClass } from './formStyles';
 
 interface PhoneInputProps {
   label: string;
-  value: string; // O valor completo com DDI ou apenas o número? 
-  // Seguindo o pedido do usuário, vamos tratar o DDI separadamente no estado ou enviar junto.
-  // Para facilitar a integração, vamos receber as props individualmente.
+  value: string;
   ddi: string;
   onDdiChange: (ddi: string) => void;
   phoneNumber: string;
   onPhoneChange: (phone: string) => void;
   error?: string;
   disabled?: boolean;
-  /** Raio da borda do campo de telefone (padrão: rounded-lg). */
   inputRadiusClass?: string;
   selectRadiusClass?: string;
 }
@@ -26,21 +24,19 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
   onPhoneChange,
   error,
   disabled = false,
-  inputRadiusClass = 'rounded-lg',
-  selectRadiusClass = 'rounded-lg',
+  inputRadiusClass = FORM_RADIUS,
+  selectRadiusClass = FORM_RADIUS,
 }) => {
-  const countryOptions = countries.map(c => ({
+  const countryOptions = countries.map((c) => ({
     value: c.ddi,
     label: `+${c.ddi}`,
     subLabel: c.name,
-    icon: <span>{c.flag}</span>
+    icon: <span>{c.flag}</span>,
   }));
 
   return (
     <div className="flex flex-col gap-1.5 w-full">
-      <label className="text-sm font-medium text-gray-700">
-        {label}
-      </label>
+      <label className={formLabelClass}>{label}</label>
       <div className="flex gap-2">
         <div className="w-24 shrink-0">
           <SearchSelect
@@ -59,14 +55,12 @@ export const PhoneInput: React.FC<PhoneInputProps> = ({
             disabled={disabled}
             value={phoneNumber}
             onChange={(e) => onPhoneChange(e.target.value)}
-            className={`w-full px-3 py-2 border ${inputRadiusClass} focus:outline-none focus:ring-2 focus:ring-slate-900 transition-all bg-white text-gray-900 placeholder-gray-400 ${
-              error ? 'border-red-500 ring-red-200' : 'border-gray-300'
-            } ${disabled ? 'bg-gray-50 cursor-not-allowed text-gray-500' : 'hover:border-gray-400 shadow-sm'}`}
+            className={`${resolveFormFieldClass({ error: !!error, disabled })} ${inputRadiusClass}`}
             placeholder="(00) 00000-0000"
           />
         </div>
       </div>
-      {error && <span className="text-xs text-red-500">{error}</span>}
+      {error ? <span className="text-xs text-red-500">{error}</span> : null}
     </div>
   );
 };

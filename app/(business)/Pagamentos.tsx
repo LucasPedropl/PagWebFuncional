@@ -9,6 +9,7 @@ import { businessService } from '../../services/businessService';
 import { Mensalidade } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { SearchSelect } from '../../components/ui/SearchSelect';
+import { formFilterInputClass, formSearchInputClass } from '../../components/ui/formStyles';
 
 // Componente de Tooltip Interno (Reutilizado)
 const InfoTooltip = ({ text }: { text: string }) => (
@@ -230,7 +231,7 @@ export const Pagamentos: React.FC = () => {
             <input
               type="text"
               placeholder="Buscar por cliente ou ID..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm text-gray-900 bg-white"
+              className={formSearchInputClass}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -270,14 +271,14 @@ export const Pagamentos: React.FC = () => {
                     type="date" 
                     value={dateStart}
                     onChange={(e) => setDateStart(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                    className={formFilterInputClass}
                   />
                   <span className="text-gray-400">-</span>
                   <input 
                     type="date" 
                     value={dateEnd}
                     onChange={(e) => setDateEnd(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                    className={formFilterInputClass}
                   />
                 </div>
               </div>
@@ -291,7 +292,7 @@ export const Pagamentos: React.FC = () => {
                     placeholder="Min" 
                     value={minVal}
                     onChange={(e) => setMinVal(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                    className={formFilterInputClass}
                   />
                   <span className="text-gray-400">-</span>
                   <input 
@@ -299,7 +300,7 @@ export const Pagamentos: React.FC = () => {
                     placeholder="Max" 
                     value={maxVal}
                     onChange={(e) => setMaxVal(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                    className={formFilterInputClass}
                   />
                 </div>
               </div>

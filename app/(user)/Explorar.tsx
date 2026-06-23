@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
+import { FORM_RADIUS } from '../../components/ui/formStyles';
 import { Modal } from '../../components/ui/Modal';
 import {
   Search,
@@ -363,7 +364,7 @@ export const Explorar: React.FC = () => {
               <input
                 type="text"
                 placeholder="Buscar por nome, plano ou funcionalidade..."
-                className="w-full pl-12 pr-4 py-3 rounded-xl text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                className={`w-full pl-12 pr-4 py-3 ${FORM_RADIUS} text-slate-900 bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -395,14 +396,14 @@ export const Explorar: React.FC = () => {
                     placeholder="Min R$"
                     value={minPrice}
                     onChange={(e) => setMinPrice(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white text-sm"
+                    className={`w-full px-3.5 py-2.5 border border-slate-600 ${FORM_RADIUS} bg-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/20`}
                   />
                   <input
                     type="number"
                     placeholder="Max R$"
                     value={maxPrice}
                     onChange={(e) => setMaxPrice(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-600 rounded-lg bg-slate-700 text-white text-sm"
+                    className={`w-full px-3.5 py-2.5 border border-slate-600 ${FORM_RADIUS} bg-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/20`}
                   />
                 </div>
               )}
@@ -411,7 +412,7 @@ export const Explorar: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex gap-2 mb-6 border-b border-gray-200">
+      <div className="flex w-full gap-2 mb-6 border-b border-gray-200">
         <TabButton active={activeTab === 'estabelecimentos'} onClick={() => setActiveTab('estabelecimentos')} icon={<Store className="w-4 h-4" />}>
           Estabelecimentos
         </TabButton>
@@ -598,7 +599,7 @@ const TabButton: React.FC<{
   <button
     type="button"
     onClick={onClick}
-    className={`flex items-center gap-2 px-4 py-3 text-sm font-bold border-b-2 ${
+    className={`flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-bold border-b-2 ${
       active ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'
     }`}
   >

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import { userService } from '../../services/userService';
@@ -8,6 +8,19 @@ import { Button } from '../../components/ui/Button';
 import { AuthInput } from '../../components/features/auth/AuthInput';
 import { AuthAlert } from '../../components/features/auth/AuthAlert';
 import { getAuthTheme } from '../../utils/authTheme';
+
+const CLIENT_LOGIN_DEFAULTS = {
+  email: 'pedrolucasmota2005@gmail.com',
+  password: '123123',
+};
+
+const BUSINESS_LOGIN_DEFAULTS = {
+  email: 'pedrolucasmota2005.pl@gmail.com',
+  password: '123123',
+};
+
+const getLoginDefaults = (business: boolean) =>
+  business ? BUSINESS_LOGIN_DEFAULTS : CLIENT_LOGIN_DEFAULTS;
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -21,7 +34,11 @@ export const Login: React.FC = () => {
   const audience = isBusiness ? 'business' : 'client';
   const theme = getAuthTheme(audience);
 
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState(() => getLoginDefaults(isBusiness));
+
+  useEffect(() => {
+    setFormData(getLoginDefaults(isBusiness));
+  }, [isBusiness]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));

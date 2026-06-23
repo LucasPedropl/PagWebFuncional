@@ -11,7 +11,9 @@ import {
   Repeat,
 } from 'lucide-react';
 import { Button } from '../../ui/Button';
+import { Input } from '../../ui/Input';
 import { Modal } from '../../ui/Modal';
+import { FORM_RADIUS } from '../../ui/formStyles';
 import { SignaturePadModal } from '../../ui/SignaturePadModal';
 import { CameraCaptureModal } from '../../ui/CameraCaptureModal';
 import { SubscribeFormState, usePlanSubscribe } from '../../../hooks/usePlanSubscribe';
@@ -221,7 +223,7 @@ const ConfigStep: React.FC<{
   onChange: React.Dispatch<React.SetStateAction<SubscribeFormState>>;
 }> = ({ form, onChange }) => (
   <div className="space-y-4">
-    <label className="flex items-center cursor-pointer gap-2 p-3 border border-gray-200 rounded-lg">
+    <label className={`flex items-center cursor-pointer gap-2 p-3 border border-slate-200 ${FORM_RADIUS}`}>
       <input
         type="checkbox"
         checked={form.isRecorrente}
@@ -234,30 +236,22 @@ const ConfigStep: React.FC<{
       </span>
     </label>
     <div className="grid grid-cols-2 gap-4">
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">Período (meses)</label>
-        <input
-          type="number"
-          min={1}
-          value={form.periodo}
-          disabled={form.isRecorrente}
-          onChange={(e) => onChange((prev) => ({ ...prev, periodo: e.target.value }))}
-          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${
-            form.isRecorrente ? 'bg-gray-100 text-gray-400' : ''
-          }`}
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">Dia de pagamento</label>
-        <input
-          type="number"
-          min={1}
-          max={30}
-          value={form.diaPagamento}
-          onChange={(e) => onChange((prev) => ({ ...prev, diaPagamento: e.target.value }))}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-        />
-      </div>
+      <Input
+        label="Período (meses)"
+        type="number"
+        min={1}
+        value={form.periodo}
+        disabled={form.isRecorrente}
+        onChange={(e) => onChange((prev) => ({ ...prev, periodo: e.target.value }))}
+      />
+      <Input
+        label="Dia de pagamento"
+        type="number"
+        min={1}
+        max={30}
+        value={form.diaPagamento}
+        onChange={(e) => onChange((prev) => ({ ...prev, diaPagamento: e.target.value }))}
+      />
     </div>
   </div>
 );
@@ -275,7 +269,7 @@ const ContractStep: React.FC<{
   <div className="space-y-4">
     {plan.contratoPath ? (
       <>
-        <iframe src={getContractUrl(plan.contratoPath)} title="Contrato" className="w-full h-40 border rounded-lg" />
+        <iframe src={getContractUrl(plan.contratoPath)} title="Contrato" className={`w-full h-40 border ${FORM_RADIUS}`} />
         <Button type="button" variant="outline" className="w-full" onClick={onOpenContract}>
           <Download className="w-4 h-4 mr-2" />
           Abrir em nova aba
@@ -299,7 +293,7 @@ const ContractStep: React.FC<{
       </div>
     )}
     {requiresAck && (
-      <label className="flex items-start gap-2 text-sm p-3 border border-gray-200 rounded-lg">
+      <label className={`flex items-start gap-2 text-sm p-3 border border-slate-200 ${FORM_RADIUS}`}>
         <input
           type="checkbox"
           checked={form.aceitouTermos}
@@ -339,12 +333,12 @@ const ConfirmStep: React.FC<{
         <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
       </div>
     ) : mergedPdfUrl ? (
-      <iframe src={mergedPdfUrl} title="Contrato final" className="w-full h-56 border rounded-lg" />
+      <iframe src={mergedPdfUrl} title="Contrato final" className={`w-full h-56 border ${FORM_RADIUS}`} />
     ) : plan.contratoPath ? (
       <iframe
         src={getContractUrl(plan.contratoPath)}
         title="Contrato"
-        className="w-full h-56 border rounded-lg"
+        className={`w-full h-56 border ${FORM_RADIUS}`}
       />
     ) : null}
     {mergedBlob && (

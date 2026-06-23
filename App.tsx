@@ -18,6 +18,7 @@ import { BusinessDashboard } from './app/(business)/Dashboard';
 import { Clientes } from './app/(business)/Clientes';
 import { Planos } from './app/(business)/Planos';
 import { Servicos } from './app/(business)/Servicos';
+import { Agendamentos } from './app/(business)/Agendamentos';
 import { Assinaturas } from './app/(business)/Assinaturas';
 import { Pagamentos } from './app/(business)/Pagamentos';
 import { Relatorios } from './app/(business)/Relatorios';
@@ -227,6 +228,14 @@ const App: React.FC = () => {
             element={
               <BusinessRoute>
                 <Servicos />
+              </BusinessRoute>
+            } 
+          />
+          <Route 
+            path="/business/agendamentos" 
+            element={
+              <BusinessRoute>
+                <Agendamentos />
               </BusinessRoute>
             } 
           />

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { Plus, Check, Edit2, Trash2, Loader2, AlertTriangle, ExternalLink, Box, FileText, Download } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { companyService } from '../../services/companyService';
 import { PlanResponse } from '../../types';
-import { PlanServiceBenefitsEditor } from '../../components/features/services/PlanServiceBenefitsEditor';
+import { PlanFormModal } from '../../components/features/plans/PlanFormModal';
+import { emptyPlanFormData, extractManualFuncionalidades } from '../../components/features/plans/planFormTypes';
+import { getPlanDisplayFeatures } from '../../components/features/plans/planDisplayUtils';
 import { useLocalServices } from '../../features/services/hooks/useLocalServices';
 import { localServiceStore } from '../../features/services/services/localServiceStore';
 import { PlanServiceBenefit } from '../../features/services/schemas/serviceTypes';
@@ -32,16 +33,7 @@ export const Planos: React.FC = () => {
   const [planToDelete, setPlanToDelete] = useState<{id: number, nome: string} | null>(null);
 
   // Form State
-  const [formData, setFormData] = useState({
-    nome: '',
-    valorMensalidade: '',
-    percentualMulta: '',
-    percentualJurosMensal: '',
-    contrato: null as File | null,
-    tipoContrato: String(TIPO_CONTRATO.Nenhum),
-    cancelamentoDias: '7',
-    assinarPorCliente: true,
-  });
+  const [formData, setFormData] = useState(emptyPlanFormData());
   const [planBenefits, setPlanBenefits] = useState<PlanServiceBenefit[]>([]);
   const [idEmpresa, setIdEmpresa] = useState<number | null>(null);
   const { services: catalogServices } = useLocalServices(idEmpresa ?? undefined);
@@ -58,16 +50,7 @@ export const Planos: React.FC = () => {
   }, []);
 
   const resetPlanForm = () => {
-    setFormData({
-      nome: '',
-      valorMensalidade: '',
-      percentualMulta: '',
-      percentualJurosMensal: '',
-      contrato: null,
-      tipoContrato: String(TIPO_CONTRATO.Nenhum),
-      cancelamentoDias: '7',
-      assinarPorCliente: true,
-    });
+    setFormData(emptyPlanFormData());
     setPlanBenefits([]);
     setSelectedPlan(null);
   };
@@ -127,6 +110,7 @@ export const Planos: React.FC = () => {
           valorMensalidade: plan.valorMensalidade.toString(),
           percentualMulta: plan.percentualMulta?.toString() || '0',
           percentualJurosMensal: plan.percentualJurosMensal?.toString() || '0',
+          funcionalidades: extractManualFuncionalidades(plan.funcionalidades),
           contrato: null,
           tipoContrato: String(plan.tipoContrato ?? TIPO_CONTRATO.Nenhum),
           cancelamentoDias: String(plan.cancelamentoDias ?? 7),
@@ -163,10 +147,10 @@ export const Planos: React.FC = () => {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      const funcionalidadesArray = localServiceStore.benefitsToFuncionalidades(
-        planBenefits,
-        catalogServices,
-      );
+      const funcionalidadesArray = formData.funcionalidades
+        .split('\n')
+        .map((f) => f.trim())
+        .filter((f) => f !== '');
       
       const payload = {
         nome: formData.nome,
@@ -231,17 +215,7 @@ export const Planos: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {plans.map((plan) => {
-             const localBenefits = localServiceStore.getPlanBenefits(plan.idPlano);
-             const localFeatures = localServiceStore.benefitsToFuncionalidades(
-               localBenefits,
-               catalogServices,
-             );
-             const features =
-               localFeatures.length > 0
-                 ? localFeatures
-                 : Array.isArray(plan.funcionalidades)
-                   ? plan.funcionalidades
-                   : [];
+             const features = getPlanDisplayFeatures(plan, catalogServices);
              const visibleFeatures = features.slice(0, 4); // Mostra até 4
              const remainingCount = features.length - 4;
 
@@ -301,11 +275,11 @@ export const Planos: React.FC = () => {
                         ))}
                         {remainingCount > 0 && (
                             <li className="flex items-center text-xs font-semibold text-slate-900 pl-6 pt-1">
-                            + {remainingCount} serviços...
+                            + {remainingCount} itens...
                             </li>
                         )}
                         {visibleFeatures.length === 0 && (
-                            <li className="text-sm text-gray-400 italic pl-6">Nenhum serviço vinculado</li>
+                            <li className="text-sm text-gray-400 italic pl-6">Sem benefícios listados</li>
                         )}
                     </ul>
                   </div>
@@ -392,29 +366,46 @@ export const Planos: React.FC = () => {
              <div>
                 <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
                     <Box className="w-4 h-4 mr-2" /> 
-                    Serviços inclusos no plano
+                    Funcionalidades
                 </h4>
-                <div className="bg-white border border-gray-200 rounded-lg p-4 max-h-60 overflow-y-auto">
-                    {selectedPlan && localServiceStore.getPlanBenefits(selectedPlan.idPlano).length > 0 ? (
-                        <ul className="space-y-3">
-                            {localServiceStore.getPlanBenefits(selectedPlan.idPlano).map((b, i) => {
-                              const svc = catalogServices.find((s) => s.id === b.serviceId);
-                              return (
-                                <li key={i} className="flex items-start text-sm text-gray-700">
-                                    <Check className="w-4 h-4 text-green-600 mr-3 mt-0.5 shrink-0" />
-                                    {b.quantidade}x {svc?.nome ?? 'Serviço'} (incluso no plano)
-                                </li>
-                              );
-                            })}
-                        </ul>
-                    ) : selectedPlan?.funcionalidades && selectedPlan.funcionalidades.length > 0 ? (
-                        <ul className="space-y-3">
-                            {selectedPlan.funcionalidades.map((f, i) => (
+                <div className="bg-white border border-gray-200 rounded-lg p-4 max-h-48 overflow-y-auto">
+                    {selectedPlan?.funcionalidades &&
+                    extractManualFuncionalidades(selectedPlan.funcionalidades).trim() ? (
+                        <ul className="space-y-2">
+                            {extractManualFuncionalidades(selectedPlan.funcionalidades)
+                              .split('\n')
+                              .map((f) => f.trim())
+                              .filter(Boolean)
+                              .map((f, i) => (
                                 <li key={i} className="flex items-start text-sm text-gray-700">
                                     <Check className="w-4 h-4 text-green-600 mr-3 mt-0.5 shrink-0" />
                                     {f}
                                 </li>
-                            ))}
+                              ))}
+                        </ul>
+                    ) : (
+                        <p className="text-sm text-gray-400 italic">Nenhuma funcionalidade cadastrada.</p>
+                    )}
+                </div>
+             </div>
+
+             <div>
+                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                    <Box className="w-4 h-4 mr-2" /> 
+                    Serviços inclusos no plano
+                </h4>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 max-h-48 overflow-y-auto">
+                    {selectedPlan && localServiceStore.getPlanBenefits(selectedPlan.idPlano).length > 0 ? (
+                        <ul className="space-y-2">
+                            {localServiceStore.getPlanBenefits(selectedPlan.idPlano).map((b, i) => {
+                              const svc = catalogServices.find((s) => s.id === b.serviceId);
+                              return (
+                                <li key={i} className="flex items-start text-sm text-gray-700">
+                                    <Check className="w-4 h-4 text-violet-600 mr-3 mt-0.5 shrink-0" />
+                                    {b.quantidade}x {svc?.nome ?? 'Serviço'} (incluso no plano)
+                                </li>
+                              );
+                            })}
                         </ul>
                     ) : (
                         <p className="text-sm text-gray-400 italic">Nenhum serviço vinculado ao plano.</p>
@@ -441,139 +432,19 @@ export const Planos: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Modal Criar/Editar (Form) */}
-      <Modal
+      <PlanFormModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        title={selectedPlan ? "Editar Plano" : "Novo Plano"}
-        onSubmit={(e) => { e.preventDefault(); handleSave(); }}
-        footer={
-          <>
-            <Button type="button" variant="outline" onClick={() => setIsEditModalOpen(false)} disabled={isSaving}>Cancelar</Button>
-            <Button type="submit" isLoading={isSaving} className="bg-slate-900 hover:bg-slate-800">
-                {selectedPlan ? "Salvar Alterações" : "Criar Plano"}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-5">
-          <Input 
-            label="Nome do Plano" 
-            placeholder="Ex: Plano Enterprise" 
-            name="nome"
-            value={formData.nome}
-            onChange={handleInputChange}
-            required
-          />
-          
-          <div className="flex items-end gap-4">
-            <div className="flex-1">
-              <Input 
-                label="Preço Mensal" 
-                placeholder="R$ 0.00" 
-                type="number"
-                step="0.01"
-                name="valorMensalidade"
-                value={formData.valorMensalidade}
-                onChange={handleInputChange}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Input 
-              label="Multa (%)" 
-              placeholder="Ex: 2.00" 
-              type="number"
-              step="0.01"
-              name="percentualMulta"
-              value={formData.percentualMulta}
-              onChange={handleInputChange}
-            />
-            <Input 
-              label="Juros Mensal (%)" 
-              placeholder="Ex: 1.00" 
-              type="number"
-              step="0.01"
-              name="percentualJurosMensal"
-              value={formData.percentualJurosMensal}
-              onChange={handleInputChange}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700">Tipo de contrato</label>
-              <select
-                name="tipoContrato"
-                value={formData.tipoContrato}
-                onChange={handleInputChange}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900"
-              >
-                <option value={TIPO_CONTRATO.Nenhum}>Nenhum</option>
-                <option value={TIPO_CONTRATO.Termo}>Termo de adesão</option>
-                <option value={TIPO_CONTRATO.Contrato}>Contrato (requer assinatura)</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                Termo de adesão: o cliente só marca concordância. Contrato: exige assinatura desenhada e foto.
-              </p>
-            </div>
-            <Input
-              label="Dias p/ cancelamento"
-              type="number"
-              min={0}
-              name="cancelamentoDias"
-              value={formData.cancelamentoDias}
-              onChange={handleInputChange}
-            />
-          </div>
-
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              name="assinarPorCliente"
-              checked={formData.assinarPorCliente}
-              onChange={handleInputChange}
-              className="rounded border-gray-300"
-            />
-            Permitir que o cliente assine este plano diretamente
-          </label>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-gray-700">
-              Contrato / Termo de adesão (PDF)
-            </label>
-            <div className="relative group">
-              <input
-                type="file"
-                accept=".pdf"
-                onChange={handleFileChange}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              />
-              <div className="flex items-center gap-3 px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 group-hover:border-slate-900 group-hover:bg-slate-50 transition-all">
-                <div className="p-2 bg-white rounded-lg border border-gray-200 shadow-sm">
-                  <Box className="w-5 h-5 text-slate-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">
-                    {formData.contrato ? formData.contrato.name : 'Clique para selecionar o contrato'}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {formData.contrato ? 'Arquivo selecionado' : 'Apenas arquivos PDF'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <PlanServiceBenefitsEditor
-            services={catalogServices}
-            benefits={planBenefits}
-            onChange={setPlanBenefits}
-          />
-        </div>
-      </Modal>
+        isSaving={isSaving}
+        selectedPlan={selectedPlan}
+        formData={formData}
+        planBenefits={planBenefits}
+        catalogServices={catalogServices}
+        onInputChange={handleInputChange}
+        onFileChange={handleFileChange}
+        onBenefitsChange={setPlanBenefits}
+        onSave={handleSave}
+      />
 
       {/* Modal Confirmar Exclusão */}
       <Modal

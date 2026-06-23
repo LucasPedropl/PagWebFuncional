@@ -123,11 +123,12 @@ export const localServiceStore = {
 
   scheduleService(
     input: Omit<ScheduledService, 'id' | 'status' | 'createdAt'>,
+    initialStatus: ScheduledServiceStatus = 'pendente',
   ): ScheduledService {
     const appointment: ScheduledService = {
       ...input,
       id: generateId(),
-      status: 'pendente',
+      status: initialStatus,
       createdAt: new Date().toISOString(),
     };
     const store = readAppointments();

@@ -7,6 +7,7 @@ import { useChatInbox } from '../../hooks/useChatInbox';
 import { useToast } from '../../context/ToastContext';
 import { Send, ArrowLeft, User, MessageSquare, Tag } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { formChatInputClass } from '../../components/ui/formStyles';
 
 export const Chat: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -200,7 +201,7 @@ export const Chat: React.FC = () => {
                   placeholder="Responder ao cliente..."
                   value={newMessageText}
                   onChange={(e) => setNewMessageText(e.target.value)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm text-gray-900 bg-white"
+                  className={formChatInputClass}
                 />
                 <Button type="submit" className="bg-slate-900 hover:bg-slate-800 shrink-0 rounded-xl p-2.5">
                   <Send className="w-4 h-4 text-white" />

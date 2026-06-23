@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal } from '../../ui/Modal';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
+import { Textarea } from '../../ui/Textarea';
 import { LocalService } from '../../../features/services/schemas/serviceTypes';
 import { formatServicePrice } from '../../../features/services/utils/serviceFormatters';
 
@@ -83,16 +84,13 @@ export const ScheduleServiceModal: React.FC<ScheduleServiceModalProps> = ({
           required
         />
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">Observações (opcional)</label>
-          <textarea
-            value={observacao}
-            onChange={(e) => setObservacao(e.target.value)}
-            rows={3}
-            placeholder="Alguma preferência ou informação extra..."
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-600 resize-none"
-          />
-        </div>
+        <Textarea
+          label="Observações (opcional)"
+          value={observacao}
+          onChange={(e) => setObservacao(e.target.value)}
+          rows={3}
+          placeholder="Alguma preferência ou informação extra..."
+        />
       </div>
     </Modal>
   );

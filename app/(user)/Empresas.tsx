@@ -9,6 +9,7 @@ import { userService } from '../../services/userService';
 import { ClientConnection, ClientSubscription, PlanResponse } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { SearchSelect } from '../../components/ui/SearchSelect';
+import { formFilterInputClass, formSearchInputClass, resolveFormFieldClass } from '../../components/ui/formStyles';
 import { SignaturePadModal } from '../../components/ui/SignaturePadModal';
 import { CameraCaptureModal } from '../../components/ui/CameraCaptureModal';
 import {
@@ -570,7 +571,7 @@ export const Empresas: React.FC = () => {
             <input
               type="text"
               placeholder="Buscar por nome ou CNPJ..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm text-gray-900 bg-white"
+              className={formSearchInputClass}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -1116,9 +1117,10 @@ export const Empresas: React.FC = () => {
                           value={subscribeForm.periodo}
                           onChange={(e) => setSubscribeForm((prev) => ({ ...prev, periodo: e.target.value }))}
                           disabled={subscribeForm.isRecorrente}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${
-                            subscribeForm.isRecorrente ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
-                          }`}
+                          className={resolveFormFieldClass({
+                            disabled: subscribeForm.isRecorrente,
+                            className: 'text-sm',
+                          })}
                         />
                       </div>
                       <div>
@@ -1129,7 +1131,7 @@ export const Empresas: React.FC = () => {
                           max={30}
                           value={subscribeForm.diaPagamento}
                           onChange={(e) => setSubscribeForm((prev) => ({ ...prev, diaPagamento: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          className={formFilterInputClass}
                         />
                       </div>
                     </div>

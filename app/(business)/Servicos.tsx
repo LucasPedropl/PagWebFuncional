@@ -2,22 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Textarea } from '../../components/ui/Textarea';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Scissors, Calendar, Loader2, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Scissors, Loader2, Edit2, Trash2 } from 'lucide-react';
 import { companyService } from '../../services/companyService';
 import { useToast } from '../../context/ToastContext';
 import { useLocalServices } from '../../features/services/hooks/useLocalServices';
-import { useScheduledServices } from '../../features/services/hooks/useScheduledServices';
-import { ScheduledServiceRow } from '../../components/features/services/ScheduledServiceRow';
 import { LocalService } from '../../features/services/schemas/serviceTypes';
 import { formatServicePrice } from '../../features/services/utils/serviceFormatters';
-import { ScheduledServiceStatus } from '../../features/services/schemas/serviceTypes';
-
-type BusinessServicesTab = 'catalogo' | 'agendamentos';
 
 export const Servicos: React.FC = () => {
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState<BusinessServicesTab>('catalogo');
   const [idEmpresa, setIdEmpresa] = useState<number | null>(null);
   const [empresaNome, setEmpresaNome] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -26,7 +21,6 @@ export const Servicos: React.FC = () => {
   const [formPreco, setFormPreco] = useState('');
   const [formDescricao, setFormDescricao] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const {
     services,
@@ -35,12 +29,6 @@ export const Servicos: React.FC = () => {
     updateService,
     deleteService,
   } = useLocalServices(idEmpresa ?? undefined);
-
-  const {
-    appointments,
-    isLoading: isLoadingAppointments,
-    updateStatus,
-  } = useScheduledServices(idEmpresa != null ? { idEmpresa } : undefined);
 
   useEffect(() => {
     companyService
@@ -110,17 +98,7 @@ export const Servicos: React.FC = () => {
     addToast('success', 'Serviço removido', `"${service.nome}" foi excluído do catálogo local.`);
   };
 
-  const handleUpdateStatus = async (id: string, status: ScheduledServiceStatus) => {
-    setUpdatingId(id);
-    try {
-      updateStatus(id, status);
-      addToast('success', 'Status atualizado', STATUS_TOAST[status]);
-    } finally {
-      setUpdatingId(null);
-    }
-  };
-
-  const isLoading = idEmpresa == null || isLoadingServices || isLoadingAppointments;
+  const isLoading = idEmpresa == null || isLoadingServices;
 
   return (
     <BusinessLayout>
@@ -128,103 +106,66 @@ export const Servicos: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Serviços</h1>
           <p className="text-gray-500 mt-1">
-            Cadastre serviços avulsos e gerencie agendamentos de {empresaNome || 'sua empresa'}.
+            Cadastre o catálogo de serviços avulsos de {empresaNome || 'sua empresa'}.
           </p>
           <p className="text-xs text-amber-600 mt-2 bg-amber-50 inline-block px-2 py-1 rounded">
             Protótipo local — dados salvos no navegador até o backend estar pronto.
           </p>
         </div>
-        {activeTab === 'catalogo' && (
-          <Button onClick={openCreateModal} className="bg-slate-900 hover:bg-slate-800 shrink-0">
-            <Plus className="w-4 h-4 mr-2" />
-            Novo serviço
-          </Button>
-        )}
-      </div>
-
-      <div className="flex gap-2 mb-6 border-b border-gray-200">
-        <TabBtn
-          active={activeTab === 'catalogo'}
-          onClick={() => setActiveTab('catalogo')}
-          icon={<Scissors className="w-4 h-4" />}
-          label="Catálogo"
-        />
-        <TabBtn
-          active={activeTab === 'agendamentos'}
-          onClick={() => setActiveTab('agendamentos')}
-          icon={<Calendar className="w-4 h-4" />}
-          label={`Agendamentos${appointments.length ? ` (${appointments.length})` : ''}`}
-        />
+        <Button onClick={openCreateModal} className="bg-slate-900 hover:bg-slate-800 shrink-0">
+          <Plus className="w-4 h-4 mr-2" />
+          Novo serviço
+        </Button>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-slate-600" />
         </div>
-      ) : activeTab === 'catalogo' ? (
-        services.length === 0 ? (
-          <EmptyState
-            icon={<Scissors className="w-12 h-12 text-gray-300" />}
-            title="Nenhum serviço cadastrado"
-            subtitle='Ex: "Corte de cabelo" por R$ 15,00'
-            action={
-              <Button onClick={openCreateModal} className="bg-slate-900 hover:bg-slate-800">
-                Cadastrar primeiro serviço
-              </Button>
-            }
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {services.map((service) => (
-              <div
-                key={service.id}
-                className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col"
-              >
-                <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{service.nome}</h3>
-                    <p className="text-xl font-bold text-slate-900 mt-1">
-                      {formatServicePrice(service.preco)}
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => openEditModal(service)}
-                      className="p-2 text-gray-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(service)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-                {service.descricao && (
-                  <p className="text-sm text-gray-500 flex-1">{service.descricao}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        )
-      ) : appointments.length === 0 ? (
+      ) : services.length === 0 ? (
         <EmptyState
-          icon={<Calendar className="w-12 h-12 text-gray-300" />}
-          title="Nenhum agendamento"
-          subtitle="Quando clientes agendarem serviços, eles aparecerão aqui."
+          icon={<Scissors className="w-12 h-12 text-gray-300" />}
+          title="Nenhum serviço cadastrado"
+          subtitle='Ex: "Corte de cabelo" por R$ 15,00'
+          action={
+            <Button onClick={openCreateModal} className="bg-slate-900 hover:bg-slate-800">
+              Cadastrar primeiro serviço
+            </Button>
+          }
         />
       ) : (
-        <div className="space-y-3">
-          {appointments.map((apt) => (
-            <ScheduledServiceRow
-              key={apt.id}
-              appointment={apt}
-              mode="business"
-              onUpdateStatus={handleUpdateStatus}
-              isUpdating={updatingId === apt.id}
-            />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {services.map((service) => (
+            <div
+              key={service.id}
+              className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col"
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <h3 className="font-semibold text-gray-900">{service.nome}</h3>
+                  <p className="text-xl font-bold text-slate-900 mt-1">
+                    {formatServicePrice(service.preco)}
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => openEditModal(service)}
+                    className="p-2 text-gray-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(service)}
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              {service.descricao && (
+                <p className="text-sm text-gray-500 flex-1">{service.descricao}</p>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -263,47 +204,17 @@ export const Servicos: React.FC = () => {
             onChange={(e) => setFormPreco(e.target.value)}
             required
           />
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-gray-700">Descrição (opcional)</label>
-            <textarea
-              value={formDescricao}
-              onChange={(e) => setFormDescricao(e.target.value)}
-              rows={3}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
-            />
-          </div>
+          <Textarea
+            label="Descrição (opcional)"
+            value={formDescricao}
+            onChange={(e) => setFormDescricao(e.target.value)}
+            rows={3}
+          />
         </div>
       </Modal>
     </BusinessLayout>
   );
 };
-
-const STATUS_TOAST: Record<ScheduledServiceStatus, string> = {
-  pendente: 'Agendamento pendente.',
-  confirmado: 'Agendamento confirmado.',
-  concluido: 'Serviço marcado como concluído.',
-  cancelado: 'Agendamento cancelado.',
-};
-
-const TabBtn: React.FC<{
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}> = ({ active, onClick, icon, label }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
-      active
-        ? 'border-violet-600 text-violet-700'
-        : 'border-transparent text-gray-500 hover:text-gray-800'
-    }`}
-  >
-    {icon}
-    {label}
-  </button>
-);
 
 const EmptyState: React.FC<{
   icon: React.ReactNode;

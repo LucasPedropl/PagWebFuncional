@@ -9,6 +9,7 @@ import { ClientInvoice, SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { jsPDF } from 'jspdf';
 import { SearchSelect } from '../../components/ui/SearchSelect';
+import { formFilterInputClass, formSearchInputClass } from '../../components/ui/formStyles';
 
 export const Pagamentos: React.FC = () => {
   const { addToast } = useToast();
@@ -303,7 +304,7 @@ export const Pagamentos: React.FC = () => {
             <input
               type="text"
               placeholder="Buscar fatura por empresa ou ID..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-900 placeholder-gray-400"
+              className={`${formSearchInputClass} placeholder-slate-400`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -339,7 +340,7 @@ export const Pagamentos: React.FC = () => {
               <label className="block text-xs font-medium text-gray-700 mb-1">Data Inicial (Vencimento)</label>
               <input 
                 type="date" 
-                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900"
+                className={formFilterInputClass}
                 value={filters.dateFrom}
                 onChange={(e) => setFilters({...filters, dateFrom: e.target.value})}
               />
@@ -349,7 +350,7 @@ export const Pagamentos: React.FC = () => {
               <label className="block text-xs font-medium text-gray-700 mb-1">Data Final (Vencimento)</label>
               <input 
                 type="date" 
-                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900"
+                className={formFilterInputClass}
                 value={filters.dateTo}
                 onChange={(e) => setFilters({...filters, dateTo: e.target.value})}
               />
@@ -361,7 +362,7 @@ export const Pagamentos: React.FC = () => {
                 <input 
                   type="number" 
                   placeholder="0,00"
-                  className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900"
+                  className={formFilterInputClass}
                   value={filters.valueMin}
                   onChange={(e) => setFilters({...filters, valueMin: e.target.value})}
                 />
@@ -371,7 +372,7 @@ export const Pagamentos: React.FC = () => {
                 <input 
                   type="number" 
                   placeholder="0,00"
-                  className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900"
+                  className={formFilterInputClass}
                   value={filters.valueMax}
                   onChange={(e) => setFilters({...filters, valueMax: e.target.value})}
                 />
@@ -628,7 +629,7 @@ export const Pagamentos: React.FC = () => {
                                                 <input 
                                                     type="text" 
                                                     placeholder="Número do Cartão" 
-                                                    className="w-full col-span-2 p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+                                                    className={`${formFilterInputClass} col-span-2`}
                                                     name="number"
                                                     value={cardForm.number}
                                                     onChange={handleCardInputChange}
@@ -637,7 +638,7 @@ export const Pagamentos: React.FC = () => {
                                                 <input 
                                                     type="text" 
                                                     placeholder="MM/AA" 
-                                                    className="w-full p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+                                                    className={formFilterInputClass}
                                                     name="expiry"
                                                     value={cardForm.expiry}
                                                     onChange={handleCardInputChange}
@@ -646,7 +647,7 @@ export const Pagamentos: React.FC = () => {
                                                 <input 
                                                     type="text" 
                                                     placeholder="CVV" 
-                                                    className="w-full p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+                                                    className={formFilterInputClass}
                                                     name="cvv"
                                                     value={cardForm.cvv}
                                                     onChange={handleCardInputChange}
@@ -655,7 +656,7 @@ export const Pagamentos: React.FC = () => {
                                                 <input 
                                                     type="text" 
                                                     placeholder="Nome no Cartão" 
-                                                    className="w-full col-span-2 p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" 
+                                                    className={`${formFilterInputClass} col-span-2`}
                                                     name="holder"
                                                     value={cardForm.holder}
                                                     onChange={handleCardInputChange}

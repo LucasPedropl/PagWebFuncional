@@ -10,6 +10,7 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
+import { formSearchInputClass } from '../../components/ui/formStyles';
 
 export const Clientes: React.FC = () => {
   const navigate = useNavigate();
@@ -179,7 +180,7 @@ export const Clientes: React.FC = () => {
             <input
               type="text"
               placeholder="Buscar por nome ou email..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm text-gray-900 bg-white"
+              className={formSearchInputClass}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />

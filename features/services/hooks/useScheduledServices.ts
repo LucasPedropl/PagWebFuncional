@@ -35,8 +35,11 @@ export const useScheduledServices = (filters?: UseScheduledServicesFilters) => {
   }, [refresh]);
 
   const scheduleService = useCallback(
-    (input: Omit<ScheduledService, 'id' | 'status' | 'createdAt'>) => {
-      const created = localServiceStore.scheduleService(input);
+    (
+      input: Omit<ScheduledService, 'id' | 'status' | 'createdAt'>,
+      initialStatus: ScheduledServiceStatus = 'pendente',
+    ) => {
+      const created = localServiceStore.scheduleService(input, initialStatus);
       refresh();
       return created;
     },

@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { SearchSelect } from '../../ui/SearchSelect';
+import { formLabelClass, resolveFormFieldClass } from '../../ui/formStyles';
 import { LocalService, PlanServiceBenefit } from '../../../features/services/schemas/serviceTypes';
 import { formatServicePrice } from '../../../features/services/utils/serviceFormatters';
 
@@ -52,7 +53,7 @@ export const PlanServiceBenefitsEditor: React.FC<PlanServiceBenefitsEditorProps>
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700">
+        <label className={formLabelClass}>
           Serviços inclusos no plano
         </label>
         <Button
@@ -90,7 +91,7 @@ export const PlanServiceBenefitsEditor: React.FC<PlanServiceBenefitsEditorProps>
                 />
               </div>
               <div className="w-full sm:w-28">
-                <label className="text-sm font-medium text-gray-700 block mb-1.5">
+                <label className={`${formLabelClass} block mb-1.5`}>
                   Quantidade
                 </label>
                 <input
@@ -102,7 +103,7 @@ export const PlanServiceBenefitsEditor: React.FC<PlanServiceBenefitsEditorProps>
                       quantidade: Math.max(1, Number(e.target.value) || 1),
                     })
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  className={resolveFormFieldClass()}
                 />
               </div>
               <button

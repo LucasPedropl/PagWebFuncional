@@ -14,6 +14,7 @@ import {
   LogOut,
   MessageCircle,
   Scissors,
+  Calendar,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 
@@ -31,6 +32,7 @@ export const MenuMobile: React.FC = () => {
     { icon: Users, label: 'Clientes', path: '/business/clientes' },
     { icon: Layers, label: 'Planos', path: '/business/planos' },
     { icon: Scissors, label: 'Serviços', path: '/business/servicos' },
+    { icon: Calendar, label: 'Agendamentos', path: '/business/agendamentos' },
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Gestão de Cobranças', path: '/business/pagamentos' },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },

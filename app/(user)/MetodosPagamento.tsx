@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { CreditCard, PlusCircle, Trash2, Edit2, Loader2, AlertCircle } from 'lucide-react';
 import { userService } from '../../services/userService';
@@ -309,65 +310,53 @@ export const MetodosPagamento: React.FC = () => {
               )}
 
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Número do Cartão</label>
-                  <input 
-                    type="text" 
-                    name="number"
-                    value={cardForm.number}
-                    onChange={handleInputChange}
-                    onFocus={() => setIsFlipped(false)}
-                    placeholder="0000 0000 0000 0000" 
-                    className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-500" 
-                    maxLength={19}
-                    required
-                  />
-                </div>
+                <Input
+                  label="Número do Cartão"
+                  type="text"
+                  name="number"
+                  value={cardForm.number}
+                  onChange={handleInputChange}
+                  onFocus={() => setIsFlipped(false)}
+                  placeholder="0000 0000 0000 0000"
+                  maxLength={19}
+                  required
+                />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome impresso no cartão</label>
-                  <input 
-                    type="text" 
-                    name="holder"
-                    value={cardForm.holder}
-                    onChange={handleInputChange}
-                    onFocus={() => setIsFlipped(false)}
-                    placeholder="NOME DO TITULAR" 
-                    className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" 
-                    required
-                  />
-                </div>
+                <Input
+                  label="Nome impresso no cartão"
+                  type="text"
+                  name="holder"
+                  value={cardForm.holder}
+                  onChange={handleInputChange}
+                  onFocus={() => setIsFlipped(false)}
+                  placeholder="NOME DO TITULAR"
+                  required
+                />
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Validade</label>
-                    <input 
-                      type="text" 
-                      name="expiry"
-                      value={cardForm.expiry}
-                      onChange={handleInputChange}
-                      onFocus={() => setIsFlipped(false)}
-                      placeholder="MM/AA" 
-                      className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" 
-                      maxLength={5}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">CVV</label>
-                    <input 
-                      type="text" 
-                      name="cvv"
-                      value={cardForm.cvv}
-                      onChange={handleInputChange}
-                      onFocus={() => setIsFlipped(true)}
-                      onBlur={() => setIsFlipped(false)}
-                      placeholder="123" 
-                      className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-500" 
-                      maxLength={4}
-                      required
-                    />
-                  </div>
+                  <Input
+                    label="Validade"
+                    type="text"
+                    name="expiry"
+                    value={cardForm.expiry}
+                    onChange={handleInputChange}
+                    onFocus={() => setIsFlipped(false)}
+                    placeholder="MM/AA"
+                    maxLength={5}
+                    required
+                  />
+                  <Input
+                    label="CVV"
+                    type="text"
+                    name="cvv"
+                    value={cardForm.cvv}
+                    onChange={handleInputChange}
+                    onFocus={() => setIsFlipped(true)}
+                    onBlur={() => setIsFlipped(false)}
+                    placeholder="123"
+                    maxLength={4}
+                    required
+                  />
                 </div>
 
                 <label className="flex items-center gap-2 mt-4 cursor-pointer">

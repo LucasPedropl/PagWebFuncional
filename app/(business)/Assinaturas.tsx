@@ -11,6 +11,15 @@ import { PlanResponse, SubscriptionResponse, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { InfoTooltip } from '../../components/ui/InfoTooltip';
 import { SearchSelect } from '../../components/ui/SearchSelect';
+import {
+  formFilterInputClass,
+  formFilterInputWithIconClass,
+  formLabelClass,
+  formSearchInputClass,
+  formSelectClass,
+  formTextareaClass,
+  FORM_RADIUS,
+} from '../../components/ui/formStyles';
 import { TIPO_CONTRATO, TIPO_DESCONTO, getContractUrl } from '../../utils/api';
 import { normalizePaymentDay } from '../../utils/formatters';
 
@@ -470,7 +479,7 @@ export const Assinaturas: React.FC = () => {
             <input
               type="text"
               placeholder="Buscar por cliente ou plano..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm text-gray-900 bg-white"
+              className={formSearchInputClass}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -511,14 +520,14 @@ export const Assinaturas: React.FC = () => {
                     type="date" 
                     value={dateStart}
                     onChange={(e) => setDateStart(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                    className={formFilterInputClass}
                   />
                   <span className="text-gray-400">-</span>
                   <input 
                     type="date" 
                     value={dateEnd}
                     onChange={(e) => setDateEnd(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                    className={formFilterInputClass}
                   />
                 </div>
               </div>
@@ -532,7 +541,7 @@ export const Assinaturas: React.FC = () => {
                     placeholder="Min" 
                     value={minVal}
                     onChange={(e) => setMinVal(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                    className={formFilterInputClass}
                   />
                   <span className="text-gray-400">-</span>
                   <input 
@@ -540,7 +549,7 @@ export const Assinaturas: React.FC = () => {
                     placeholder="Max" 
                     value={maxVal}
                     onChange={(e) => setMaxVal(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 text-sm bg-white text-gray-700" 
+                    className={formFilterInputClass}
                   />
                 </div>
               </div>
@@ -729,7 +738,7 @@ export const Assinaturas: React.FC = () => {
                     <input
                         type="text"
                         placeholder="Buscar cliente..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 pr-8"
+                        className={formFilterInputWithIconClass}
                         value={clientSearch}
                         onFocus={() => setIsClientListOpen(true)}
                         onChange={(e) => {
@@ -795,7 +804,7 @@ export const Assinaturas: React.FC = () => {
                     <input
                         type="text"
                         placeholder="Buscar plano..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 pr-8"
+                        className={formFilterInputWithIconClass}
                         value={planSearch}
                         onFocus={() => setIsPlanListOpen(true)}
                         onChange={(e) => {
@@ -896,7 +905,7 @@ export const Assinaturas: React.FC = () => {
                         name="desconto"
                         value={formData.desconto}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 pr-8"
+                        className={formFilterInputWithIconClass}
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
                       {Number(formData.tipoDesconto) === TIPO_DESCONTO.ValorFixo ? 'R$' : '%'}
@@ -904,12 +913,12 @@ export const Assinaturas: React.FC = () => {
                 </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-gray-700">Tipo de desconto</label>
+              <label className={formLabelClass}>Tipo de desconto</label>
               <select
                 name="tipoDesconto"
                 value={formData.tipoDesconto}
                 onChange={handleInputChange}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900"
+                className={formSelectClass}
               >
                 <option value={TIPO_DESCONTO.Percentual}>Percentual (%)</option>
                 <option value={TIPO_DESCONTO.ValorFixo}>Valor fixo (R$)</option>
@@ -920,11 +929,11 @@ export const Assinaturas: React.FC = () => {
 
           {/* Observação */}
           <div className="flex flex-col gap-1.5">
-             <label className="text-sm font-medium text-gray-700">Observação</label>
+             <label className={formLabelClass}>Observação</label>
              <textarea 
                 name="observacao"
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900 placeholder-gray-400 resize-none"
+                className={formTextareaClass}
                 placeholder="Detalhes adicionais sobre a assinatura..."
                 value={formData.observacao}
                 onChange={handleInputChange}
@@ -966,7 +975,7 @@ export const Assinaturas: React.FC = () => {
                     <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
                     <input 
                         type="email"
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className={formSearchInputClass}
                         placeholder="cliente@exemplo.com"
                         value={emailToConnect}
                         onChange={(e) => setEmailToConnect(e.target.value)}
@@ -1196,11 +1205,11 @@ export const Assinaturas: React.FC = () => {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-medium text-gray-700">Tipo de Contrato</label>
+                    <label className={formLabelClass}>Tipo de Contrato</label>
                     <select
                       value={newPlanFormData.tipoContrato}
                       onChange={(e) => setNewPlanFormData({...newPlanFormData, tipoContrato: e.target.value})}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900 text-sm"
+                      className={formSelectClass}
                     >
                       <option value={TIPO_CONTRATO.Nenhum}>Sem Contrato Requerido</option>
                       <option value={TIPO_CONTRATO.Termo}>Aceitar Termo Digital (Clique de Aceite)</option>
@@ -1218,7 +1227,7 @@ export const Assinaturas: React.FC = () => {
 
                 <div className="flex flex-col gap-1.5 pt-1">
                     <label className="text-sm font-medium text-gray-700">Arquivo do Contrato (PDF)</label>
-                    <label className="border-2 border-dashed border-gray-200 rounded-xl p-5 flex flex-col items-center justify-center cursor-pointer hover:border-slate-400 transition-colors bg-gray-50/50">
+                    <label className={`border-2 border-dashed border-slate-200 ${FORM_RADIUS} p-5 flex flex-col items-center justify-center cursor-pointer hover:border-slate-400 transition-colors bg-slate-50/50`}>
                         <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center mb-2 shadow-sm border border-gray-100">
                             <FileText className="w-5 h-5 text-slate-500" />
                         </div>
@@ -1236,10 +1245,10 @@ export const Assinaturas: React.FC = () => {
             {currentPlanStep === 2 && (
               <div className="space-y-4 animate-in fade-in slide-in-from-right-3 duration-200">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium text-gray-700">Destaques e Funcionalidades do Plano</label>
+                  <label className={formLabelClass}>Destaques e Funcionalidades do Plano</label>
                   <span className="text-xs text-gray-400">Insira cada diferencial do plano em uma nova linha.</span>
                   <textarea 
-                      className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-slate-900 bg-white text-gray-900 placeholder-gray-400 text-sm resize-none" 
+                      className={`${formTextareaClass} p-3 text-sm`}
                       placeholder="Exemplo:&#10;Acesso ilimitado ao espaço físico&#10;Suporte VIP via WhatsApp&#10;Desconto de 10% em produtos" 
                       rows={6} 
                       value={newPlanFormData.funcionalidades} 
