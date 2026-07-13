@@ -17,6 +17,8 @@ import {
 import { Button } from '../components/ui/Button';
 import { motion } from 'motion/react';
 import { usePublicCompanyDetail } from '../hooks/usePublicCompanyDetail';
+import { usePublicCompanyCatalog } from '../features/catalog/hooks/usePublicCatalog';
+import { PublicCompanyCatalogSections } from '../components/features/explore/PublicCompanyCatalogSections';
 import {
   buildPublicCompanyAboutText,
   formatPublicCompanyAddress,
@@ -35,6 +37,7 @@ export const CompanyDetails: React.FC = () => {
   const navigate = useNavigate();
   const idEmpresa = id ? Number(id) : null;
   const { company, card, plans, isLoading, error, refresh } = usePublicCompanyDetail(idEmpresa);
+  const catalog = usePublicCompanyCatalog(idEmpresa);
 
   const popularPlanId = useMemo(() => pickPopularPlanId(plans), [plans]);
   const addressText = company ? formatPublicCompanyAddress(company.enderecoEmpresa) : null;
@@ -305,6 +308,14 @@ export const CompanyDetails: React.FC = () => {
                   })}
                 </div>
               )}
+
+              <PublicCompanyCatalogSections
+                categorias={catalog.categorias}
+                servicos={catalog.servicos}
+                produtos={catalog.produtos}
+                isLoading={catalog.isLoading}
+                error={catalog.error}
+              />
             </motion.div>
           </div>
         </div>

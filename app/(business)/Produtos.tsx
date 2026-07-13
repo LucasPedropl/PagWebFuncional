@@ -1,21 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Scissors, Loader2, Edit2, Trash2, AlertCircle } from 'lucide-react';
-import { companyService } from '../../services/companyService';
+import { Plus, Package, Loader2, Edit2, Trash2, AlertCircle } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
-import { useServicos } from '../../features/catalog/hooks/useServicos';
+import { useProdutos } from '../../features/catalog/hooks/useProdutos';
 import { CatalogItem } from '../../features/catalog/schemas/catalogSchemas';
 import { CategoriaSearchField } from '../../features/catalog/components/CategoriaSearchField';
 import { formatServicePrice } from '../../features/services/utils/serviceFormatters';
 
-export const Servicos: React.FC = () => {
+export const Produtos: React.FC = () => {
   const { addToast } = useToast();
-  const [idEmpresa, setIdEmpresa] = useState<number | null>(null);
-  const { servicos, isLoading, error, create, update, remove } = useServicos(idEmpresa);
+  const { produtos, isLoading, error, create, update, remove } = useProdutos();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null);
   const [nome, setNome] = useState('');
@@ -23,16 +21,6 @@ export const Servicos: React.FC = () => {
   const [descricao, setDescricao] = useState('');
   const [categoriaId, setCategoriaId] = useState<string | number>('');
   const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    companyService
-      .getMyCompany()
-      .then((company) => setIdEmpresa(company.idEmpresa))
-      .catch((err) => {
-        console.error('[Servicos] empresa:', err);
-        addToast('error', 'Erro', 'Não foi possível identificar sua empresa.');
-      });
-  }, [addToast]);
 
   const openCreate = () => {
     setEditing(null);
@@ -70,15 +58,15 @@ export const Servicos: React.FC = () => {
       };
       if (editing) {
         await update(editing.id, payload);
-        addToast('success', 'Serviço atualizado', 'Alterações salvas na API.');
+        addToast('success', 'Produto atualizado', 'Alterações salvas.');
       } else {
         await create(payload);
-        addToast('success', 'Serviço criado', 'Serviço disponível no catálogo.');
+        addToast('success', 'Produto criado', 'Produto disponível no catálogo.');
       }
       setIsModalOpen(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao salvar';
-      console.error('[Servicos]', err);
+      console.error('[Produtos]', err);
       addToast('error', 'Erro', msg);
     } finally {
       setIsSaving(false);
@@ -88,10 +76,10 @@ export const Servicos: React.FC = () => {
   const handleDelete = async (item: CatalogItem) => {
     try {
       await remove(item.id);
-      addToast('success', 'Serviço removido', `"${item.nome}" foi desativado.`);
+      addToast('success', 'Produto removido', `"${item.nome}" foi desativado.`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao excluir';
-      console.error('[Servicos] delete:', err);
+      console.error('[Produtos] delete:', err);
       addToast('error', 'Erro', msg);
     }
   };
@@ -100,16 +88,16 @@ export const Servicos: React.FC = () => {
     <BusinessLayout>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Catálogo de Serviços</h1>
-          <p className="text-gray-500 mt-1">Serviços sincronizados com a API PagWeb.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
+          <p className="text-gray-500 mt-1">Catálogo de produtos da empresa (API).</p>
         </div>
         <Button onClick={openCreate} className="bg-violet-600 hover:bg-violet-700">
           <Plus className="w-4 h-4 mr-2" />
-          Novo serviço
+          Novo produto
         </Button>
       </div>
 
-      {isLoading || !idEmpresa ? (
+      {isLoading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
         </div>
@@ -118,14 +106,17 @@ export const Servicos: React.FC = () => {
           <AlertCircle className="w-10 h-10 text-red-400" />
           <p className="text-sm text-gray-500">{error}</p>
         </div>
-      ) : servicos.length === 0 ? (
+      ) : produtos.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <Scissors className="w-10 h-10 text-gray-300 mx-auto" />
-          <p className="mt-3 text-gray-600">Nenhum serviço cadastrado.</p>
+          <Package className="w-10 h-10 text-gray-300 mx-auto" />
+          <p className="mt-3 text-gray-600">Nenhum produto cadastrado.</p>
+          <p className="text-xs text-gray-400 mt-1">
+            Crie categorias antes para facilitar a listagem.
+          </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {servicos.map((item) => (
+          {produtos.map((item) => (
             <div
               key={item.id}
               className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm flex flex-col"
@@ -137,6 +128,11 @@ export const Servicos: React.FC = () => {
                 </span>
               </div>
               <p className="text-sm text-gray-500 mt-1 flex-1 line-clamp-3">{item.descricao}</p>
+              {item.categorias.length > 0 && (
+                <p className="text-xs text-gray-400 mt-2">
+                  {item.categorias.map((c) => c.nome ?? `#${c.id}`).join(', ')}
+                </p>
+              )}
               <div className="flex gap-2 mt-4">
                 <Button
                   type="button"
@@ -162,7 +158,7 @@ export const Servicos: React.FC = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editing ? 'Editar serviço' : 'Novo serviço'}
+        title={editing ? 'Editar produto' : 'Novo produto'}
       >
         <form className="space-y-4" onSubmit={(e) => void handleSave(e)}>
           <Input
@@ -170,7 +166,7 @@ export const Servicos: React.FC = () => {
             value={nome}
             onChange={(e) => setNome(e.target.value)}
             required
-            placeholder="Ex: Corte de Cabelo Masculino"
+            placeholder="Ex: Shampoo Anticaspa 300ml"
           />
           <Input
             label="Preço"
@@ -184,7 +180,7 @@ export const Servicos: React.FC = () => {
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             required
-            placeholder="Descreva o que está incluso no serviço, duração estimada, etc."
+            placeholder="Detalhes sobre o produto, como marca, dimensões, peso, etc."
           />
           <CategoriaSearchField
             value={categoriaId}

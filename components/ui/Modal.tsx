@@ -9,6 +9,7 @@ interface ModalProps {
   footer?: React.ReactNode;
   size?: 'md' | 'lg' | 'xl' | '2xl' | '3xl';
   onSubmit?: (e: React.FormEvent) => void;
+  zIndexClass?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({ 
@@ -18,7 +19,8 @@ export const Modal: React.FC<ModalProps> = ({
   children, 
   footer,
   size = 'md',
-  onSubmit
+  onSubmit,
+  zIndexClass = 'z-50'
 }) => {
   useEffect(() => {
     if (isOpen) {
@@ -44,7 +46,7 @@ export const Modal: React.FC<ModalProps> = ({
   const ContentWrapper = onSubmit ? 'form' : 'div';
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className={`fixed inset-0 ${zIndexClass} overflow-y-auto`}>
       <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
         {/* Backdrop */}
         <div 
@@ -55,10 +57,10 @@ export const Modal: React.FC<ModalProps> = ({
         {/* Modal Panel */}
         <ContentWrapper 
           onSubmit={onSubmit}
-          className={`relative transform overflow-hidden rounded-xl bg-white text-left shadow-xl transition-all sm:my-8 w-full ${sizeClasses[size]}`}
+          className={`relative transform overflow-visible rounded-xl bg-white text-left shadow-xl transition-all sm:my-8 w-full ${sizeClasses[size]}`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 rounded-t-xl">
             <h3 className="text-lg font-semibold leading-6 text-gray-900">
               {title}
             </h3>
@@ -71,8 +73,8 @@ export const Modal: React.FC<ModalProps> = ({
             </button>
           </div>
 
-          {/* Body */}
-          <div className="px-6 py-6">
+          {/* Body — overflow-visible para dropdowns (SearchSelect) não ficarem cortados */}
+          <div className="px-6 py-6 overflow-visible">
             {children}
           </div>
 

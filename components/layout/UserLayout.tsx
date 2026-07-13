@@ -19,7 +19,7 @@ import { userService } from '../../services/userService';
 import { companyService } from '../../services/companyService';
 import { AppNotification } from '../../types';
 import { useUnreadChatCount } from '../../hooks/useUnreadChatCount';
-import { localSinglePaymentStore } from '../../features/single-payment/services/localSinglePaymentStore';
+import { cobrancaService } from '../../features/single-payment/services/cobrancaService';
 import { AppSidebar } from './shell/AppSidebar';
 import { AppTopHeader } from './shell/AppTopHeader';
 import { AppMobileBottomNav } from './shell/AppMobileBottomNav';
@@ -177,19 +177,21 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
       const subsData = Array.isArray(subs) ? subs : [];
       setPendingSubscriptionsCount(subsData.filter(s => s.status === 'Pendente').length);
       
-      // Filtrar faturas em aberto ou atrasadas
+      // Filtrar faturas em aberto ou atrasadas + cobranças avulsas da API
       const invoicesData = Array.isArray(invoices) ? invoices : [];
-      const { user } = sessionService.getSession();
-      const localPending =
-        user?.idUser != null
-          ? localSinglePaymentStore
-              .listPayments({ idUser: user.idUser })
-              .filter((p) => p.status === 'Aberto' || p.status === 'Atrasado').length
-          : 0;
       const apiPending = invoicesData.filter(
         (i) => i.status === 'Aberto' || i.status === 'Atrasado',
       ).length;
-      setPendingInvoicesCount(apiPending + localPending);
+      let cobrancaPending = 0;
+      try {
+        const cobrancas = await cobrancaService.listByUsuario();
+        cobrancaPending = cobrancas.filter(
+          (c) => c.status === 'Aberto' || c.status === 'Atrasado',
+        ).length;
+      } catch (cobrancaErr) {
+        console.warn('[UserLayout] Falha ao contar cobranças avulsas:', cobrancaErr);
+      }
+      setPendingInvoicesCount(apiPending + cobrancaPending);
     } catch (error) {
       console.error("Erro ao carregar contagens pendentes", error);
     }

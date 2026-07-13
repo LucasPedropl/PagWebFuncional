@@ -1,6 +1,5 @@
 
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -8,24 +7,25 @@ import { Download, Filter, Search, FileText, Loader2, ArrowRight, CreditCard, Qr
 import { userService } from '../../services/userService';
 import { ClientInvoice, SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
-import { localSinglePaymentStore } from '../../features/single-payment/services/localSinglePaymentStore';
-import { mergeClientInvoices } from '../../features/single-payment/utils/singlePaymentMappers';
-import { listClientSinglePayments } from '../../features/single-payment/utils/listClientSinglePayments';
-import {
-  getSessionClientIdentity,
-  notifySinglePaymentChanged,
-  SINGLE_PAYMENT_CHANGED_EVENT,
-} from '../../utils/sessionUser';
 import { jsPDF } from 'jspdf';
 import { SearchSelect } from '../../components/ui/SearchSelect';
 import { formFilterInputClass, formSearchInputClass } from '../../components/ui/formStyles';
+import {
+  pagamentoService,
+  resolvePaymentLocation,
+} from '../../features/single-payment/services/pagamentoService';
+import { MetodoPagamento, PagamentoUnicoResponse } from '../../features/single-payment/schemas/cobrancaSchemas';
+import { PaymentResultModal } from '../../features/single-payment/components/CobrancaPayDialogs';
+import { RequireAddressDialog } from '../../features/address/components/RequireAddressDialog';
+import { useEnsureClientAddress } from '../../features/address/hooks/useEnsureClientAddress';
 
 export const Pagamentos: React.FC = () => {
   const { addToast } = useToast();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const addressGate = useEnsureClientAddress<PagamentoUnicoResponse>();
   const [invoices, setInvoices] = useState<ClientInvoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [paymentResult, setPaymentResult] = useState<PagamentoUnicoResponse | null>(null);
 
   // Filters State
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -46,7 +46,7 @@ export const Pagamentos: React.FC = () => {
 
   // Credit Card Specific State
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
-  const [selectedCardId, setSelectedCardId] = useState<number | 'new'>('new'); // 'new' ou id do cartão
+  const [selectedCardId, setSelectedCardId] = useState<number | 'new'>('new');
   const [cardForm, setCardForm] = useState({
       number: '',
       holder: '',
@@ -58,12 +58,10 @@ export const Pagamentos: React.FC = () => {
     fetchInvoices();
 
     const onRefresh = () => fetchInvoices();
-    window.addEventListener(SINGLE_PAYMENT_CHANGED_EVENT, onRefresh);
     window.addEventListener('pagweb:refresh-counts', onRefresh);
     window.addEventListener('storage', onRefresh);
 
     return () => {
-      window.removeEventListener(SINGLE_PAYMENT_CHANGED_EVENT, onRefresh);
       window.removeEventListener('pagweb:refresh-counts', onRefresh);
       window.removeEventListener('storage', onRefresh);
     };
@@ -75,27 +73,6 @@ export const Pagamentos: React.FC = () => {
           loadSavedCards();
       }
   }, [isPaymentModalOpen, paymentMethod]);
-
-  useEffect(() => {
-    const paymentId = searchParams.get('paymentId');
-    if (!paymentId || isLoading) return;
-
-    const invoice = invoices.find((inv) => inv.localPaymentId === paymentId);
-    const nextParams = new URLSearchParams(searchParams);
-    nextParams.delete('paymentId');
-    setSearchParams(nextParams, { replace: true });
-
-    if (!invoice) return;
-
-    if (invoice.status === 'Aberto' || invoice.status === 'Atrasado') {
-      setSelectedInvoice(invoice);
-      setPaymentMethod('PIX');
-      setPaymentSuccess(false);
-      setCardForm({ number: '', holder: '', expiry: '', cvv: '' });
-      setSelectedCardId('new');
-      setIsPaymentModalOpen(true);
-    }
-  }, [searchParams, isLoading, invoices, setSearchParams]);
 
   const loadSavedCards = async () => {
       try {
@@ -113,9 +90,9 @@ export const Pagamentos: React.FC = () => {
   const fetchInvoices = async () => {
     try {
       const data = await userService.listClientInvoices();
-      const localPayments = listClientSinglePayments();
-      const merged = mergeClientInvoices(data, localPayments);
-      const sorted = merged.sort((a, b) => b.idMensalidade - a.idMensalidade);
+      const sorted = (Array.isArray(data) ? data : []).sort(
+        (a, b) => b.idMensalidade - a.idMensalidade,
+      );
       setInvoices(sorted);
     } catch (error) {
       console.error(error);
@@ -242,49 +219,73 @@ export const Pagamentos: React.FC = () => {
       setCardForm(prev => ({ ...prev, [name]: formattedValue }));
   };
 
+  const mapUiMethodToApi = (
+    method: 'PIX' | 'CREDIT_CARD' | 'BOLETO',
+  ): MetodoPagamento => {
+    if (method === 'CREDIT_CARD') return 'Cartao';
+    if (method === 'BOLETO') return 'Boleto';
+    return 'PIX';
+  };
+
+  const runMensalidadePayment = async (): Promise<PagamentoUnicoResponse> => {
+    if (!selectedInvoice) throw new Error('Fatura não selecionada');
+    const location = await resolvePaymentLocation();
+    return pagamentoService.solicitarMensalidade({
+      idMensalidade: selectedInvoice.idMensalidade,
+      metodo: mapUiMethodToApi(paymentMethod),
+      ...location,
+    });
+  };
+
+  const applyMensalidadeOutcome = (
+    outcome:
+      | { status: 'ok'; data: PagamentoUnicoResponse }
+      | { status: 'needs_address' }
+      | { status: 'error'; error: Error }
+      | { status: 'idle' },
+  ) => {
+    if (outcome.status === 'ok') {
+      setIsPaymentModalOpen(false);
+      setPaymentSuccess(true);
+      setPaymentResult(outcome.data);
+      addToast('success', 'Pagamento iniciado', 'Utilize o código gerado para concluir.');
+      window.dispatchEvent(new CustomEvent('pagweb:refresh-counts'));
+      void fetchInvoices();
+      return;
+    }
+    if (outcome.status === 'error') {
+      console.error('[Pagamentos] Falha no pagamento:', outcome.error);
+      addToast('error', 'Falha no Pagamento', outcome.error.message);
+    }
+  };
+
   const confirmPayment = async () => {
       if (!selectedInvoice) return;
       
-      // Validação básica de cartão se for 'Novo'
       if (paymentMethod === 'CREDIT_CARD' && selectedCardId === 'new') {
           if (cardForm.number.length < 16 || !cardForm.expiry || !cardForm.cvv || !cardForm.holder) {
-              addToast('error', 'Dados Inválidos', 'Por favor, preencha corretamente os dados do cartão.');
+              addToast('error', 'Dados Inválidos', 'Preencha corretamente os dados do cartão.');
               return;
           }
       }
 
       try {
           setIsProcessingPayment(true);
-          
-          // Mapeamento: 0 = PIX, 1 = Cartão, 2 = Boleto
-          const methodMap: Record<string, number> = {
-            'PIX': 0,
-            'CREDIT_CARD': 1,
-            'BOLETO': 2
-          };
-          
-          const methodEnum = methodMap[paymentMethod];
-
-          if (selectedInvoice.isPagamentoUnico && selectedInvoice.localPaymentId) {
-            localSinglePaymentStore.markAsPaid(selectedInvoice.localPaymentId);
-            notifySinglePaymentChanged();
-          } else {
-            await userService.payInvoice(selectedInvoice.idMensalidade, methodEnum);
-          }
-          
-          setPaymentSuccess(true);
-          addToast('success', 'Pagamento Confirmado', 'Sua fatura foi quitada com sucesso!');
-          
-          // Notificar Sidebar para atualizar badges
-          window.dispatchEvent(new CustomEvent('pagweb:refresh-counts'));
-          
-          // Atualiza lista em background
-          await fetchInvoices();
-      } catch (error: any) {
-          addToast('error', 'Falha no Pagamento', error.message);
+          const outcome = await addressGate.runWithAddressGate(() => runMensalidadePayment());
+          applyMensalidadeOutcome(outcome);
       } finally {
           setIsProcessingPayment(false);
       }
+  };
+
+  const handleAddressResolved = async () => {
+    setIsProcessingPayment(true);
+    try {
+      const outcome = await addressGate.resolveAddressAndRetry();
+      applyMensalidadeOutcome(outcome);
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   const closePaymentModal = () => {
@@ -751,6 +752,17 @@ export const Pagamentos: React.FC = () => {
             </div>
         )}
       </Modal>
+
+      {addressGate.showDialog && (
+        <RequireAddressDialog
+          onResolved={() => void handleAddressResolved()}
+          onCancel={addressGate.clearPending}
+        />
+      )}
+
+      {paymentResult && (
+        <PaymentResultModal result={paymentResult} onClose={() => setPaymentResult(null)} />
+      )}
 
     </UserLayout>
   );

@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, ChevronDown, Check, X } from 'lucide-react';
 import { formLabelClass, FORM_RADIUS, resolveFormFieldClass } from './formStyles';
 
@@ -20,8 +21,18 @@ interface SearchSelectProps {
   className?: string;
   disabled?: boolean;
   roundedClass?: string;
+  /** Conteúdo extra no rodapé do dropdown (ex.: botão de cadastro rápido). */
+  footer?: React.ReactNode;
 }
 
+interface DropdownPos {
+  top: number;
+  left: number;
+  width: number;
+  openUp: boolean;
+}
+
+/** Select pesquisável com dropdown em portal (não corta dentro de Modal). */
 export const SearchSelect: React.FC<SearchSelectProps> = ({
   label,
   options,
@@ -33,10 +44,14 @@ export const SearchSelect: React.FC<SearchSelectProps> = ({
   className = '',
   disabled = false,
   roundedClass = FORM_RADIUS,
+  footer,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [pos, setPos] = useState<DropdownPos | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value);
 
@@ -46,15 +61,43 @@ export const SearchSelect: React.FC<SearchSelectProps> = ({
       (opt.subLabel && opt.subLabel.toLowerCase().includes(searchTerm.toLowerCase())),
   );
 
+  const updatePosition = () => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < 280 && rect.top > spaceBelow;
+    setPos({
+      top: openUp ? rect.top : rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+      openUp,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    updatePosition();
+    const onScrollOrResize = () => updatePosition();
+    window.addEventListener('resize', onScrollOrResize);
+    window.addEventListener('scroll', onScrollOrResize, true);
+    return () => {
+      window.removeEventListener('resize', onScrollOrResize);
+      window.removeEventListener('scroll', onScrollOrResize, true);
+    };
+  }, [isOpen]);
+
   useEffect(() => {
+    if (!isOpen) return;
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+      const target = event.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      if (dropdownRef.current?.contains(target)) return;
+      setIsOpen(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isOpen]);
 
   const handleSelect = (optionValue: string | number) => {
     onChange(optionValue);
@@ -66,34 +109,19 @@ export const SearchSelect: React.FC<SearchSelectProps> = ({
     disabled ? '' : 'cursor-pointer hover:border-slate-400'
   }`;
 
-  return (
-    <div className={`flex flex-col gap-1.5 ${className}`} ref={containerRef}>
-      {label ? <label className={formLabelClass}>{label}</label> : null}
-      <div className="relative">
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => !disabled && setIsOpen(!isOpen)}
-          className={triggerClass}
-        >
-          <div className="flex items-center gap-2 truncate">
-            {selectedOption?.icon ? <span>{selectedOption.icon}</span> : null}
-            <span className="truncate">
-              {selectedOption ? (
-                selectedOption.label
-              ) : (
-                <span className="text-slate-400">{placeholder}</span>
-              )}
-            </span>
-          </div>
-          <ChevronDown
-            className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          />
-        </button>
-
-        {isOpen ? (
+  const dropdown =
+    isOpen && pos
+      ? createPortal(
           <div
-            className={`absolute z-50 mt-1 w-full bg-white border border-slate-200 ${roundedClass} shadow-xl animate-in fade-in zoom-in-95 duration-200`}
+            ref={dropdownRef}
+            className={`fixed z-[200] bg-white border border-slate-200 ${roundedClass} shadow-xl animate-in fade-in zoom-in-95 duration-200`}
+            style={{
+              left: pos.left,
+              width: pos.width,
+              ...(pos.openUp
+                ? { bottom: window.innerHeight - pos.top + 4, top: 'auto' }
+                : { top: pos.top }),
+            }}
           >
             <div className="p-2 border-b border-slate-100 flex items-center gap-2">
               <Search className="w-4 h-4 text-slate-400 shrink-0" />
@@ -111,7 +139,7 @@ export const SearchSelect: React.FC<SearchSelectProps> = ({
                 </button>
               ) : null}
             </div>
-            <div className="max-h-60 overflow-y-auto p-1 custom-scrollbar">
+            <div className="max-h-52 overflow-y-auto p-1 custom-scrollbar">
               {filteredOptions.length > 0 ? (
                 filteredOptions.map((opt) => (
                   <button
@@ -146,8 +174,42 @@ export const SearchSelect: React.FC<SearchSelectProps> = ({
                 </div>
               )}
             </div>
+            {footer ? (
+              <div className="border-t border-slate-100 p-2" onClick={() => setIsOpen(false)}>
+                {footer}
+              </div>
+            ) : null}
+          </div>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <div className={`flex flex-col gap-1.5 ${className}`} ref={containerRef}>
+      {label ? <label className={formLabelClass}>{label}</label> : null}
+      <div className="relative">
+        <button
+          ref={triggerRef}
+          type="button"
+          disabled={disabled}
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          className={triggerClass}
+        >
+          <div className="flex items-center gap-2 truncate">
+            {selectedOption?.icon ? <span>{selectedOption.icon}</span> : null}
+            <span className="truncate">
+              {selectedOption ? (
+                selectedOption.label
+              ) : (
+                <span className="text-slate-400">{placeholder}</span>
+              )}
+            </span>
           </div>
-        ) : null}
+          <ChevronDown
+            className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
+        {dropdown}
       </div>
       {hint ? <p className="text-xs text-slate-500">{hint}</p> : null}
       {error ? <span className="text-xs text-red-500">{error}</span> : null}

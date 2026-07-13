@@ -19,6 +19,8 @@ import { BusinessDashboard } from './app/(business)/Dashboard';
 import { Clientes } from './app/(business)/Clientes';
 import { Planos } from './app/(business)/Planos';
 import { Servicos } from './app/(business)/Servicos';
+import { Categorias } from './app/(business)/Categorias';
+import { Produtos } from './app/(business)/Produtos';
 import { Agendamentos } from './app/(business)/Agendamentos';
 import { HorariosAgendamento } from './app/(business)/HorariosAgendamento';
 import { Assinaturas } from './app/(business)/Assinaturas';
@@ -239,6 +241,22 @@ const App: React.FC = () => {
             element={
               <BusinessRoute>
                 <Servicos />
+              </BusinessRoute>
+            } 
+          />
+          <Route 
+            path="/business/categorias" 
+            element={
+              <BusinessRoute>
+                <Categorias />
+              </BusinessRoute>
+            } 
+          />
+          <Route 
+            path="/business/produtos" 
+            element={
+              <BusinessRoute>
+                <Produtos />
               </BusinessRoute>
             } 
           />

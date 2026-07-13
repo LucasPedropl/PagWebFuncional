@@ -1,4 +1,5 @@
 import { AuthAudience } from '../../../../utils/authTheme';
+import { EnderecoInput } from '../../../../features/address/schemas/enderecoSchemas';
 
 export interface RegisterFormData {
   nome: string;
@@ -17,6 +18,8 @@ export interface RegisterFormData {
   companyLogoUrl: string;
   ddi: string;
   companyDdi: string;
+  /** Cliente: residencial. Business: endereço da empresa. */
+  endereco: EnderecoInput;
 }
 
 export interface RegisterStepProps {
@@ -27,4 +30,5 @@ export interface RegisterStepProps {
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onPhoneChange: (name: 'telefone' | 'companyTelefone', value: string) => void;
   onDdiChange: (name: 'ddi' | 'companyDdi', value: string) => void;
+  onEnderecoChange: (endereco: EnderecoInput) => void;
 }

@@ -13,17 +13,20 @@ import {
   AlertCircle,
   MessageSquare,
   Scissors,
+  Package,
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { SearchSelect } from '../../components/ui/SearchSelect';
 import { CompanyBrandAvatar } from '../../components/ui/CompanyBrandAvatar';
 import { ExploreEstablishmentCardItem } from '../../components/features/explore/ExploreEstablishmentCardItem';
 import { ExplorePlanCardItem } from '../../components/features/explore/ExplorePlanCardItem';
+import { ExploreCatalogCardItem } from '../../components/features/explore/ExploreCatalogCardItem';
 import { PlanSubscribeModal } from '../../components/features/subscribe/PlanSubscribeModal';
 import { PlanChatRequestModal } from '../../components/features/plans/PlanChatRequestModal';
 import { usePublicCompanies } from '../../hooks/usePublicCompanies';
 import { usePlanSubscribe } from '../../hooks/usePlanSubscribe';
 import { usePlanChatRequestModal } from '../../hooks/usePlanChatRequestModal';
+import { useExploreCatalog } from '../../features/catalog/hooks/usePublicCatalog';
 import { mapPublicCompanyToCard } from '../../utils/publicCompany';
 import { userService } from '../../services/userService';
 import {
@@ -32,18 +35,14 @@ import {
   needsChatRequestForPlan,
 } from '../../utils/planSubscribeEligibility';
 import { PlanChatRequestReason } from '../../utils/planChatRequest';
-import { ExploreServiceCardItem } from '../../components/features/services/ExploreServiceCardItem';
-import { ScheduleServiceModal } from '../../components/features/services/ScheduleServiceModal';
-import { useLocalServices } from '../../features/services/hooks/useLocalServices';
-import { useScheduledServices } from '../../features/services/hooks/useScheduledServices';
-import { sessionService } from '../../services/session';
-import { LocalService } from '../../features/services/schemas/serviceTypes';
 import {
   ClientSubscription,
   ExploreEstablishmentCard,
   ExplorePlanCard,
   PlanResponse,
 } from '../../types';
+
+type ExploreTab = 'estabelecimentos' | 'planos' | 'servicos' | 'produtos';
 
 export const Explorar: React.FC = () => {
   const navigate = useNavigate();
@@ -59,7 +58,7 @@ export const Explorar: React.FC = () => {
   const planChatRequest = usePlanChatRequestModal();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'estabelecimentos' | 'planos' | 'servicos'>('estabelecimentos');
+  const [activeTab, setActiveTab] = useState<ExploreTab>('estabelecimentos');
   const [showFilters, setShowFilters] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('Todos');
   const [minPrice, setMinPrice] = useState('');
@@ -69,7 +68,6 @@ export const Explorar: React.FC = () => {
   const [planCountByCompany, setPlanCountByCompany] = useState<Record<number, number>>({});
   const [allPlans, setAllPlans] = useState<ExplorePlanCard[]>([]);
   const [isLoadingPlans, setIsLoadingPlans] = useState(false);
-  const [clientSubscriptions, setClientSubscriptions] = useState<ClientSubscription[]>([]);
   const [subscribingPlanId, setSubscribingPlanId] = useState<number | null>(null);
 
   const [selectedEstablishment, setSelectedEstablishment] =
@@ -77,13 +75,11 @@ export const Explorar: React.FC = () => {
   const [establishmentPlans, setEstablishmentPlans] = useState<PlanResponse[]>([]);
   const [isLoadingEstablishmentPlans, setIsLoadingEstablishmentPlans] = useState(false);
 
-  const { services: allServices } = useLocalServices();
-  const { scheduleService } = useScheduledServices();
-  const [serviceToSchedule, setServiceToSchedule] = useState<{
-    service: LocalService;
-    establishmentName: string;
-  } | null>(null);
-  const [isScheduling, setIsScheduling] = useState(false);
+  const empresaIds = useMemo(() => companies.map((c) => c.idEmpresa), [companies]);
+  const {
+    items: catalogItems,
+    isLoading: isLoadingCatalog,
+  } = useExploreCatalog(empresaIds);
 
   useEffect(() => {
     userService
@@ -254,57 +250,37 @@ export const Explorar: React.FC = () => {
 
   const filteredServices = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
-    return allServices.filter((service) => {
+    return catalogItems.filter((item) => {
+      if (item.kind !== 'servico') return false;
       const establishmentName =
-        companyNameById.get(service.idEmpresa) ?? `Empresa #${service.idEmpresa}`;
+        companyNameById.get(item.idEmpresa) ?? `Empresa #${item.idEmpresa}`;
       const matchesSearch =
         !query ||
-        service.nome.toLowerCase().includes(query) ||
+        item.nome.toLowerCase().includes(query) ||
         establishmentName.toLowerCase().includes(query) ||
-        (service.descricao?.toLowerCase().includes(query) ?? false);
-      const matchesMin = !minPrice || service.preco >= Number(minPrice);
-      const matchesMax = !maxPrice || service.preco <= Number(maxPrice);
+        item.descricao.toLowerCase().includes(query);
+      const matchesMin = !minPrice || item.preco >= Number(minPrice);
+      const matchesMax = !maxPrice || item.preco <= Number(maxPrice);
       return matchesSearch && matchesMin && matchesMax;
     });
-  }, [allServices, searchTerm, minPrice, maxPrice, companyNameById]);
+  }, [catalogItems, searchTerm, minPrice, maxPrice, companyNameById]);
 
-  const handleScheduleService = async (payload: {
-    data: string;
-    horario: string;
-    observacao?: string;
-  }) => {
-    if (!serviceToSchedule) return;
-    const { user } = sessionService.getSession();
-    if (!user?.idUser) {
-      addToast('error', 'Sessão', 'Faça login para agendar um serviço.');
-      navigate('/login?type=client');
-      return;
-    }
-
-    setIsScheduling(true);
-    try {
-      scheduleService({
-        serviceId: serviceToSchedule.service.id,
-        serviceNome: serviceToSchedule.service.nome,
-        idEmpresa: serviceToSchedule.service.idEmpresa,
-        empresaNome: serviceToSchedule.establishmentName,
-        idUser: user.idUser,
-        userNome: user.nome,
-        userEmail: user.email,
-        preco: serviceToSchedule.service.preco,
-        data: payload.data,
-        horario: payload.horario,
-        observacao: payload.observacao,
-      });
-      addToast('success', 'Agendado!', 'Seu serviço foi solicitado com sucesso.');
-      setServiceToSchedule(null);
-    } catch (err) {
-      console.error('[Explorar] Erro ao agendar serviço:', err);
-      addToast('error', 'Erro', 'Não foi possível concluir o agendamento.');
-    } finally {
-      setIsScheduling(false);
-    }
-  };
+  const filteredProducts = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return catalogItems.filter((item) => {
+      if (item.kind !== 'produto') return false;
+      const establishmentName =
+        companyNameById.get(item.idEmpresa) ?? `Empresa #${item.idEmpresa}`;
+      const matchesSearch =
+        !query ||
+        item.nome.toLowerCase().includes(query) ||
+        establishmentName.toLowerCase().includes(query) ||
+        item.descricao.toLowerCase().includes(query);
+      const matchesMin = !minPrice || item.preco >= Number(minPrice);
+      const matchesMax = !maxPrice || item.preco <= Number(maxPrice);
+      return matchesSearch && matchesMin && matchesMax;
+    });
+  }, [catalogItems, searchTerm, minPrice, maxPrice, companyNameById]);
 
   const openEstablishment = async (est: ExploreEstablishmentCard) => {
     setSelectedEstablishment(est);
@@ -348,7 +324,10 @@ export const Explorar: React.FC = () => {
     });
   };
 
-  const isPageLoading = isLoading || (activeTab === 'planos' && isLoadingPlans);
+  const isPageLoading =
+    isLoading ||
+    (activeTab === 'planos' && isLoadingPlans) ||
+    ((activeTab === 'servicos' || activeTab === 'produtos') && isLoadingCatalog);
 
   return (
     <UserLayout>
@@ -412,7 +391,7 @@ export const Explorar: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex w-full gap-2 mb-6 border-b border-gray-200">
+      <div className="flex w-full gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
         <TabButton active={activeTab === 'estabelecimentos'} onClick={() => setActiveTab('estabelecimentos')} icon={<Store className="w-4 h-4" />}>
           Estabelecimentos
         </TabButton>
@@ -421,6 +400,9 @@ export const Explorar: React.FC = () => {
         </TabButton>
         <TabButton active={activeTab === 'servicos'} onClick={() => setActiveTab('servicos')} icon={<Scissors className="w-4 h-4" />}>
           Serviços
+        </TabButton>
+        <TabButton active={activeTab === 'produtos'} onClick={() => setActiveTab('produtos')} icon={<Package className="w-4 h-4" />}>
+          Produtos
         </TabButton>
       </div>
 
@@ -473,31 +455,53 @@ export const Explorar: React.FC = () => {
             ))}
           </div>
         )
-      ) : filteredServices.length === 0 ? (
-        <StateBox
-          icon={<Scissors className="w-12 h-12 text-gray-300" />}
-          text="Nenhum serviço disponível. Estabelecimentos podem cadastrar serviços no painel deles."
-        />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
-          {filteredServices.map((service) => (
-            <ExploreServiceCardItem
-              key={service.id}
-              service={service}
-              establishmentName={
-                companyNameById.get(service.idEmpresa) ?? `Empresa #${service.idEmpresa}`
-              }
-              onSchedule={() =>
-                setServiceToSchedule({
-                  service,
-                  establishmentName:
-                    companyNameById.get(service.idEmpresa) ?? `Empresa #${service.idEmpresa}`,
-                })
-              }
-            />
-          ))}
-        </div>
-      )}
+      ) : activeTab === 'servicos' ? (
+        filteredServices.length === 0 ? (
+          <StateBox
+            icon={<Scissors className="w-12 h-12 text-gray-300" />}
+            text="Nenhum serviço publicado. Estabelecimentos cadastram no painel business."
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
+            {filteredServices.map((item) => (
+              <ExploreCatalogCardItem
+                key={`servico-${item.idEmpresa}-${item.id}`}
+                item={item}
+                establishmentName={
+                  companyNameById.get(item.idEmpresa) ?? `Empresa #${item.idEmpresa}`
+                }
+                onViewEstablishment={() => {
+                  const est = establishments.find((e) => e.idEmpresa === item.idEmpresa);
+                  if (est) void openEstablishment(est);
+                }}
+              />
+            ))}
+          </div>
+        )
+      ) : activeTab === 'produtos' ? (
+        filteredProducts.length === 0 ? (
+          <StateBox
+            icon={<Package className="w-12 h-12 text-gray-300" />}
+            text="Nenhum produto publicado. Estabelecimentos cadastram no painel business."
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6">
+            {filteredProducts.map((item) => (
+              <ExploreCatalogCardItem
+                key={`produto-${item.idEmpresa}-${item.id}`}
+                item={item}
+                establishmentName={
+                  companyNameById.get(item.idEmpresa) ?? `Empresa #${item.idEmpresa}`
+                }
+                onViewEstablishment={() => {
+                  const est = establishments.find((e) => e.idEmpresa === item.idEmpresa);
+                  if (est) void openEstablishment(est);
+                }}
+              />
+            ))}
+          </div>
+        )
+      ) : null}
 
       <Modal
         isOpen={!!selectedEstablishment}
@@ -576,15 +580,6 @@ export const Explorar: React.FC = () => {
         onClose={planChatRequest.close}
         onConfirm={planChatRequest.confirm}
         context={planChatRequest.context}
-      />
-
-      <ScheduleServiceModal
-        isOpen={!!serviceToSchedule}
-        onClose={() => setServiceToSchedule(null)}
-        service={serviceToSchedule?.service ?? null}
-        establishmentName={serviceToSchedule?.establishmentName ?? ''}
-        isSaving={isScheduling}
-        onSubmit={handleScheduleService}
       />
     </UserLayout>
   );

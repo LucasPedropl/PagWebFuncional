@@ -1,75 +1,88 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
-import { CheckCircle2, Loader2, Receipt, Scissors } from 'lucide-react';
-import { sessionService } from '../../services/session';
-import { useSinglePayments } from '../../features/single-payment/hooks/useSinglePayments';
-import { SinglePayment } from '../../features/single-payment/schemas/singlePaymentTypes';
+import { CheckCircle2, Loader2, Receipt, Scissors, AlertCircle } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
-import { notifySinglePaymentChanged } from '../../utils/sessionUser';
+import { useUserCobrancas } from '../../features/single-payment/hooks/useUserCobrancas';
+import {
+  Cobranca,
+  MetodoPagamento,
+  PagamentoUnicoResponse,
+} from '../../features/single-payment/schemas/cobrancaSchemas';
+import {
+  PayCobrancaDialog,
+  PaymentResultModal,
+} from '../../features/single-payment/components/CobrancaPayDialogs';
+import { RequireAddressDialog } from '../../features/address/components/RequireAddressDialog';
+import { useEnsureClientAddress } from '../../features/address/hooks/useEnsureClientAddress';
 import {
   formatServicePrice,
   STATUS_STYLES,
 } from '../../features/services/utils/serviceFormatters';
 
-const buildPaymentUrl = (paymentId: string) =>
-  `/pagamentos?paymentId=${encodeURIComponent(paymentId)}`;
+const STATUS_BADGE: Record<string, string> = {
+  Aberto: STATUS_STYLES.confirmado,
+  Pago: STATUS_STYLES.concluido,
+  Repassado: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  Atrasado: 'bg-red-50 text-red-700 border-red-200',
+  Cancelado: 'bg-gray-50 text-gray-500 border-gray-200',
+};
 
-const isPendingPayment = (payment: SinglePayment) => payment.status === 'Pendente';
-
-const isPayablePayment = (payment: SinglePayment) =>
-  payment.status === 'Aberto' || payment.status === 'Atrasado';
+const isPayable = (c: Cobranca): boolean =>
+  c.status === 'Aberto' || c.status === 'Atrasado';
 
 export const HistoricoServicos: React.FC = () => {
-  const navigate = useNavigate();
   const { addToast } = useToast();
-  const { user } = sessionService.getSession();
-  const idUser = user?.idUser ?? 0;
-  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const { cobrancas, isLoading, error, pagarCobranca } = useUserCobrancas();
+  const addressGate = useEnsureClientAddress<PagamentoUnicoResponse>();
+  const [payingCobranca, setPayingCobranca] = useState<Cobranca | null>(null);
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentResult, setPaymentResult] = useState<PagamentoUnicoResponse | null>(null);
 
-  const { payments, isLoading, refresh, acceptPayment } = useSinglePayments(
-    idUser > 0 ? { idUser } : undefined,
-  );
+  const activeCobrancas = cobrancas.filter((c) => c.status !== 'Cancelado');
 
-  const servicePayments = payments.filter((p) => p.status !== 'Cancelado');
-
-  const handlePaymentClick = (payment: SinglePayment) => {
-    if (isPendingPayment(payment)) return;
-    navigate(buildPaymentUrl(payment.id));
+  const applyPayResult = (
+    outcome:
+      | { status: 'ok'; data: PagamentoUnicoResponse }
+      | { status: 'needs_address' }
+      | { status: 'error'; error: Error }
+      | { status: 'idle' },
+  ) => {
+    if (outcome.status === 'ok') {
+      setPayingCobranca(null);
+      setPaymentResult(outcome.data);
+      addToast('success', 'Pagamento iniciado', 'Utilize o código gerado para pagar.');
+      return;
+    }
+    if (outcome.status === 'error') {
+      console.error('[HistoricoServicos] Erro ao pagar:', outcome.error);
+      addToast('error', 'Erro ao pagar', outcome.error.message);
+    }
   };
 
-  const handleAcceptPayment = async (payment: SinglePayment) => {
+  const handlePay = async (metodo: MetodoPagamento) => {
+    if (!payingCobranca) return;
+    setIsPaying(true);
     try {
-      setAcceptingId(payment.id);
-      const accepted = acceptPayment(payment.id);
-      if (!accepted) {
-        addToast('error', 'Erro', 'Não foi possível aceitar a cobrança.');
-        return;
-      }
-      notifySinglePaymentChanged();
-      window.dispatchEvent(new CustomEvent('pagweb:refresh-counts'));
-      refresh();
-      addToast(
-        'success',
-        'Cobrança aceita',
-        'A cobrança foi registrada em Faturas e já pode ser paga.',
+      const cobrancaId = payingCobranca.id;
+      const outcome = await addressGate.runWithAddressGate(() =>
+        pagarCobranca(cobrancaId, metodo),
       );
-    } catch (err) {
-      console.error('[HistoricoServicos] Erro ao aceitar cobrança:', err);
-      addToast('error', 'Erro', 'Não foi possível aceitar a cobrança.');
+      applyPayResult(outcome);
     } finally {
-      setAcceptingId(null);
+      setIsPaying(false);
     }
   };
 
-  const statusBadgeClass = (payment: SinglePayment) => {
-    if (payment.status === 'Pendente') {
-      return 'bg-amber-50 text-amber-700 border-amber-200';
+  const handleAddressResolved = async () => {
+    setIsPaying(true);
+    try {
+      const outcome = await addressGate.resolveAddressAndRetry();
+      applyPayResult(outcome);
+    } finally {
+      setIsPaying(false);
     }
-    if (payment.status === 'Pago') return STATUS_STYLES.concluido;
-    if (payment.status === 'Atrasado') return 'bg-red-50 text-red-700 border-red-200';
-    return STATUS_STYLES.confirmado;
   };
 
   return (
@@ -77,7 +90,7 @@ export const HistoricoServicos: React.FC = () => {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Cobranças</h1>
         <p className="text-gray-500 mt-1">
-          Aceite as cobranças avulsas para que apareçam em Faturas e possam ser pagas.
+          Visualize e pague as cobranças avulsas das empresas que você utiliza.
         </p>
       </div>
 
@@ -85,107 +98,96 @@ export const HistoricoServicos: React.FC = () => {
         <div className="flex justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
         </div>
-      ) : servicePayments.length === 0 ? (
-        <EmptyState
-          icon={<Receipt className="w-12 h-12 text-gray-300" />}
-          title="Nenhuma cobrança registrada"
-          description="Quando um estabelecimento registrar um serviço avulso para você, ele aparecerá aqui para aceite."
-          actionHref="/pagamentos"
-          actionLabel="Ver faturas"
-        />
+      ) : error ? (
+        <div className="flex flex-col items-center py-16 text-center gap-3 bg-white rounded-xl border border-gray-200">
+          <AlertCircle className="w-10 h-10 text-red-400" />
+          <p className="text-sm text-gray-500">{error}</p>
+        </div>
+      ) : activeCobrancas.length === 0 ? (
+        <EmptyState />
       ) : (
         <div className="space-y-4">
-          {servicePayments.map((payment) => (
+          {activeCobrancas.map((c) => (
             <div
-              key={payment.id}
-              role={isPendingPayment(payment) ? undefined : 'button'}
-              tabIndex={isPendingPayment(payment) ? undefined : 0}
-              onClick={() => handlePaymentClick(payment)}
-              onKeyDown={(e) => {
-                if (isPendingPayment(payment)) return;
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handlePaymentClick(payment);
-                }
-              }}
-              className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
-                isPendingPayment(payment)
-                  ? 'border-amber-200'
-                  : 'hover:border-slate-300 hover:shadow-md cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2'
-              }`}
+              key={c.id}
+              className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4"
             >
               <div className="flex items-start gap-4 min-w-0">
                 <div className="w-12 h-12 bg-violet-50 rounded-lg flex items-center justify-center shrink-0">
                   <Scissors className="w-6 h-6 text-violet-600" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-lg font-bold text-gray-900 truncate">
-                    {payment.descricaoServico}
-                  </h3>
-                  <p className="text-sm text-gray-500">{payment.empresaNome}</p>
-                  {payment.observacao && (
-                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{payment.observacao}</p>
+                  <h3 className="text-lg font-bold text-gray-900 truncate">{c.descricao}</h3>
+                  <p className="text-sm text-gray-500">{c.empresa?.nome ?? '—'}</p>
+                  {c.observacao && (
+                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{c.observacao}</p>
                   )}
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm">
                     <span
-                      className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border ${statusBadgeClass(payment)}`}
+                      className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_BADGE[c.status] ?? 'bg-gray-50 text-gray-600 border-gray-200'}`}
                     >
-                      {payment.status}
+                      {c.status}
                     </span>
-                    <span className="text-gray-400 hidden sm:inline">•</span>
-                    <span className="text-gray-600">Vencimento: {payment.vencimento}</span>
                   </div>
                 </div>
               </div>
 
-              <div
-                className="flex flex-col md:flex-row items-end md:items-center gap-4 shrink-0"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-2xl font-bold text-gray-900">
-                    {formatServicePrice(payment.valor)}
-                  </span>
-                </div>
-                {isPendingPayment(payment) ? (
-                  <Button
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                    onClick={() => handleAcceptPayment(payment)}
-                    isLoading={acceptingId === payment.id}
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Aceitar
-                  </Button>
-                ) : isPayablePayment(payment) ? (
+              <div className="flex flex-col md:flex-row items-end md:items-center gap-4 shrink-0">
+                <span className="text-2xl font-bold text-gray-900">
+                  {formatServicePrice(c.valorTotal)}
+                </span>
+                {isPayable(c) && (
                   <Button
                     className="bg-slate-900 hover:bg-slate-800 text-white"
-                    onClick={() => handlePaymentClick(payment)}
+                    onClick={() => setPayingCobranca(c)}
                   >
                     Pagar
                   </Button>
-                ) : null}
+                )}
+                {c.status === 'Pago' && (
+                  <span className="flex items-center gap-1 text-green-700 text-sm font-medium">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Pago
+                  </span>
+                )}
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {payingCobranca && !addressGate.showDialog && (
+        <PayCobrancaDialog
+          cobranca={payingCobranca}
+          onPay={handlePay}
+          onClose={() => setPayingCobranca(null)}
+          isPaying={isPaying}
+        />
+      )}
+
+      {addressGate.showDialog && (
+        <RequireAddressDialog
+          onResolved={() => void handleAddressResolved()}
+          onCancel={addressGate.clearPending}
+        />
+      )}
+
+      {paymentResult && (
+        <PaymentResultModal result={paymentResult} onClose={() => setPaymentResult(null)} />
+      )}
     </UserLayout>
   );
 };
 
-const EmptyState: React.FC<{
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  actionHref: string;
-  actionLabel: string;
-}> = ({ icon, title, description, actionHref, actionLabel }) => (
+const EmptyState: React.FC = () => (
   <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl border border-gray-200">
-    {icon}
-    <h3 className="text-lg font-semibold text-gray-900 mt-4">{title}</h3>
-    <p className="text-sm text-gray-500 mt-1 max-w-sm">{description}</p>
-    <Link to={actionHref} className="mt-6">
-      <Button className="bg-violet-600 hover:bg-violet-700">{actionLabel}</Button>
+    <Receipt className="w-12 h-12 text-gray-300" />
+    <h3 className="text-lg font-semibold text-gray-900 mt-4">Nenhuma cobrança registrada</h3>
+    <p className="text-sm text-gray-500 mt-1 max-w-sm">
+      Quando um estabelecimento registrar um serviço avulso para você, ele aparecerá aqui.
+    </p>
+    <Link to="/pagamentos" className="mt-6">
+      <Button className="bg-violet-600 hover:bg-violet-700">Ver faturas</Button>
     </Link>
   </div>
 );

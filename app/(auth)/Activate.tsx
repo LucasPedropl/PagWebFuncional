@@ -3,6 +3,8 @@ import { useNavigate, useLocation, Link, useSearchParams } from 'react-router-do
 import { ShieldCheck } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { companyService } from '../../services/companyService';
+import { enderecoService } from '../../features/address/services/enderecoService';
+import { EnderecoInput } from '../../features/address/schemas/enderecoSchemas';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Button } from '../../components/ui/Button';
 import { AuthOtpInput } from '../../components/features/auth/AuthOtpInput';
@@ -25,8 +27,19 @@ export const Activate: React.FC = () => {
   const [token, setToken] = useState('');
   const autoActivateAttempted = useRef(false);
 
-  const { password, isBusinessRegistration, companyData, inviteCompanyId } =
-    location.state || {};
+  const { password, isBusinessRegistration, companyData, inviteCompanyId, endereco } =
+    (location.state || {}) as {
+      password?: string;
+      isBusinessRegistration?: boolean;
+      companyData?: {
+        nome: string;
+        cnpj: string;
+        telefone: string;
+        logo: File | null;
+      };
+      inviteCompanyId?: number;
+      endereco?: EnderecoInput;
+    };
   const audience = isBusinessRegistration ? 'business' : 'client';
   const theme = getAuthTheme(audience);
 
@@ -106,6 +119,14 @@ export const Activate: React.FC = () => {
         if (password) {
           setStatusMessage('Autenticando...');
           await userService.login(email, password);
+          if (endereco) {
+            try {
+              setStatusMessage('Salvando endereço...');
+              await enderecoService.createForUser(endereco);
+            } catch (addrErr) {
+              console.error('[Activate] Endereço cliente:', addrErr);
+            }
+          }
           if (inviteCompanyId) {
             try {
               await userService.linkToCompany(inviteCompanyId);
@@ -128,6 +149,14 @@ export const Activate: React.FC = () => {
         await companyService.create(authResponse.token, companyData);
         setStatusMessage('Acessando painel...');
         await companyService.login(email, password);
+        if (endereco) {
+          try {
+            setStatusMessage('Salvando endereço da empresa...');
+            await enderecoService.createForEmpresa(endereco);
+          } catch (addrErr) {
+            console.error('[Activate] Endereço empresa:', addrErr);
+          }
+        }
         navigate('/business/dashboard');
       }
     } catch (err: unknown) {

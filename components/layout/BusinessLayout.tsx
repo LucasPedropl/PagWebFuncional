@@ -13,9 +13,9 @@ import {
   MessageCircle,
   MessageSquare,
   Scissors,
-  Calendar,
-  Clock,
   Banknote,
+  Tags,
+  Package,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
@@ -217,9 +217,9 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
       icon: Scissors,
       label: 'Serviços',
       children: [
+        { label: 'Categorias', path: '/business/categorias', icon: Tags },
+        { label: 'Produtos', path: '/business/produtos', icon: Package },
         { label: 'Catálogo', path: '/business/servicos', icon: Scissors },
-        { label: 'Agendamentos', path: '/business/agendamentos', icon: Calendar },
-        { label: 'Horários', path: '/business/horarios-agendamento', icon: Clock },
       ],
     },
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },

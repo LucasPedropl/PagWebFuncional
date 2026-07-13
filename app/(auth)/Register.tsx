@@ -9,9 +9,11 @@ import { AuthStepIndicator } from '../../components/features/auth/AuthStepIndica
 import { RegisterStepPersonal } from '../../components/features/auth/register/RegisterStepPersonal';
 import { RegisterStepAccess } from '../../components/features/auth/register/RegisterStepAccess';
 import { RegisterStepCompany } from '../../components/features/auth/register/RegisterStepCompany';
+import { RegisterStepAddress } from '../../components/features/auth/register/RegisterStepAddress';
 import { RegisterFormData } from '../../components/features/auth/register/registerTypes';
 import { formatCPF, formatPhone, formatCPFOrCNPJ } from '../../utils/formatters';
-import { getAuthTheme } from '../../utils/authTheme';
+import { getAuthTheme, AuthAudience } from '../../utils/authTheme';
+import { emptyEndereco, EnderecoInputSchema } from '../../features/address/schemas/enderecoSchemas';
 
 const emptyForm = (): RegisterFormData => ({
   nome: '',
@@ -30,6 +32,7 @@ const emptyForm = (): RegisterFormData => ({
   companyLogoUrl: '',
   ddi: '55',
   companyDdi: '55',
+  endereco: emptyEndereco(),
 });
 
 export const Register: React.FC = () => {
@@ -42,7 +45,7 @@ export const Register: React.FC = () => {
   const rawType = searchParams.get('type');
   const type = rawType?.split('?')[0] as 'client' | 'business' | null;
   const isBusiness = type === 'business';
-  const audience = isBusiness ? 'business' : 'client';
+  const audience: AuthAudience = isBusiness ? 'business' : 'client';
   const theme = getAuthTheme(audience);
 
   const [inviteCompanyId, setInviteCompanyId] = useState<number | null>(null);
@@ -50,12 +53,19 @@ export const Register: React.FC = () => {
   const [formData, setFormData] = useState<RegisterFormData>(emptyForm);
 
   const stepDefs = useMemo(() => {
-    const base = [
-      { id: 1, label: isBusiness ? 'Administrador' : 'Perfil' },
+    if (isBusiness) {
+      return [
+        { id: 1, label: 'Administrador' },
+        { id: 2, label: 'Acesso' },
+        { id: 3, label: 'Empresa' },
+        { id: 4, label: 'Endereço' },
+      ];
+    }
+    return [
+      { id: 1, label: 'Perfil' },
       { id: 2, label: 'Acesso' },
+      { id: 3, label: 'Endereço' },
     ];
-    if (isBusiness) base.push({ id: 3, label: 'Empresa' });
-    return base;
   }, [isBusiness]);
 
   const totalSteps = stepDefs.length;
@@ -111,7 +121,11 @@ export const Register: React.FC = () => {
       setFormData((prev) => ({ ...prev, [name]: formatPhone(value) })),
     onDdiChange: (name: 'ddi' | 'companyDdi', value: string) =>
       setFormData((prev) => ({ ...prev, [name]: value })),
+    onEnderecoChange: (endereco: RegisterFormData['endereco']) =>
+      setFormData((prev) => ({ ...prev, endereco })),
   };
+
+  const isAddressStep = isBusiness ? step === 4 : step === 3;
 
   const validateStep = (): boolean => {
     setError(null);
@@ -144,6 +158,12 @@ export const Register: React.FC = () => {
     } else if (step === 3 && isBusiness) {
       if (!formData.companyNome || !formData.companyCnpj || !formData.companyTelefone) {
         setError('Preencha os dados da empresa.');
+        return false;
+      }
+    } else if (isAddressStep) {
+      const parsed = EnderecoInputSchema.safeParse(formData.endereco);
+      if (!parsed.success) {
+        setError(parsed.error.issues[0]?.message ?? 'Preencha o endereço completo.');
         return false;
       }
     }
@@ -181,6 +201,12 @@ export const Register: React.FC = () => {
 
       if (inviteCompanyId) {
         await userService.login(formData.email, formData.password);
+        try {
+          const { enderecoService } = await import('../../features/address/services/enderecoService');
+          await enderecoService.createForUser(formData.endereco);
+        } catch (addrErr) {
+          console.error('[Register] Endereço pós-convite:', addrErr);
+        }
         navigate('/dashboard');
         return;
       }
@@ -190,6 +216,7 @@ export const Register: React.FC = () => {
           email: formData.email,
           password: formData.password,
           isBusinessRegistration: isBusiness,
+          endereco: formData.endereco,
           companyData: isBusiness
             ? {
                 nome: formData.companyNome,
@@ -226,6 +253,14 @@ export const Register: React.FC = () => {
       companyNome: `Empresa ${random}`,
       companyCnpj: '12.345.678/0001-95',
       companyTelefone: `(11) 3${Math.floor(Math.random() * 8999 + 1000)}-${Math.floor(Math.random() * 8999 + 1000)}`,
+      endereco: {
+        rua: 'Rua Teste',
+        numero: String(100 + (random % 80)),
+        bairro: 'Centro',
+        cidade: 'Sao Paulo',
+        estado: 'SP',
+        cep: '01001000',
+      },
     }));
   };
 
@@ -277,6 +312,13 @@ export const Register: React.FC = () => {
         {step === 1 && <RegisterStepPersonal {...stepProps} />}
         {step === 2 && <RegisterStepAccess {...stepProps} />}
         {step === 3 && isBusiness && <RegisterStepCompany {...stepProps} />}
+        {isAddressStep && (
+          <RegisterStepAddress
+            formData={formData}
+            onEnderecoChange={stepProps.onEnderecoChange}
+            isBusiness={isBusiness}
+          />
+        )}
 
         {error ? <AuthAlert variant="error">{error}</AuthAlert> : null}
 

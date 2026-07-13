@@ -1,97 +1,75 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Scissors, Loader2, Edit2, Trash2, AlertCircle } from 'lucide-react';
-import { companyService } from '../../services/companyService';
+import { Plus, Tags, Loader2, Edit2, Trash2, AlertCircle } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
-import { useServicos } from '../../features/catalog/hooks/useServicos';
-import { CatalogItem } from '../../features/catalog/schemas/catalogSchemas';
-import { CategoriaSearchField } from '../../features/catalog/components/CategoriaSearchField';
-import { formatServicePrice } from '../../features/services/utils/serviceFormatters';
+import { useCategorias } from '../../features/catalog/hooks/useCategorias';
+import { Categoria } from '../../features/catalog/schemas/catalogSchemas';
 
-export const Servicos: React.FC = () => {
+export const Categorias: React.FC = () => {
   const { addToast } = useToast();
-  const [idEmpresa, setIdEmpresa] = useState<number | null>(null);
-  const { servicos, isLoading, error, create, update, remove } = useServicos(idEmpresa);
+  const { categorias, isLoading, error, create, update, remove } = useCategorias();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editing, setEditing] = useState<CatalogItem | null>(null);
+  const [editing, setEditing] = useState<Categoria | null>(null);
   const [nome, setNome] = useState('');
-  const [preco, setPreco] = useState('');
   const [descricao, setDescricao] = useState('');
-  const [categoriaId, setCategoriaId] = useState<string | number>('');
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    companyService
-      .getMyCompany()
-      .then((company) => setIdEmpresa(company.idEmpresa))
-      .catch((err) => {
-        console.error('[Servicos] empresa:', err);
-        addToast('error', 'Erro', 'Não foi possível identificar sua empresa.');
-      });
-  }, [addToast]);
+  const active = useMemo(
+    () => categorias.filter((c) => c.ativo !== false),
+    [categorias],
+  );
 
   const openCreate = () => {
     setEditing(null);
     setNome('');
-    setPreco('');
     setDescricao('');
-    setCategoriaId('');
     setIsModalOpen(true);
   };
 
-  const openEdit = (item: CatalogItem) => {
-    setEditing(item);
-    setNome(item.nome);
-    setPreco(String(item.preco));
-    setDescricao(item.descricao);
-    setCategoriaId(item.categorias[0]?.id ?? '');
+  const openEdit = (cat: Categoria) => {
+    setEditing(cat);
+    setNome(cat.nome);
+    setDescricao(cat.descricao);
     setIsModalOpen(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const precoNum = Number(String(preco).replace(',', '.'));
-    if (!nome.trim() || !descricao.trim() || Number.isNaN(precoNum)) {
-      addToast('error', 'Dados inválidos', 'Preencha nome, descrição e preço.');
+    if (!nome.trim() || !descricao.trim()) {
+      addToast('error', 'Campos obrigatórios', 'Preencha nome e descrição.');
       return;
     }
-    const catNum = Number(categoriaId);
     setIsSaving(true);
     try {
-      const payload = {
-        nome: nome.trim(),
-        preco: precoNum,
-        descricao: descricao.trim(),
-        categorias: Number.isFinite(catNum) && catNum > 0 ? [catNum] : [],
-      };
+      const payload = { nome: nome.trim(), descricao: descricao.trim() };
       if (editing) {
         await update(editing.id, payload);
-        addToast('success', 'Serviço atualizado', 'Alterações salvas na API.');
+        addToast('success', 'Categoria atualizada', 'Alterações salvas.');
       } else {
         await create(payload);
-        addToast('success', 'Serviço criado', 'Serviço disponível no catálogo.');
+        addToast('success', 'Categoria criada', 'Categoria disponível no catálogo.');
       }
       setIsModalOpen(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao salvar';
-      console.error('[Servicos]', err);
+      console.error('[Categorias]', err);
       addToast('error', 'Erro', msg);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDelete = async (item: CatalogItem) => {
+  const handleDelete = async (cat: Categoria) => {
     try {
-      await remove(item.id);
-      addToast('success', 'Serviço removido', `"${item.nome}" foi desativado.`);
+      await remove(cat.id);
+      addToast('success', 'Categoria removida', `"${cat.nome}" foi desativada.`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao excluir';
-      console.error('[Servicos] delete:', err);
+      console.error('[Categorias] delete:', err);
       addToast('error', 'Erro', msg);
     }
   };
@@ -100,16 +78,18 @@ export const Servicos: React.FC = () => {
     <BusinessLayout>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Catálogo de Serviços</h1>
-          <p className="text-gray-500 mt-1">Serviços sincronizados com a API PagWeb.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Categorias</h1>
+          <p className="text-gray-500 mt-1">
+            Agrupe produtos e serviços do catálogo da empresa.
+          </p>
         </div>
         <Button onClick={openCreate} className="bg-violet-600 hover:bg-violet-700">
           <Plus className="w-4 h-4 mr-2" />
-          Novo serviço
+          Nova categoria
         </Button>
       </div>
 
-      {isLoading || !idEmpresa ? (
+      {isLoading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
         </div>
@@ -118,29 +98,24 @@ export const Servicos: React.FC = () => {
           <AlertCircle className="w-10 h-10 text-red-400" />
           <p className="text-sm text-gray-500">{error}</p>
         </div>
-      ) : servicos.length === 0 ? (
+      ) : active.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <Scissors className="w-10 h-10 text-gray-300 mx-auto" />
-          <p className="mt-3 text-gray-600">Nenhum serviço cadastrado.</p>
+          <Tags className="w-10 h-10 text-gray-300 mx-auto" />
+          <p className="mt-3 text-gray-600">Nenhuma categoria cadastrada.</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {servicos.map((item) => (
+          {active.map((cat) => (
             <div
-              key={item.id}
+              key={cat.id}
               className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm flex flex-col"
             >
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-bold text-gray-900">{item.nome}</h3>
-                <span className="text-violet-700 font-semibold shrink-0">
-                  {formatServicePrice(item.preco)}
-                </span>
-              </div>
-              <p className="text-sm text-gray-500 mt-1 flex-1 line-clamp-3">{item.descricao}</p>
+              <h3 className="font-bold text-gray-900">{cat.nome}</h3>
+              <p className="text-sm text-gray-500 mt-1 flex-1 line-clamp-3">{cat.descricao}</p>
               <div className="flex gap-2 mt-4">
                 <Button
                   type="button"
-                  onClick={() => openEdit(item)}
+                  onClick={() => openEdit(cat)}
                   className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700"
                 >
                   <Edit2 className="w-4 h-4 mr-1" />
@@ -148,7 +123,7 @@ export const Servicos: React.FC = () => {
                 </Button>
                 <Button
                   type="button"
-                  onClick={() => void handleDelete(item)}
+                  onClick={() => void handleDelete(cat)}
                   className="bg-red-50 hover:bg-red-100 text-red-700"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -162,7 +137,7 @@ export const Servicos: React.FC = () => {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editing ? 'Editar serviço' : 'Novo serviço'}
+        title={editing ? 'Editar categoria' : 'Nova categoria'}
       >
         <form className="space-y-4" onSubmit={(e) => void handleSave(e)}>
           <Input
@@ -170,26 +145,14 @@ export const Servicos: React.FC = () => {
             value={nome}
             onChange={(e) => setNome(e.target.value)}
             required
-            placeholder="Ex: Corte de Cabelo Masculino"
-          />
-          <Input
-            label="Preço"
-            value={preco}
-            onChange={(e) => setPreco(e.target.value)}
-            required
-            placeholder="0,00"
+            placeholder="Ex: Beleza, Consultoria, Alimentação..."
           />
           <Textarea
             label="Descrição"
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
             required
-            placeholder="Descreva o que está incluso no serviço, duração estimada, etc."
-          />
-          <CategoriaSearchField
-            value={categoriaId}
-            onChange={setCategoriaId}
-            placeholder="Selecione..."
+            placeholder="Descreva brevemente o propósito desta categoria..."
           />
           <div className="flex gap-3 pt-2">
             <Button

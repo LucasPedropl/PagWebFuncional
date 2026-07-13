@@ -1,0 +1,137 @@
+# Relatório de Novos Endpoints - API PagWebV1
+
+Este relatório documenta os **26 novos endpoints** relevantes ao frontend do
+PagWeb, trazendo suporte a catálogos de produtos, serviços, cobranças
+estruturadas e fluxos de pagamento.
+
+**Legenda de status no frontend**
+
+| Status          | Significado                           |
+| :-------------- | :------------------------------------ |
+| ✅ Implementado | Integrado no frontend PagWebFuncional |
+| ⏳ Pendente     | Ainda não integrado no frontend       |
+| 🚫 Não usar     | Cross-tenant / inseguro no FE         |
+
+---
+
+## Tabela Geral de Novos Endpoints
+
+| Método     | Rota/Endpoint                                                      | Nome Amigável                     | Status FE   | Onde no frontend                                                            |
+| :--------- | :----------------------------------------------------------------- | :-------------------------------- | :---------- | :-------------------------------------------------------------------------- |
+| **GET**    | `/api/Servicos`                                                    | Listar Todos os Serviços          | 🚫 Não usar | Cross-tenant; usar `empresa-servicos-publico`                               |
+| **POST**   | `/api/Servicos`                                                    | Cadastrar Novo Serviço            | ✅          | `#/business/servicos` → `servicoService.create`                             |
+| **GET**    | `/api/Servicos/{id}`                                               | Obter Detalhes do Serviço         | ✅          | `servicoService.getById` (camada de serviço)                                |
+| **PUT**    | `/api/Servicos/{id}`                                               | Atualizar Serviço                 | ✅          | `#/business/servicos` → `servicoService.update`                             |
+| **DELETE** | `/api/Servicos/{id}`                                               | Excluir Serviço                   | ✅          | `#/business/servicos` → `servicoService.remove`                             |
+| **GET**    | `/api/Servicos/empresa-servicos-publico/{idEmpresa}/{idCategoria}` | Listar Serviços Públicos          | ✅          | `#/explorar` (aba Serviços) + `#/empresa/:id` + admin `#/business/servicos` |
+| **POST**   | `/api/Produtos`                                                    | Cadastrar Novo Produto            | ✅          | `#/business/produtos` → `produtoService.create`                             |
+| **GET**    | `/api/Produtos/{id}`                                               | Obter Detalhes do Produto         | ✅          | `produtoService.getById`                                                    |
+| **PUT**    | `/api/Produtos/{id}`                                               | Atualizar Produto                 | ✅          | `#/business/produtos`                                                       |
+| **DELETE** | `/api/Produtos/{id}`                                               | Excluir Produto                   | ✅          | `#/business/produtos`                                                       |
+| **GET**    | `/api/Produtos/empresa-publico/{idEmpresa}/{categoria}`            | Listar Produtos Públicos          | ✅          | `#/explorar` (aba Produtos) + `#/empresa/:id`                               |
+| **GET**    | `/api/Produtos/empresa-empresa/{categoria}`                        | Listar Produtos Internos          | ✅          | `#/business/produtos` (agregado por categorias)                             |
+| **GET**    | `/api/Categorias`                                                  | Listar Todas as Categorias        | 🚫 Não usar | Cross-tenant; usar `empresa-categorias-publico`                             |
+| **POST**   | `/api/Categorias`                                                  | Cadastrar Nova Categoria          | ✅          | `#/business/categorias`                                                     |
+| **GET**    | `/api/Categorias/{id}`                                             | Obter Detalhes da Categoria       | ✅          | `categoriaService.getById`                                                  |
+| **PUT**    | `/api/Categorias/{id}`                                             | Atualizar Categoria               | ✅          | `#/business/categorias`                                                     |
+| **DELETE** | `/api/Categorias/{id}`                                             | Excluir Categoria                 | ✅          | `#/business/categorias`                                                     |
+| **GET**    | `/api/Categorias/empresa-categorias-publico/{idEmpresa}`           | Listar Categorias Públicas        | ✅          | `#/explorar` (via hook) + `#/empresa/:id`                                   |
+| **GET**    | `/api/Categorias/empresa-categorias-privado/{idEmpresa}`           | Listar Categorias Privadas        | ✅          | `#/business/categorias` → `categoriaService.listPrivado`                    |
+| **POST**   | `/api/Cobrancas`                                                   | Criar Nova Cobrança               | ✅          | `#/business/pagamento-unico`                                                |
+| **GET**    | `/api/Cobrancas/{id}`                                              | Obter Detalhes da Cobrança        | ✅          | `cobrancaService.getById`                                                   |
+| **GET**    | `/api/Cobrancas/Empresa`                                           | Listar Cobranças da Empresa       | ✅          | `#/business/pagamento-unico`                                                |
+| **GET**    | `/api/Cobrancas/Usuario`                                           | Listar Minhas Cobranças           | ✅          | `#/historico-servicos` + `UserLayout`                                       |
+| **PUT**    | `/api/Cobrancas/Status/{id}`                                       | Atualizar Status da Cobrança      | ✅          | `#/business/pagamento-unico` (cancelar)                                     |
+| **POST**   | `/api/v1/Pagamento/solicitar`                                      | Solicitar Pagamento de Assinatura | ✅          | `#/pagamentos` → `pagamentoService.solicitarMensalidade`                    |
+| **POST**   | `/api/v1/Pagamento/unico-solicitar`                                | Solicitar Pagamento Único         | ✅          | `#/historico-servicos`                                                      |
+
+---
+
+## Endereço (pré-requisito de pagamento Bixs)
+
+| Método    | Rota                       | Status FE | Onde                                                                                                 |
+| :-------- | :------------------------- | :-------- | :--------------------------------------------------------------------------------------------------- |
+| **POST**  | `/api/v1/Endereco/usuario` | ✅        | Cadastro cliente (`Register` step Endereço → `Activate`) + gate `RequireAddressDialog` em pagamentos |
+| **POST**  | `/api/v1/Endereco/empresa` | ✅        | Cadastro business (step Endereço → após criar empresa em `Activate`)                                 |
+| **PATCH** | `/api/v1/Endereco/{id}`    | ⏳        | Editar endereço já cadastrado (cliente ou empresa) — ainda sem tela                                  |
+
+Arquivos: `features/address/*`, steps em `Register.tsx` / `Activate.tsx`, gate
+em `#/historico-servicos` e `#/pagamentos`. API **não** expõe GET de endereço; FE usa
+flag de sessão + modal no pagamento.
+
+---
+
+## Catálogo — arquivos
+
+| Camada   | Path                                                                                     |
+| :------- | :--------------------------------------------------------------------------------------- |
+| Schemas  | `features/catalog/schemas/catalogSchemas.ts`                                             |
+| Services | `features/catalog/services/{categoria,servico,produto}Service.ts`                        |
+| Hooks    | `useCategorias` / `useServicos` / `useProdutos` (admin) + `usePublicCatalog` (FE)        |
+| Admin    | `#/business/categorias`, `#/business/produtos`, `#/business/servicos`                    |
+| Vitrine  | `#/explorar` (abas Serviços/Produtos) + `#/empresa/:id` (`PublicCompanyCatalogSections`) |
+
+Categorias agrupam **produtos e serviços**. Cobrança avulsa pode vincular ids
+opcionais de catálogo em `#/business/pagamento-unico`.
+
+---
+
+## Pagamentos — papéis
+
+| Ação                                      | Admin | Cliente          |
+| :---------------------------------------- | :---- | :--------------- |
+| Criar cobrança                            | Sim   | Não              |
+| Pagar cobrança avulsa (`unico-solicitar`) | —     | Sim (+ endereço) |
+| Pagar mensalidade (`solicitar`)           | —     | Sim (+ endereço) |
+
+---
+
+## Endpoints pensados para o FE — ainda não implementados
+
+Rotas da API feitas para consumo no PagWebFuncional, mas ainda sem integração.
+Exclui webhook Bixs, dumps cross-tenant (`GET /Servicos`, `GET /Categorias`) e
+`zTemporario` (só DEV).
+
+### Financeiro / pagamentos (admin + cliente)
+
+| Método     | Rota                                                    | Papel          | Uso sugerido no FE                                      |
+| :--------- | :------------------------------------------------------ | :------------- | :------------------------------------------------------ |
+| **GET**    | `/api/v1/Pagamento/pendentes-repasse`                   | Admin          | Tela de gestão financeira — valores a repassar          |
+| **POST**   | `/api/v1/Pagamento/{idPagamento}/confirmar-repasse`     | Admin          | Marcar repasse como feito nessa tela                    |
+| **GET**    | `/api/v1/Pagamento/Extrato`                             | Admin/Cliente  | Extrato por mês/ano (`#/pagamentos` ou relatório)       |
+| **GET**    | `/api/v1/Pagamento/Busca`                               | Admin/Cliente  | Histórico filtrado de pagamentos                        |
+| **DELETE** | `/api/v1/Mensalidade/{id}/cancelar`                     | Admin          | Cancelar parcela/mensalidade em aberto                  |
+| **GET**    | `/api/v1/User/admin/relatorio-financeiro-pdf`           | Admin          | Download PDF em `#/business/relatorios`                 |
+
+### Conta / cartão / endereço / WhatsApp
+
+| Método     | Rota                                         | Papel         | Uso sugerido no FE                         |
+| :--------- | :------------------------------------------- | :------------ | :----------------------------------------- |
+| **PATCH**  | `/api/v1/Endereco/{id}`                      | Auth          | Editar endereço em configurações           |
+| **POST**   | `/api/Cartao/resetar-padrao/{idUser}`        | Cliente       | Definir cartão padrão em pagamentos        |
+| **DELETE** | `/api/v1/User/{id}`                          | Auth          | Excluir conta (configurações)              |
+| **POST**   | `/api/v1/WhatsApps/EnviarMsg`                | Admin         | Envio manual de mensagem no painel WhatsApp |
+
+### Bloqueios (cliente)
+
+| Método     | Rota                                          | Uso sugerido no FE                    |
+| :--------- | :-------------------------------------------- | :------------------------------------ |
+| **POST**   | `/api/UserBloqueio/empresa/{empresaId}`       | Bloquear empresa                      |
+| **DELETE** | `/api/UserBloqueio/empresa/{empresaId}`       | Desbloquear empresa                   |
+| **POST**   | `/api/UserBloqueio/plano/{planoId}`           | Bloquear plano                        |
+| **DELETE** | `/api/UserBloqueio/plano/{planoId}`           | Desbloquear plano                     |
+| **GET**    | `/api/UserBloqueio/meus-bloqueios/empresas`   | Listar empresas bloqueadas            |
+| **GET**    | `/api/UserBloqueio/meus-bloqueios/planos`     | Listar planos bloqueados              |
+
+---
+
+## Fora de escopo do frontend
+
+| Item | Motivo |
+| :--- | :----- |
+| `POST /api/v1/Pagamento/repasse-bixs/{idEmpresa}` | Webhook chamado pela Bixs, não pelo FE |
+| `GET /api/Servicos` e `GET /api/Categorias` | Dump cross-tenant; vitrine usa rotas `*-publico` |
+| `/api/zTemporario/dev/*` | Só ambiente de desenvolvimento / diagnóstico |
+| Agendamentos (`features/services` mock) | Sem endpoints de agenda na API |
+| `POST /api/v1/User/conecta-admin/{id}` | Fluxo interno admin↔cliente; não é tela de produto |
+| `DELETE /api/v1/Empresa/{id}` | Operação destrutiva administrativa; fora do escopo atual do FE |

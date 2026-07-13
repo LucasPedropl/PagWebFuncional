@@ -179,8 +179,9 @@ export const companyService = {
 
 	async login(email: string, password: string): Promise<AuthResponse> {
 		const payload = {
-			email: email,
-			password: password,
+			email,
+			password,
+			mac: 'pagweb',
 		};
 
 		const response = await fetch(`${USER_URL}/login-admin`, {

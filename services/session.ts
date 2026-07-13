@@ -79,7 +79,7 @@ export const sessionService = {
     const response = await fetch(`${API_BASE}/User/login-cliente`, {
       method: "POST",
       headers: { "Content-Type": "application/json", accept: "*/*" },
-      body: JSON.stringify({ Email: email, Password: password }),
+      body: JSON.stringify({ email, password, mac: "" }),
     });
     if (!response.ok) {
       throw new Error("Falha ao obter sessão de cliente");
@@ -99,7 +99,7 @@ export const sessionService = {
     const response = await fetch(`${API_BASE}/User/login-admin`, {
       method: "POST",
       headers: { "Content-Type": "application/json", accept: "*/*" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, mac: "pagweb" }),
     });
     if (!response.ok) {
       throw new Error("Falha ao obter sessão administrativa");
@@ -184,6 +184,8 @@ export const sessionService = {
     localStorage.removeItem(TOKEN_ADMIN_KEY);
     localStorage.removeItem(ACTIVE_MODE_KEY);
     localStorage.removeItem(EMPRESA_OWNER_KEY);
+    localStorage.removeItem("pagweb_client_address_ok");
+    localStorage.removeItem("pagweb_empresa_address_ok");
     this.clearCredentials();
 
     if (isBusinessRoute) {
