@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Save, Lock, Bell, Store, LogOut, User as UserIcon } from 'lucide-react';
+import { Save, Lock, Bell, Store, LogOut, User as UserIcon, MapPin } from 'lucide-react';
 import { PhoneInput } from '../../components/ui/PhoneInput';
 import { sessionService } from '../../services/session';
 import { companyService } from '../../services/companyService';
@@ -12,10 +12,12 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../context/ToastContext';
 import { formatCNPJ, formatPhone, formatCPFOrCNPJ } from '../../utils/formatters';
 import { getImageUrl } from '../../utils/api';
+import { AddressSettingsPanel } from '../../features/address/components/AddressSettingsPanel';
+import { isValidName, isValidPhone, isValidCPFOrCNPJ } from '../../utils/validators';
 
 export const Configuracoes: React.FC = () => {
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'perfil' | 'geral' | 'notificacoes' | 'seguranca'>('geral');
+  const [activeTab, setActiveTab] = useState<'perfil' | 'geral' | 'notificacoes' | 'seguranca' | 'endereco'>('geral');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
   const navigate = useNavigate();
@@ -186,6 +188,18 @@ export const Configuracoes: React.FC = () => {
   };
 
   const handleSaveProfile = async () => {
+    if (!isValidName(profileData.nome)) {
+        addToast('error', 'Erro', 'Nome inválido (mínimo de 2 letras, sem números ou símbolos).');
+        return;
+    }
+    if (!isValidName(profileData.sobreNome)) {
+        addToast('error', 'Erro', 'Sobrenome inválido (mínimo de 2 letras, sem números ou símbolos).');
+        return;
+    }
+    if (!isValidPhone(profileData.telefone, profileData.ddi)) {
+        addToast('error', 'Erro', 'Número de telefone pessoal inválido.');
+        return;
+    }
     setIsLoading(true);
     try {
         const cleanPhone = profileData.telefone.replace(/\D/g, '');
@@ -247,6 +261,18 @@ export const Configuracoes: React.FC = () => {
   };
 
   const handleSave = async () => {
+    if (companyData.nome.trim().length < 2) {
+        addToast('error', 'Erro', 'Nome da empresa deve ter pelo menos 2 caracteres.');
+        return;
+    }
+    if (!isValidCPFOrCNPJ(companyData.cnpj)) {
+        addToast('error', 'Erro', 'CNPJ ou CPF da empresa inválido.');
+        return;
+    }
+    if (!isValidPhone(companyData.telefone, companyData.ddi)) {
+        addToast('error', 'Erro', 'Número de telefone comercial inválido.');
+        return;
+    }
     setIsLoading(true);
     try {
       const cleanCNPJ = companyData.cnpj.replace(/\D/g, '');
@@ -327,6 +353,17 @@ export const Configuracoes: React.FC = () => {
                 >
                     <Lock className="w-4 h-4 mr-3" />
                     Segurança
+                </button>
+                <button
+                    onClick={() => setActiveTab('endereco')}
+                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                        activeTab === 'endereco'
+                        ? 'bg-slate-900 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                >
+                    <MapPin className="w-4 h-4 mr-3" />
+                    Endereço
                 </button>
                 
                 <div className="pt-4 mt-4 border-t border-gray-100">
@@ -620,6 +657,14 @@ export const Configuracoes: React.FC = () => {
                             </Button>
                         </div>
                     </div>
+                )}
+
+                {activeTab === 'endereco' && (
+                  <AddressSettingsPanel
+                    scope="empresa"
+                    title="Endereço da empresa"
+                    subtitle="Endereço comercial vinculado ao estabelecimento."
+                  />
                 )}
 
             </div>

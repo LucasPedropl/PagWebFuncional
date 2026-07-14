@@ -53,11 +53,11 @@ estruturadas e fluxos de pagamento.
 | :-------- | :------------------------- | :-------- | :--------------------------------------------------------------------------------------------------- |
 | **POST**  | `/api/v1/Endereco/usuario` | ✅        | Cadastro cliente (`Register` step Endereço → `Activate`) + gate `RequireAddressDialog` em pagamentos |
 | **POST**  | `/api/v1/Endereco/empresa` | ✅        | Cadastro business (step Endereço → após criar empresa em `Activate`)                                 |
-| **PATCH** | `/api/v1/Endereco/{id}`    | ⏳        | Editar endereço já cadastrado (cliente ou empresa) — ainda sem tela                                  |
+| **PATCH** | `/api/v1/Endereco/{id}`    | ✅        | `#/configuracoes` e `#/business/configuracoes` (aba Endereço) via `enderecoService.update` / `saveForScope` |
 
 Arquivos: `features/address/*`, steps em `Register.tsx` / `Activate.tsx`, gate
 em `#/historico-servicos` e `#/pagamentos`. API **não** expõe GET de endereço; FE usa
-flag de sessão + modal no pagamento.
+flag de sessão + draft local + id após primeiro PATCH bem-sucedido.
 
 ---
 
@@ -86,42 +86,40 @@ opcionais de catálogo em `#/business/pagamento-unico`.
 
 ---
 
-## Endpoints pensados para o FE — ainda não implementados
+## Endpoints de conta / financeiro / bloqueios (integrados)
 
-Rotas da API feitas para consumo no PagWebFuncional, mas ainda sem integração.
-Exclui webhook Bixs, dumps cross-tenant (`GET /Servicos`, `GET /Categorias`) e
-`zTemporario` (só DEV).
+### Financeiro / pagamentos
 
-### Financeiro / pagamentos (admin + cliente)
-
-| Método     | Rota                                                    | Papel          | Uso sugerido no FE                                      |
+| Método     | Rota                                                    | Papel          | Onde no FE                                              |
 | :--------- | :------------------------------------------------------ | :------------- | :------------------------------------------------------ |
-| **GET**    | `/api/v1/Pagamento/pendentes-repasse`                   | Admin          | Tela de gestão financeira — valores a repassar          |
-| **POST**   | `/api/v1/Pagamento/{idPagamento}/confirmar-repasse`     | Admin          | Marcar repasse como feito nessa tela                    |
-| **GET**    | `/api/v1/Pagamento/Extrato`                             | Admin/Cliente  | Extrato por mês/ano (`#/pagamentos` ou relatório)       |
-| **GET**    | `/api/v1/Pagamento/Busca`                               | Admin/Cliente  | Histórico filtrado de pagamentos                        |
-| **DELETE** | `/api/v1/Mensalidade/{id}/cancelar`                     | Admin          | Cancelar parcela/mensalidade em aberto                  |
-| **GET**    | `/api/v1/User/admin/relatorio-financeiro-pdf`           | Admin          | Download PDF em `#/business/relatorios`                 |
+| **GET**    | `/api/v1/Pagamento/pendentes-repasse`                   | Admin          | `#/business/repasses`                                   |
+| **POST**   | `/api/v1/Pagamento/{idPagamento}/confirmar-repasse`     | Admin          | `#/business/repasses`                                   |
+| **GET**    | `/api/v1/Pagamento/Extrato`                             | Admin/Cliente  | `#/pagamentos` e `#/business/pagamentos`                |
+| **GET**    | `/api/v1/Pagamento/Busca`                               | Admin/Cliente  | `#/pagamentos` e `#/business/pagamentos`                |
+| **DELETE** | `/api/v1/Mensalidade/{id}/cancelar`                     | Admin          | `businessService.cancelarMensalidade`                   |
+| **GET**    | `/api/v1/User/admin/relatorio-financeiro-pdf`           | Admin          | `#/business/relatorios`                                 |
 
-### Conta / cartão / endereço / WhatsApp
+### Conta / cartão / WhatsApp
 
-| Método     | Rota                                         | Papel         | Uso sugerido no FE                         |
-| :--------- | :------------------------------------------- | :------------ | :----------------------------------------- |
-| **PATCH**  | `/api/v1/Endereco/{id}`                      | Auth          | Editar endereço em configurações           |
-| **POST**   | `/api/Cartao/resetar-padrao/{idUser}`        | Cliente       | Definir cartão padrão em pagamentos        |
-| **DELETE** | `/api/v1/User/{id}`                          | Auth          | Excluir conta (configurações)              |
-| **POST**   | `/api/v1/WhatsApps/EnviarMsg`                | Admin         | Envio manual de mensagem no painel WhatsApp |
+| Método     | Rota                                         | Papel         | Onde no FE                                      |
+| :--------- | :------------------------------------------- | :------------ | :---------------------------------------------- |
+| **PATCH**  | `/api/v1/Endereco/{id}`                      | Auth          | Aba Endereço em configs (cliente e business)    |
+| **POST**   | `/api/Cartao/resetar-padrao/{idUser}`        | Cliente       | `#/metodos-pagamento` (Limpar cartão padrão)    |
+| **DELETE** | `/api/v1/User/{id}`                          | Auth          | `#/configuracoes` → Senha e Segurança           |
+| **POST**   | `/api/v1/WhatsApps/EnviarMsg`                | Admin         | `#/business/whatsapp` (compose quando conectado)|
 
 ### Bloqueios (cliente)
 
-| Método     | Rota                                          | Uso sugerido no FE                    |
-| :--------- | :-------------------------------------------- | :------------------------------------ |
-| **POST**   | `/api/UserBloqueio/empresa/{empresaId}`       | Bloquear empresa                      |
-| **DELETE** | `/api/UserBloqueio/empresa/{empresaId}`       | Desbloquear empresa                   |
-| **POST**   | `/api/UserBloqueio/plano/{planoId}`           | Bloquear plano                        |
-| **DELETE** | `/api/UserBloqueio/plano/{planoId}`           | Desbloquear plano                     |
-| **GET**    | `/api/UserBloqueio/meus-bloqueios/empresas`   | Listar empresas bloqueadas            |
-| **GET**    | `/api/UserBloqueio/meus-bloqueios/planos`     | Listar planos bloqueados              |
+| Método     | Rota                                          | Onde no FE                         |
+| :--------- | :-------------------------------------------- | :--------------------------------- |
+| **POST**   | `/api/UserBloqueio/empresa/{empresaId}`       | `#/bloqueios`                      |
+| **DELETE** | `/api/UserBloqueio/empresa/{empresaId}`       | `#/bloqueios`                      |
+| **POST**   | `/api/UserBloqueio/plano/{planoId}`           | `#/bloqueios`                      |
+| **DELETE** | `/api/UserBloqueio/plano/{planoId}`           | `#/bloqueios`                      |
+| **GET**    | `/api/UserBloqueio/meus-bloqueios/empresas`   | `#/bloqueios`                      |
+| **GET**    | `/api/UserBloqueio/meus-bloqueios/planos`     | `#/bloqueios`                      |
+
+Arquivos: `features/bloqueios/*`, página `#/bloqueios`.
 
 ---
 

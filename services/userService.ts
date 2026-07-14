@@ -624,6 +624,28 @@ export const userService = {
     }
   },
 
+  /** Limpa o flag isDefault de todos os cartões do usuário. */
+  async resetDefaultCards(idUser: number): Promise<void> {
+    const response = await authRequest(`/api/Cartao/resetar-padrao/${idUser}`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      const msg = await parseApiError(response);
+      throw new Error(msg || 'Falha ao resetar cartão padrão.');
+    }
+  },
+
+  /** Inativa/cancela a conta do usuário logado. */
+  async deleteAccount(idUser: number): Promise<void> {
+    const response = await authRequest(`/User/${idUser}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const msg = await parseApiError(response);
+      throw new Error(msg || 'Falha ao excluir conta.');
+    }
+  },
+
   // --- AÇÕES DO CLIENTE (Cancelar, Pagar) ---
 
   async unlinkCompany(idEmpresa: number): Promise<void> {

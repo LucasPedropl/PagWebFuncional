@@ -15,8 +15,8 @@ const CLIENT_LOGIN_DEFAULTS = {
 };
 
 const BUSINESS_LOGIN_DEFAULTS = {
-  email: 'pedrolucasmota2005.pl@gmail.com',
-  password: '123123',
+  email: 'pedrolucasmota2005@gmail.com',
+  password: 'plm200510',
 };
 
 const getLoginDefaults = (business: boolean) =>

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Save, User as UserIcon, Lock, LogOut, Bell } from 'lucide-react';
+import { Modal } from '../../components/ui/Modal';
+import { Save, User as UserIcon, Lock, LogOut, Bell, MapPin, Trash2 } from 'lucide-react';
 import { PhoneInput } from '../../components/ui/PhoneInput';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
@@ -11,11 +12,15 @@ import { formatPhone } from '../../utils/formatters';
 import { useToast } from '../../context/ToastContext';
 import { NotificationSettings } from '../../types';
 import { getImageUrl } from '../../utils/api';
+import { AddressSettingsPanel } from '../../features/address/components/AddressSettingsPanel';
+import { isValidName, isValidPhone } from '../../utils/validators';
 
 export const Configuracoes: React.FC = () => {
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'perfil' | 'seguranca' | 'notificacoes'>('perfil');
+  const [activeTab, setActiveTab] = useState<'perfil' | 'seguranca' | 'notificacoes' | 'endereco'>('perfil');
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
 
   // Form States
@@ -127,6 +132,18 @@ export const Configuracoes: React.FC = () => {
   };
 
   const handleSaveProfile = async () => {
+    if (!isValidName(profileData.nome)) {
+        addToast('error', 'Erro', 'Nome inválido (mínimo de 2 letras, sem números ou símbolos).');
+        return;
+    }
+    if (!isValidName(profileData.sobreNome)) {
+        addToast('error', 'Erro', 'Sobrenome inválido (mínimo de 2 letras, sem números ou símbolos).');
+        return;
+    }
+    if (!isValidPhone(profileData.telefone, profileData.ddi)) {
+        addToast('error', 'Erro', 'Número de telefone pessoal inválido.');
+        return;
+    }
     setIsLoading(true);
     try {
         const cleanPhone = profileData.telefone.replace(/\D/g, '');
@@ -230,6 +247,17 @@ export const Configuracoes: React.FC = () => {
                 >
                     <Bell className="w-4 h-4 mr-3" />
                     Notificações
+                </button>
+                <button
+                    onClick={() => setActiveTab('endereco')}
+                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                        activeTab === 'endereco'
+                        ? 'bg-slate-900 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                >
+                    <MapPin className="w-4 h-4 mr-3" />
+                    Endereço
                 </button>
                 <div className="pt-4 mt-4 border-t border-gray-100">
                      <button
@@ -359,7 +387,29 @@ export const Configuracoes: React.FC = () => {
                                 Atualizar Senha
                             </Button>
                         </div>
+
+                        <div className="pt-8 mt-8 border-t border-red-100 space-y-3">
+                          <h3 className="text-base font-bold text-red-700">Zona de perigo</h3>
+                          <p className="text-sm text-gray-500">
+                            Excluir a conta inativa seus vínculos. Esta ação não pode ser desfeita pelo app.
+                          </p>
+                          <Button
+                            onClick={() => setIsDeleteOpen(true)}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Excluir minha conta
+                          </Button>
+                        </div>
                     </div>
+                )}
+
+                {activeTab === 'endereco' && (
+                  <AddressSettingsPanel
+                    scope="client"
+                    title="Endereço residencial"
+                    subtitle="Necessário para pagamentos Bixs. Use o mesmo cadastro do registro."
+                  />
                 )}
 
                 {activeTab === 'notificacoes' && (
@@ -441,6 +491,56 @@ export const Configuracoes: React.FC = () => {
             </div>
          </div>
       </div>
+
+      <Modal
+        isOpen={isDeleteOpen}
+        onClose={() => !isDeleting && setIsDeleteOpen(false)}
+        title="Excluir conta"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Confirma a exclusão da conta <strong>{profileData.email || profileData.nome}</strong>?
+            Você será desconectado imediatamente.
+          </p>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              isLoading={isDeleting}
+              onClick={() => {
+                void (async () => {
+                  if (!profileData.idUser) {
+                    addToast('error', 'Erro', 'ID do usuário não encontrado.');
+                    return;
+                  }
+                  setIsDeleting(true);
+                  try {
+                    await userService.deleteAccount(profileData.idUser);
+                    addToast('success', 'Conta excluída', 'Sua conta foi inativada.');
+                    sessionService.logout();
+                    navigate('/login?type=client');
+                  } catch (err) {
+                    const msg = err instanceof Error ? err.message : 'Falha ao excluir conta';
+                    console.error(err);
+                    addToast('error', 'Erro', msg);
+                  } finally {
+                    setIsDeleting(false);
+                    setIsDeleteOpen(false);
+                  }
+                })();
+              }}
+            >
+              Confirmar exclusão
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </UserLayout>
   );
 };

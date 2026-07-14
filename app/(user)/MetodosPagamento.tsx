@@ -3,8 +3,9 @@ import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { CreditCard, PlusCircle, Trash2, Edit2, Loader2, AlertCircle } from 'lucide-react';
+import { CreditCard, PlusCircle, Trash2, Edit2, Loader2, AlertCircle, RotateCcw } from 'lucide-react';
 import { userService } from '../../services/userService';
+import { sessionService } from '../../services/session';
 import { SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { CreditCardVisual } from '../../components/ui/CreditCardVisual';
@@ -71,6 +72,7 @@ export const MetodosPagamento: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingCard, setEditingCard] = useState<SavedCard | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [isResettingDefault, setIsResettingDefault] = useState(false);
 
   const [cardForm, setCardForm] = useState({
     number: '',
@@ -201,14 +203,39 @@ export const MetodosPagamento: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Tem certeza que deseja remover este cartão?')) return;
-    
     try {
       await userService.deleteSavedCard(id);
       addToast('success', 'Sucesso', 'Cartão removido com sucesso.');
       loadCards();
-    } catch (error: any) {
-      addToast('error', 'Erro', error.message || 'Falha ao remover cartão.');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Falha ao remover cartão.';
+      addToast('error', 'Erro', msg);
+    }
+  };
+
+  const handleResetDefault = async () => {
+    let idUser = sessionService.getSession().user?.idUser;
+    if (!idUser) {
+      try {
+        const account = await userService.getMyAccount();
+        idUser = account.idUser;
+      } catch (err) {
+        console.error(err);
+        addToast('error', 'Erro', 'Não foi possível identificar o usuário.');
+        return;
+      }
+    }
+    setIsResettingDefault(true);
+    try {
+      await userService.resetDefaultCards(idUser);
+      addToast('success', 'Sucesso', 'Cartão padrão removido de todos os cartões.');
+      loadCards();
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Falha ao resetar padrão.';
+      console.error(error);
+      addToast('error', 'Erro', msg);
+    } finally {
+      setIsResettingDefault(false);
     }
   };
 
@@ -219,10 +246,27 @@ export const MetodosPagamento: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Métodos de Pagamento</h1>
           <p className="text-gray-500 mt-1">Gerencie seus cartões de crédito para pagamentos.</p>
         </div>
-        <Button onClick={() => handleOpenModal()} className="bg-slate-900 hover:bg-slate-800 text-white">
-          <PlusCircle className="w-4 h-4 mr-2" />
-          Adicionar Cartão
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {cards.some((c) => c.isDefault) ? (
+            <Button
+              variant="outline"
+              onClick={() => void handleResetDefault()}
+              disabled={isResettingDefault}
+              className="bg-white"
+            >
+              {isResettingDefault ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <RotateCcw className="w-4 h-4 mr-2" />
+              )}
+              Limpar cartão padrão
+            </Button>
+          ) : null}
+          <Button onClick={() => handleOpenModal()} className="bg-slate-900 hover:bg-slate-800 text-white">
+            <PlusCircle className="w-4 h-4 mr-2" />
+            Adicionar Cartão
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -5,11 +5,12 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Search, Filter, Download, Calendar, MoreHorizontal, ArrowUpRight, ArrowDownRight, Loader2, RefreshCw, HelpCircle, XCircle } from 'lucide-react';
-import { businessService } from '../../services/businessService';
 import { Mensalidade } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { SearchSelect } from '../../components/ui/SearchSelect';
 import { formFilterInputClass, formSearchInputClass } from '../../components/ui/formStyles';
+import { pagamentoService } from '../../features/single-payment/services/pagamentoService';
+import { businessService } from '../../services/businessService';
 
 // Componente de Tooltip Interno (Reutilizado)
 const InfoTooltip = ({ text }: { text: string }) => (
@@ -51,12 +52,31 @@ export const Pagamentos: React.FC = () => {
   const fetchMensalidades = async () => {
     setIsLoading(true);
     try {
-        const data = await businessService.listMensalidades();
+        let data: any[] = [];
+        if (searchTerm || (statusFilter && statusFilter !== 'Todos')) {
+            data = await pagamentoService.buscaPagamentos(searchTerm, statusFilter);
+        } else {
+            // Default to extrato
+            const today = new Date();
+            data = await pagamentoService.getExtrato(today.getMonth() + 1, today.getFullYear());
+        }
+        
+        // Mapear propriedades caso a API de Busca/Extrato retorne nomes ligeiramente diferentes
+        const normalizedData = data.map((item: any) => ({
+            ...item,
+            idMensalidade: item.idMensalidade || item.idPagamento || item.id,
+            nomeCliente: item.nomeCliente || item.cliente || '',
+            vencimento: item.vencimento || item.dataVencimento || item.data || '',
+            valor: item.valor || item.total || 0,
+            status: item.status || 'Aberto',
+            metodo: item.metodo || item.formaPagamento || 'PIX',
+            emailCliente: item.emailCliente || item.email || ''
+        }));
         
         // Determinar status lógico imediatamente para ordenação
-        const processedData = data.map(m => {
+        const processedData = normalizedData.map(m => {
             let status = m.status;
-            if (m.status === 'Aberto' && parseDate(m.vencimento) < new Date()) {
+            if (m.status === 'Aberto' && m.vencimento && parseDate(m.vencimento) < new Date()) {
                 status = 'Atrasado';
             }
             return { ...m, _computedStatus: status };
@@ -153,7 +173,7 @@ export const Pagamentos: React.FC = () => {
     if (!paymentToCancel) return;
     setIsCanceling(true);
     try {
-      await businessService.cancelPayment(paymentToCancel.idMensalidade);
+      await businessService.cancelarMensalidade(paymentToCancel.idMensalidade);
       addToast('success', 'Sucesso', 'Pagamento cancelado com sucesso.');
       await fetchMensalidades();
       setIsCancelModalOpen(false);
@@ -309,7 +329,6 @@ export const Pagamentos: React.FC = () => {
             <div className="flex justify-end mt-4">
                <Button 
                  variant="outline" 
-                 size="sm" 
                  onClick={() => {
                    setStatusFilter('Todos');
                    setDateStart('');

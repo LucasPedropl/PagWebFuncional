@@ -14,6 +14,14 @@ import { RegisterFormData } from '../../components/features/auth/register/regist
 import { formatCPF, formatPhone, formatCPFOrCNPJ } from '../../utils/formatters';
 import { getAuthTheme, AuthAudience } from '../../utils/authTheme';
 import { emptyEndereco, EnderecoInputSchema } from '../../features/address/schemas/enderecoSchemas';
+import {
+  isValidCPF,
+  isValidCNPJ,
+  isValidCPFOrCNPJ,
+  isValidPhone,
+  isValidEmail,
+  isValidName,
+} from '../../utils/validators';
 
 const emptyForm = (): RegisterFormData => ({
   nome: '',
@@ -51,6 +59,7 @@ export const Register: React.FC = () => {
   const [inviteCompanyId, setInviteCompanyId] = useState<number | null>(null);
   const [isEmailLocked, setIsEmailLocked] = useState(false);
   const [formData, setFormData] = useState<RegisterFormData>(emptyForm);
+  const [isCepValid, setIsCepValid] = useState(true);
 
   const stepDefs = useMemo(() => {
     if (isBusiness) {
@@ -134,17 +143,29 @@ export const Register: React.FC = () => {
         setError('Preencha todos os campos obrigatórios.');
         return false;
       }
-      if (formData.cpf.length < 14) {
+      if (!isValidName(formData.nome)) {
+        setError('Nome inválido (insira pelo menos 2 letras, sem números ou símbolos).');
+        return false;
+      }
+      if (!isBusiness && !isValidName(formData.sobreNome)) {
+        setError('Sobrenome inválido (insira pelo menos 2 letras, sem números ou símbolos).');
+        return false;
+      }
+      if (!isValidCPF(formData.cpf)) {
         setError('CPF inválido.');
         return false;
       }
-      if (formData.telefone.length < 14) {
-        setError('Telefone inválido.');
+      if (!isValidPhone(formData.telefone, formData.ddi)) {
+        setError('Número de telefone pessoal inválido.');
         return false;
       }
     } else if (step === 2) {
       if (!formData.email || !formData.password || !formData.confirmPassword) {
         setError('Preencha todos os campos de acesso.');
+        return false;
+      }
+      if (!isValidEmail(formData.email)) {
+        setError('E-mail inválido.');
         return false;
       }
       if (formData.password.length < 6) {
@@ -160,10 +181,26 @@ export const Register: React.FC = () => {
         setError('Preencha os dados da empresa.');
         return false;
       }
+      if (formData.companyNome.trim().length < 2) {
+        setError('Nome da empresa deve ter pelo menos 2 caracteres.');
+        return false;
+      }
+      if (!isValidCPFOrCNPJ(formData.companyCnpj)) {
+        setError('CNPJ/CPF da empresa inválido.');
+        return false;
+      }
+      if (!isValidPhone(formData.companyTelefone, formData.companyDdi)) {
+        setError('Número de telefone comercial inválido.');
+        return false;
+      }
     } else if (isAddressStep) {
       const parsed = EnderecoInputSchema.safeParse(formData.endereco);
       if (!parsed.success) {
         setError(parsed.error.issues[0]?.message ?? 'Preencha o endereço completo.');
+        return false;
+      }
+      if (!isCepValid) {
+        setError('O CEP informado é inválido ou não foi encontrado na base dos Correios.');
         return false;
       }
     }
@@ -239,7 +276,20 @@ export const Register: React.FC = () => {
 
   const fillRandomTestData = () => {
     const random = Math.floor(Math.random() * 10000);
-    const randomCPF = `${Math.floor(Math.random() * 900 + 100)}.${Math.floor(Math.random() * 900 + 100)}.${Math.floor(Math.random() * 900 + 100)}-${Math.floor(Math.random() * 90 + 10)}`;
+    
+    // Gerador de CPF válido para dev test
+    const num = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
+    let sum = num.reduce((acc, val, idx) => acc + val * (10 - idx), 0);
+    let d1 = 11 - (sum % 11);
+    if (d1 >= 10) d1 = 0;
+    num.push(d1);
+    sum = num.reduce((acc, val, idx) => acc + val * (11 - idx), 0);
+    let d2 = 11 - (sum % 11);
+    if (d2 >= 10) d2 = 0;
+    num.push(d2);
+    const rawCpf = num.join('');
+    const randomCPF = `${rawCpf.slice(0, 3)}.${rawCpf.slice(3, 6)}.${rawCpf.slice(6, 9)}-${rawCpf.slice(9)}`;
+
     sessionStorage.setItem('isRandomTest', 'true');
     setFormData((prev) => ({
       ...prev,
@@ -251,7 +301,7 @@ export const Register: React.FC = () => {
       confirmPassword: '123123',
       telefone: `(11) 9${Math.floor(Math.random() * 8999 + 1000)}-${Math.floor(Math.random() * 8999 + 1000)}`,
       companyNome: `Empresa ${random}`,
-      companyCnpj: '12.345.678/0001-95',
+      companyCnpj: '12.345.678/0001-96', // CNPJ de teste com dígitos verificadores corretos
       companyTelefone: `(11) 3${Math.floor(Math.random() * 8999 + 1000)}-${Math.floor(Math.random() * 8999 + 1000)}`,
       endereco: {
         rua: 'Rua Teste',
@@ -317,6 +367,7 @@ export const Register: React.FC = () => {
             formData={formData}
             onEnderecoChange={stepProps.onEnderecoChange}
             isBusiness={isBusiness}
+            onCepValidated={setIsCepValid}
           />
         )}
 

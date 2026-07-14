@@ -186,6 +186,10 @@ export const sessionService = {
     localStorage.removeItem(EMPRESA_OWNER_KEY);
     localStorage.removeItem("pagweb_client_address_ok");
     localStorage.removeItem("pagweb_empresa_address_ok");
+    localStorage.removeItem("pagweb_client_address_id");
+    localStorage.removeItem("pagweb_empresa_address_id");
+    localStorage.removeItem("pagweb_client_address_draft");
+    localStorage.removeItem("pagweb_empresa_address_draft");
     this.clearCredentials();
 
     if (isBusinessRoute) {

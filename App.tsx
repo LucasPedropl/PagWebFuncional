@@ -11,6 +11,7 @@ import { Pagamentos as UserPagamentos } from './app/(user)/Pagamentos';
 import { Relatorios as UserRelatorios } from './app/(user)/Relatorios';
 import { MetodosPagamento as UserMetodosPagamento } from './app/(user)/MetodosPagamento';
 import { Configuracoes as UserConfiguracoes } from './app/(user)/Configuracoes';
+import { Bloqueios as UserBloqueios } from './app/(user)/Bloqueios';
 import { MenuMobile as UserMenuMobile } from './app/(user)/MenuMobile';
 import { Explorar as UserExplorar } from './app/(user)/Explorar';
 import { MeusAgendamentos } from './app/(user)/MeusAgendamentos';
@@ -27,6 +28,7 @@ import { Assinaturas } from './app/(business)/Assinaturas';
 import { Pagamentos } from './app/(business)/Pagamentos';
 import { PagamentoUnico } from './app/(business)/PagamentoUnico';
 import { Relatorios } from './app/(business)/Relatorios';
+import { Repasses } from './app/(business)/Repasses';
 import { Configuracoes } from './app/(business)/Configuracoes';
 import { ConectarWhatsapp } from './app/(business)/ConectarWhatsapp';
 import { MenuMobile } from './app/(business)/MenuMobile';
@@ -187,6 +189,14 @@ const App: React.FC = () => {
             } 
           />
           <Route 
+            path="/bloqueios" 
+            element={
+              <ClientRoute>
+                <UserBloqueios />
+              </ClientRoute>
+            } 
+          />
+          <Route 
             path="/configuracoes" 
             element={
               <ClientRoute>
@@ -305,6 +315,14 @@ const App: React.FC = () => {
             element={
               <BusinessRoute>
                 <Relatorios />
+              </BusinessRoute>
+            } 
+          />
+          <Route 
+            path="/business/repasses" 
+            element={
+              <BusinessRoute>
+                <Repasses />
               </BusinessRoute>
             } 
           />

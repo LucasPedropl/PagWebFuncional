@@ -100,7 +100,7 @@ export const PagamentoUnicoSolicitarInputSchema = z.object({
   idCobranca: z.number(),
   metodo: MetodoPagamentoEnum,
   city: z.string().min(1),
-  ip: z.string().optional(),
+  ip: z.string().min(1),
   latitude: z.number().default(0),
   longitude: z.number().default(0),
 });
@@ -111,7 +111,7 @@ export const PagamentoMensalidadeSolicitarInputSchema = z.object({
   idMensalidade: z.number(),
   metodo: MetodoPagamentoEnum,
   city: z.string().min(1),
-  ip: z.string().optional(),
+  ip: z.string().min(1),
   latitude: z.number().default(0),
   longitude: z.number().default(0),
 });
@@ -147,3 +147,47 @@ export const PagamentoUnicoResponseSchema = z
   }));
 
 export type PagamentoUnicoResponse = z.infer<typeof PagamentoUnicoResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// Extrato
+// ---------------------------------------------------------------------------
+export const ExtratoPagamentoSchema = z.object({
+  idPagamento: z.number(),
+  data: z.string(),
+  valor: z.number(),
+  metodo: z.string().optional().nullable(),
+  status: z.string().optional().nullable(),
+  descricao: z.string().optional().nullable(),
+  nomeCliente: z.string().optional().nullable(),
+});
+
+export type ExtratoPagamento = z.infer<typeof ExtratoPagamentoSchema>;
+
+// ---------------------------------------------------------------------------
+// Busca de pagamentos
+// ---------------------------------------------------------------------------
+export const BuscaPagamentoSchema = z.object({
+  idPagamento: z.number(),
+  data: z.string(),
+  valor: z.number(),
+  metodo: z.string().optional().nullable(),
+  status: z.string().optional().nullable(),
+  descricao: z.string().optional().nullable(),
+  nomeCliente: z.string().optional().nullable(),
+  emailCliente: z.string().optional().nullable(),
+});
+
+export type BuscaPagamento = z.infer<typeof BuscaPagamentoSchema>;
+
+// ---------------------------------------------------------------------------
+// Pendentes de repasse
+// ---------------------------------------------------------------------------
+export const PendenteRepasseSchema = z.object({
+  idPagamento: z.number(),
+  data: z.string(),
+  valor: z.number(),
+  nomeCliente: z.string().optional().nullable(),
+  status: z.string().optional().nullable(),
+});
+
+export type PendenteRepasse = z.infer<typeof PendenteRepasseSchema>;

@@ -27,14 +27,11 @@ export const useEnsureClientAddress = <T,>(): EnsureAddressResult<T> => {
 
   const runWithAddressGate = useCallback(
     async (action: () => Promise<T>) => {
-      if (!enderecoService.hasClientAddressFlag()) {
-        setPendingAction(() => action);
-        setShowDialog(true);
-        return { status: 'needs_address' as const };
-      }
-
+      // Não bloquear por localStorage: o endereço pode existir no backend
+      // (cadastro) mesmo sem a flag — a API de pagamento é a fonte da verdade.
       try {
         const data = await action();
+        enderecoService.markClientAddressOk();
         return { status: 'ok' as const, data };
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Erro no pagamento');

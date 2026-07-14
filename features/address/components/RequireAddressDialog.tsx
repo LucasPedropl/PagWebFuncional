@@ -4,7 +4,6 @@ import { Button } from '../../../components/ui/Button';
 import {
   EnderecoInput,
   EnderecoInputSchema,
-  emptyEndereco,
 } from '../schemas/enderecoSchemas';
 import { enderecoService } from '../services/enderecoService';
 import { EnderecoFormFields } from './EnderecoFormFields';
@@ -21,7 +20,9 @@ export const RequireAddressDialog: React.FC<RequireAddressDialogProps> = ({
   onResolved,
   onCancel,
 }) => {
-  const [form, setForm] = useState<EnderecoInput>(emptyEndereco());
+  const [form, setForm] = useState<EnderecoInput>(() =>
+    enderecoService.getDraft('client'),
+  );
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 

@@ -5,7 +5,7 @@ import { formLabelClass, FORM_RADIUS, resolveFormFieldClass } from './formStyles
 
 interface PhoneInputProps {
   label: string;
-  value: string;
+  value?: string;
   ddi: string;
   onDdiChange: (ddi: string) => void;
   phoneNumber: string;

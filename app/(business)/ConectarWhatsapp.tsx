@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
-import { MessageCircle, QrCode, CheckCircle2, Smartphone, Info, Loader2, RefreshCw, LogOut } from 'lucide-react';
+import { MessageCircle, QrCode, CheckCircle2, Smartphone, Info, Loader2, RefreshCw, LogOut, Send } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { useToast } from '../../context/ToastContext';
 import { QRCodeSVG } from 'qrcode.react';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { formatPhone } from '../../utils/formatters';
 
 export const ConectarWhatsapp: React.FC = () => {
   const { addToast } = useToast();
@@ -17,6 +20,9 @@ export const ConectarWhatsapp: React.FC = () => {
   const [connectedNumber, setConnectedNumber] = useState<string | null>(null);
 
   const [isChecking, setIsChecking] = useState(true);
+  const [msgNumero, setMsgNumero] = useState('');
+  const [msgTexto, setMsgTexto] = useState('');
+  const [isSendingMsg, setIsSendingMsg] = useState(false);
 
   const checkConnection = useCallback(async () => {
     setIsChecking(true);
@@ -291,6 +297,71 @@ export const ConectarWhatsapp: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {isConnected ? (
+        <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-4">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <Send className="w-5 h-5 text-green-600" />
+            Enviar mensagem manual
+          </h2>
+          <p className="text-sm text-gray-500">
+            Envia via a instância conectada (API Bixs). Informe o número com DDD, sem +55.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+            <Input
+              label="Número (DDD + celular)"
+              value={msgNumero}
+              onChange={(e) => setMsgNumero(formatPhone(e.target.value))}
+              placeholder="(31) 99999-9999"
+              disabled={isSendingMsg}
+            />
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Mensagem</label>
+              <textarea
+                value={msgTexto}
+                onChange={(e) => setMsgTexto(e.target.value)}
+                rows={4}
+                disabled={isSendingMsg}
+                placeholder="Digite a mensagem..."
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-500"
+              />
+            </div>
+          </div>
+          <Button
+            disabled={isSendingMsg}
+            isLoading={isSendingMsg}
+            className="bg-green-600 hover:bg-green-700 text-white"
+            onClick={() => {
+              void (async () => {
+                const digits = msgNumero.replace(/\D/g, '');
+                if (digits.length < 10) {
+                  addToast('error', 'Erro', 'Informe um número válido com DDD.');
+                  return;
+                }
+                if (!msgTexto.trim()) {
+                  addToast('error', 'Erro', 'Digite a mensagem.');
+                  return;
+                }
+                setIsSendingMsg(true);
+                try {
+                  await businessService.sendWhatsAppMessage(digits, msgTexto.trim());
+                  addToast('success', 'Enviado', 'Mensagem enviada com sucesso.');
+                  setMsgTexto('');
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : 'Falha ao enviar';
+                  console.error(err);
+                  addToast('error', 'Erro', msg);
+                } finally {
+                  setIsSendingMsg(false);
+                }
+              })();
+            }}
+          >
+            <Send className="w-4 h-4 mr-2" />
+            Enviar
+          </Button>
+        </div>
+      ) : null}
     </BusinessLayout>
   );
 };

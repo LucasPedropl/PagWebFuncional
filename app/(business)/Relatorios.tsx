@@ -10,6 +10,7 @@ import { jsPDF } from 'jspdf';
 import * as XLSX from 'xlsx';
 import { getImageUrl } from '../../utils/api';
 import { SearchSelect } from '../../components/ui/SearchSelect';
+import { useToast } from '../../context/ToastContext';
 
 // Helper para formatar moeda
 const formatCurrency = (val: number) => `R$ ${val.toFixed(2).replace('.', ',')}`;
@@ -21,6 +22,7 @@ const parseDateBR = (dateStr: string) => {
 };
 
 export const Relatorios: React.FC = () => {
+  const { addToast } = useToast();
   const [dateRange, setDateRange] = useState('30');
   const [granularity, setGranularity] = useState<'day' | 'month' | 'year'>('month'); // Padrão Mensal
   const [isLoading, setIsLoading] = useState(true);
@@ -51,7 +53,8 @@ export const Relatorios: React.FC = () => {
         setPlanos(planData);
         setCompany(companyData);
     } catch (error) {
-        console.error("Erro ao carregar dados", error);
+        console.error('Erro ao carregar dados', error);
+        addToast('error', 'Erro', 'Falha ao carregar dados do relatório.');
     } finally {
         setIsLoading(false);
     }
@@ -206,159 +209,33 @@ export const Relatorios: React.FC = () => {
   const handleExportPDF = async () => {
     try {
         setIsExportingPDF(true);
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const dateNow = new Date().toLocaleDateString('pt-BR');
-        
-        // 1. Cabeçalho (Header)
-        const logoPath = company?.logo;
-        if (logoPath) {
-            const logoUrl = getImageUrl(logoPath);
-            try {
-                const img = new Image();
-                img.crossOrigin = "Anonymous"; // Crucial para evitar problemas de CORS
-                img.src = logoUrl;
-                
-                await new Promise((resolve, reject) => {
-                    img.onload = resolve;
-                    img.onerror = () => reject(new Error("Erro ao carregar imagem"));
-                    setTimeout(() => reject(new Error("Timeout ao carregar imagem")), 5000);
-                });
+        const { sessionService } = await import('../../services/session');
+        const { token } = sessionService.getSession();
+        const apiBase = 'https://lojas.vlks.com.br/api/v1';
+        const response = await fetch(`${apiBase}/User/admin/relatorio-financeiro-pdf`, {
+            method: 'GET',
+            headers: {
+                Authorization: `Bearer ${token ?? ''}`,
+            },
+        });
 
-                const maxLogoWidth = 40;
-                const maxLogoHeight = 20;
-                let finalWidth = img.width;
-                let finalHeight = img.height;
-
-                const ratio = Math.min(maxLogoWidth / finalWidth, maxLogoHeight / finalHeight);
-                finalWidth *= ratio;
-                finalHeight *= ratio;
-
-                doc.addImage(img, 'PNG', 15, 12, finalWidth, finalHeight);
-            } catch (e) {
-                console.error("Erro ao carregar logo para o PDF:", e);
-                // Se a logo falhar, o PDF continua sem ela
-            }
+        if (!response.ok) {
+            throw new Error('Erro ao baixar relatório financeiro PDF');
         }
 
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(17, 24, 39);
-        doc.text(company?.nome || 'Relatório de Performance', pageWidth - 15, 20, { align: 'right' });
-        
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(107, 114, 128);
-        doc.text(`CNPJ: ${company?.cnpj || '-'}`, pageWidth - 15, 26, { align: 'right' });
-        doc.text(`Gerado em: ${dateNow}`, pageWidth - 15, 30, { align: 'right' });
-
-        doc.setDrawColor(243, 244, 246);
-        doc.line(15, 40, pageWidth - 15, 40);
-
-        // 2. Título
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(17, 24, 39);
-        doc.text(`Relatório Executivo - Últimos ${dateRange} dias`, 15, 50);
-
-        let yPos = 65;
-
-        // 3. KPIs
-        const kpiWidth = (pageWidth - 40) / 2;
-        const drawKPI = (x: number, y: number, label: string, value: string) => {
-            doc.setFillColor(249, 250, 251);
-            doc.roundedRect(x, y, kpiWidth, 22, 1, 1, 'F');
-            doc.setFontSize(8);
-            doc.setTextColor(107, 114, 128);
-            doc.text(label, x + 5, y + 7);
-            doc.setFontSize(11);
-            doc.setTextColor(17, 24, 39);
-            doc.text(value, x + 5, y + 16);
-        };
-
-        drawKPI(15, yPos, 'Receita Realizada', formatCurrency(metrics.currentRevenue));
-        drawKPI(25 + kpiWidth, yPos, 'MRR Ativo', formatCurrency(metrics.currentMRR));
-        yPos += 27;
-        drawKPI(15, yPos, 'Churn Rate', `${metrics.churnRate.toFixed(1)}% (${metrics.churnCount} cancelamentos)`);
-        drawKPI(25 + kpiWidth, yPos, 'Ticket Médio', formatCurrency(metrics.arpu));
-        yPos += 40;
-
-        // 4. Evolução
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Evolução Financeira', 15, yPos);
-        yPos += 6;
-        doc.setFillColor(243, 244, 246);
-        doc.rect(15, yPos, pageWidth - 30, 7, 'F');
-        doc.setFontSize(8);
-        doc.setTextColor(75, 85, 99);
-        doc.text('Período', 20, yPos + 5);
-        doc.text('Faturamento', pageWidth / 2, yPos + 5);
-        doc.text('Cobranças Pagas', pageWidth - 45, yPos + 5);
-        yPos += 7;
-        doc.setTextColor(31, 41, 55);
-        metrics.chartData.slice(-12).forEach((d) => {
-            if (yPos > 270) { doc.addPage(); yPos = 20; }
-            doc.text(d.label, 20, yPos + 5);
-            doc.text(formatCurrency(d.value), pageWidth / 2, yPos + 5);
-            doc.text(d.count.toString(), pageWidth - 45, yPos + 5);
-            yPos += 6;
-            doc.setDrawColor(249, 250, 251);
-            doc.line(15, yPos, pageWidth - 15, yPos);
-        });
-
-        yPos += 15;
-        if (yPos > 250) { doc.addPage(); yPos = 20; }
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Distribuição de Planos', 15, yPos);
-        yPos += 8;
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        metrics.topPlans.forEach((plan) => {
-            doc.text(`${plan.name}: ${plan.count} ativos (${plan.percent.toFixed(1)}%)`, 20, yPos);
-            yPos += 6;
-        });
-
-        yPos += 15;
-        if (yPos > 240) { doc.addPage(); yPos = 20; }
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Últimas Transações', 15, yPos);
-        yPos += 6;
-        doc.setFillColor(17, 24, 39);
-        doc.rect(15, yPos, pageWidth - 30, 8, 'F');
-        doc.setTextColor(255);
-        doc.setFontSize(8);
-        doc.text('Data', 20, yPos + 5.5);
-        doc.text('Cliente', 45, yPos + 5.5);
-        doc.text('Status', pageWidth - 65, yPos + 5.5);
-        doc.text('Valor', pageWidth - 20, yPos + 5.5, { align: 'right' });
-        yPos += 8;
-        doc.setTextColor(31, 41, 55);
-        metrics.recentTransactions.forEach((trx) => {
-            if (yPos > 280) { doc.addPage(); yPos = 20; }
-            doc.text(trx.vencimento, 20, yPos + 5);
-            doc.text(trx.nomeCliente.substring(0, 35), 45, yPos + 5);
-            doc.text(trx.status, pageWidth - 65, yPos + 5);
-            doc.text(formatCurrency(trx.valor), pageWidth - 20, yPos + 5, { align: 'right' });
-            yPos += 7;
-            doc.setDrawColor(243, 244, 246);
-            doc.line(15, yPos, pageWidth - 15, yPos);
-        });
-
-        const totalPages = doc.internal.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-            doc.setPage(i);
-            doc.setFontSize(7);
-            doc.setTextColor(156, 163, 175);
-            doc.text(`Página ${i} de ${totalPages} | ${company?.nome} | CNPJ: ${company?.cnpj}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 10, { align: 'center' });
-        }
-
-        doc.save(`Relatorio_${company?.nome.replace(/\s+/g, '_')}_${dateNow.replace(/\//g, '-')}.pdf`);
-    } catch (e) {
-        console.error("Erro ao gerar PDF", e);
-        alert("Erro ao gerar PDF. Verifique os dados e tente novamente.");
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Relatorio_Financeiro_${new Date().toISOString().split('T')[0]}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Erro ao gerar PDF.';
+        console.error('Erro ao gerar PDF', e);
+        addToast('error', 'Erro', `${message} Verifique os dados e tente novamente.`);
     } finally {
         setIsExportingPDF(false);
     }
@@ -405,9 +282,10 @@ export const Relatorios: React.FC = () => {
         // Salvar arquivo
         const fileName = `Relatorio_${company?.nome.replace(/\s+/g, '_')}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.xlsx`;
         XLSX.writeFile(wb, fileName);
-    } catch (e) {
-        console.error("Erro ao gerar Excel", e);
-        alert("Erro ao gerar arquivo Excel.");
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Erro desconhecido.';
+        console.error('Erro ao gerar Excel', e);
+        addToast('error', 'Erro', `Erro ao gerar arquivo Excel: ${message}`);
     } finally {
         setIsExportingExcel(false);
     }

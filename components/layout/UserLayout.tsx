@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Calendar,
   Banknote,
+  Ban,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
@@ -296,6 +297,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: MessageSquare, label: 'Chat', path: '/chat', badge: unreadChatCount },
     { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
     { icon: CreditCard, label: 'Cartões', path: '/metodos-pagamento' },
+    { icon: Ban, label: 'Bloqueios', path: '/bloqueios' },
   ];
 
   // Mobile Footer Items

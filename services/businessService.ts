@@ -341,15 +341,15 @@ export const businessService = {
     }
   },
 
-  // === PAGAMENTOS ===
-  async cancelPayment(idPagamento: number): Promise<void> {
-    const response = await authRequest(`/Pagamento/Cancelar?idPagamento=${idPagamento}`, {
+  // === MENSALIDADES / COBRANÇAS ===
+  async cancelarMensalidade(idMensalidade: number): Promise<void> {
+    const response = await authRequest(`/Mensalidade/${idMensalidade}/cancelar`, {
       method: 'DELETE'
     });
 
     if (!response.ok) {
         const text = await parseApiError(response);
-        throw new Error(text || "Erro ao cancelar pagamento");
+        throw new Error(text || "Erro ao cancelar mensalidade");
     }
   },
 
@@ -408,5 +408,20 @@ export const businessService = {
         const text = await parseApiError(response);
         throw new Error(text || "Erro ao desconectar WhatsApp");
     }
-  }
+  },
+
+  /** POST /api/v1/WhatsApps/EnviarMsg?mensagem=&numero= */
+  async sendWhatsAppMessage(numero: string, mensagem: string): Promise<void> {
+    const params = new URLSearchParams({
+      numero: numero.replace(/\D/g, ''),
+      mensagem,
+    });
+    const response = await authRequest(`/WhatsApps/EnviarMsg?${params.toString()}`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      const text = await parseApiError(response);
+      throw new Error(text || 'Falha ao enviar mensagem WhatsApp');
+    }
+  },
 };

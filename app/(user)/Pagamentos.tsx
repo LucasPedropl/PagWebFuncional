@@ -88,9 +88,28 @@ export const Pagamentos: React.FC = () => {
   };
 
   const fetchInvoices = async () => {
+    setIsLoading(true);
     try {
-      const data = await userService.listClientInvoices();
-      const sorted = (Array.isArray(data) ? data : []).sort(
+      let data: any[] = [];
+      if (searchTerm || (filters.status && filters.status !== 'Todos')) {
+          data = await pagamentoService.buscaPagamentos(searchTerm, filters.status);
+      } else {
+          const today = new Date();
+          data = await pagamentoService.getExtrato(today.getMonth() + 1, today.getFullYear());
+      }
+      
+      const normalizedData = data.map((item: any) => ({
+          ...item,
+          idMensalidade: item.idMensalidade || item.idPagamento || item.id,
+          nomeEmpresa: item.nomeEmpresa || item.estabelecimento || item.empresa || '',
+          vencimento: item.vencimento || item.dataVencimento || item.data || '',
+          valor: item.valor || item.total || 0,
+          status: item.status || 'Aberto',
+          mesReferencia: item.mesReferencia || item.referencia || '',
+          isPagamentoUnico: item.isPagamentoUnico || false,
+      }));
+
+      const sorted = normalizedData.sort(
         (a, b) => b.idMensalidade - a.idMensalidade,
       );
       setInvoices(sorted);
@@ -359,7 +378,7 @@ export const Pagamentos: React.FC = () => {
             />
           </div>
           <Button 
-            variant={isFilterOpen ? "default" : "outline"} 
+            variant={isFilterOpen ? "primary" : "outline"} 
             className={isFilterOpen ? "bg-slate-900 text-white" : "bg-white text-gray-600"}
             onClick={() => setIsFilterOpen(!isFilterOpen)}
           >
