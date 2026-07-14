@@ -10,7 +10,7 @@ import { AuthAlert } from '../../components/features/auth/AuthAlert';
 import { getAuthTheme } from '../../utils/authTheme';
 
 const CLIENT_LOGIN_DEFAULTS = {
-  email: 'pedrolucasmota2005@gmail.com',
+  email: 'pedrolucasmota2005.pl@gmail.com',
   password: '123123',
 };
 

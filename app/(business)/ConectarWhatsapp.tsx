@@ -56,20 +56,26 @@ export const ConectarWhatsapp: React.FC = () => {
     try {
       const instance = await businessService.checkWhatsAppInstance();
       
-      let qrCodeData;
+      let qrCodeData: any;
       if (!instance) {
-        qrCodeData = await businessService.createWhatsAppInstance();
+        qrCodeData = (await businessService.createWhatsAppInstance()) as any;
         setIsInstanceCreated(true);
       } else {
         setIsInstanceCreated(true);
-        qrCodeData = await businessService.getWhatsAppQRCode();
+        qrCodeData = (await businessService.getWhatsAppQRCode()) as any;
       }
 
-      if (qrCodeData.qrCode) {
+      if (qrCodeData?.status === 'connected' || qrCodeData?.message?.includes('conectado')) {
+        setIsConnected(true);
+        setConnectedNumber(qrCodeData.ntelefone || null);
+        addToast('success', 'Sucesso', 'WhatsApp já está conectado!');
+      } else if (qrCodeData?.qrCode) {
         setQrCode(qrCodeData.qrCode);
         setTimeLeft(REFRESH_INTERVAL);
         setRefreshCount(0);
         addToast('success', 'Sucesso', 'QR Code gerado! Escaneie para conectar.');
+      } else {
+        addToast('error', 'Aviso', 'A instância foi criada, mas o QR Code não foi fornecido pelo servidor. Tente atualizar.');
       }
     } catch (error: any) {
       addToast('error', 'Erro', error.message || 'Erro ao gerar QR Code do WhatsApp');
@@ -81,10 +87,19 @@ export const ConectarWhatsapp: React.FC = () => {
   const handleRefreshQRCode = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await businessService.getWhatsAppQRCode();
-      setQrCode(data.qrCode);
-      setTimeLeft(REFRESH_INTERVAL);
-      addToast('success', 'Atualizado', 'QR Code atualizado automaticamente.');
+      const data = (await businessService.getWhatsAppQRCode()) as any;
+      if (data?.status === 'connected' || data?.message?.includes('conectado')) {
+        setIsConnected(true);
+        setIsInstanceCreated(true);
+        setQrCode(null);
+        addToast('success', 'Sucesso', 'WhatsApp conectado com sucesso.');
+      } else if (data?.qrCode) {
+        setQrCode(data.qrCode);
+        setTimeLeft(REFRESH_INTERVAL);
+        addToast('success', 'Atualizado', 'QR Code atualizado automaticamente.');
+      } else {
+        addToast('error', 'Erro', 'O servidor retornou um QR Code vazio. A API do WhatsApp pode estar instável.');
+      }
     } catch (error: any) {
       addToast('error', 'Erro', error.message || 'Erro ao atualizar QR Code');
       // If refresh fails, maybe we should try to recreate instance?

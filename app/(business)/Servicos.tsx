@@ -54,11 +54,27 @@ export const Servicos: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const precoNum = Number(String(preco).replace(',', '.'));
-    if (!nome.trim() || !descricao.trim() || Number.isNaN(precoNum)) {
-      addToast('error', 'Dados inválidos', 'Preencha nome, descrição e preço.');
+    
+    // Limpa caracteres comuns de moeda e espaços para evitar NaN
+    const cleanPreco = String(preco)
+      .replace(/R\$/gi, '')
+      .replace(/\s/g, '')
+      .replace(',', '.');
+    const precoNum = Number(cleanPreco);
+
+    if (!nome.trim()) {
+      addToast('error', 'Dados inválidos', 'O nome do serviço é obrigatório.');
       return;
     }
+    if (!descricao.trim()) {
+      addToast('error', 'Dados inválidos', 'A descrição do serviço é obrigatória.');
+      return;
+    }
+    if (Number.isNaN(precoNum) || cleanPreco === '' || precoNum < 0) {
+      addToast('error', 'Dados inválidos', 'Por favor, insira um preço numérico válido.');
+      return;
+    }
+
     const catNum = Number(categoriaId);
     setIsSaving(true);
     try {

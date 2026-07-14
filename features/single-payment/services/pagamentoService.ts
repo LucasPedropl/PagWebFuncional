@@ -26,7 +26,7 @@ const buildHeaders = (): HeadersInit => {
 };
 
 /**
- * Extrai mensagens úteis da Cora/Bixs embutidas no 500 da API PagWeb.
+ * Extrai mensagens úteis do gateway embutidas no 500 da API PagWeb.
  */
 const formatPaymentGatewayError = (raw: string): string => {
   const issues: string[] = [];
@@ -35,14 +35,14 @@ const formatPaymentGatewayError = (raw: string): string => {
     issues.push('UF do endereço inválida (use sigla: SP, MG, RJ…)');
   }
   if (/customer\.document\.identity/i.test(raw)) {
-    issues.push('CPF do cadastro é inválido para o gateway (Cora)');
+    issues.push('CPF do cadastro é inválido para o gateway');
   }
   if (/customer\.address\./i.test(raw) && !issues.some((i) => i.includes('UF'))) {
     issues.push('Endereço incompleto ou inválido no cadastro');
   }
 
   if (issues.length > 0) {
-    return `Pagamento recusado pela Cora: ${issues.join('; ')}.`;
+    return `Pagamento recusado pelo gateway: ${issues.join('; ')}.`;
   }
 
   const detailsMatch = raw.match(/"details"\s*:\s*"((?:\\.|[^"\\])*)"/);
