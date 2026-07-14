@@ -4,6 +4,7 @@ import { ShieldCheck } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { companyService } from '../../services/companyService';
 import { enderecoService } from '../../features/address/services/enderecoService';
+import { fileCache } from '../../utils/fileCache';
 import { EnderecoInput } from '../../features/address/schemas/enderecoSchemas';
 import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Button } from '../../components/ui/Button';
@@ -146,18 +147,29 @@ export const Activate: React.FC = () => {
       if (password && companyData) {
         setStatusMessage('Configurando empresa...');
         const authResponse = await userService.login(email, password);
-        await companyService.create(authResponse.token, companyData);
+        const logoFile = fileCache.getCompanyLogo();
+        await companyService.create(authResponse.token, {
+          ...companyData,
+          logo: logoFile,
+        });
         setStatusMessage('Acessando painel...');
-        await companyService.login(email, password);
-        if (endereco) {
-          try {
-            setStatusMessage('Salvando endereço da empresa...');
-            await enderecoService.createForEmpresa(endereco);
-          } catch (addrErr) {
-            console.error('[Activate] Endereço empresa:', addrErr);
+        try {
+          await companyService.login(email, password);
+          if (endereco) {
+            try {
+              setStatusMessage('Salvando endereço da empresa...');
+              await enderecoService.createForEmpresa(endereco);
+            } catch (addrErr) {
+              console.error('[Activate] Endereço empresa:', addrErr);
+            }
           }
+          navigate('/business/dashboard');
+        } catch (loginAdminErr) {
+          console.error('[Activate] Falha ao realizar login administrativo automático (sincronização de gateway):', loginAdminErr);
+          setIsSuccess(true);
+          setStatusMessage('Empresa criada com sucesso! Redirecionando para o login do painel administrativo...');
+          setTimeout(() => navigate('/login?type=business'), 3000);
         }
-        navigate('/business/dashboard');
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Falha na ativação.';

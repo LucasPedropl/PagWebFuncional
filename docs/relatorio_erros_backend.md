@@ -1,38 +1,21 @@
 # Relatório de Erros - API PagWebV1
 
-> **Última auditoria:** 09/07/2026  
-> **API local:** `apps/PagWebFuncional/api` atualizada para commit `988d8b9`
-> (`correcao injecao paymentservice`)  
-> **API em produção (testes MCP):** `https://lojas.vlks.com.br`  
-> **Frontend:** PagWeb rodando em `http://localhost:3000` (Simple Browser do
-> Cursor)
+> **Última auditoria:** 13/07/2026  
+> **API local:** `apps/PagWebFuncional/api` atualizada para o commit mais recente  
+> **API em produção:** `https://lojas.vlks.com.br`  
+> **Frontend:** PagWeb rodando em `http://localhost:3000`
 
 ---
 
-## Resumo da Auditoria
+## Resumo da Auditoria de Erros Pendentes
 
-| Categoria                                              | Status                                                                                                |
-| :----------------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
-| CS4014 — chamadas async sem `await`                    | **Resolvido** na versão `988d8b9`                                                                     |
-| OPENJSON / `.Contains()` em SQL Server                 | **Resolvido** — filtro em memória nos controllers                                                     |
-| Shadow properties `UsuarioIdUser` / `EmpresaIdEmpresa` | **Resolvido** — migration `20260706181006_correcao-cobranca` + mapeamento explícito no `AppDbContext` |
-| CS8602 — desreferências nulas                          | **Parcial** — 348 warnings restantes (era ~380)                                                       |
-| Permissões `GET /api/Cobrancas/{id}`                   | **Ainda com bug** — lógica invertida                                                                  |
-| Novos endpoints (27 rotas)                             | Testados parcialmente via MCP `openapi-pagwebv1`                                                      |
-
-### Testes de integração realizados (MCP + curl)
-
-- `POST /api/v1/User/register` + `activate` + `login-cliente` — **OK**
-- `POST /api/v1/Empresa` (com token cliente) — **OK** (empresa `idEmpresa: 34`
-  criada)
-- `GET /api/Cobrancas/Usuario` (cliente sem cobranças) — **OK** (`[]`)
-- `GET /api/Cobrancas/5` (cliente sem vínculo) — **OK** (nega acesso
-  corretamente)
-- `GET /api/Categorias/empresa-categorias-publico/{idEmpresa}` — **OK**
-- `POST /api/v1/User/login-admin` — **Falha** (ver erros 1 e 2 abaixo)
-- Endpoints admin (`POST /api/Categorias`, `POST /api/Produtos`,
-  `POST /api/Cobrancas`, etc.) — **Não testáveis** sem JWT Admin (bloqueado pelo
-  login-admin)
+| Categoria                                               | Status                                                                                            |
+| :------------------------------------------------------ | :------------------------------------------------------------------------------------------------ |
+| CS8602 — desreferências nulas                           | **Pendente** — 384 warnings restantes na compilação do dotnet                                     |
+| Permissões `GET /api/Cobrancas/{id}`                    | **Ainda com bug** — lógica de validação de acesso invertida (vazamento cross-tenant)              |
+| NullReferenceException no login de admin                | **Ainda com bug** — operador lógico incorreto na validação de tipo de usuário sem empresa         |
+| Exposição de dados cross-tenant em endpoints            | **Ainda com bug** — endpoints de categoria retornam dados globais sem filtro de empresa           |
+| Acesso inseguro a claims de identificação no Controller | **Novo erro** — chamada direta a `.Value` em `User.FindFirst()` sem verificar se a claim é nula   |
 
 ---
 
@@ -47,13 +30,10 @@ if (tipouser == null && tipouser.UserTipo != UserTipo.Admin)
     return Unauthorized(new { message = "Usuario não encontrado" });
 ```
 
-**Problema:** O operador `&&` está incorreto. Quando `tipouser` é `null`
-(usuário recém-ativado sem empresa vinculada), a segunda parte da condição tenta
-acessar `tipouser.UserTipo`, gerando `NullReferenceException` (confirmado em
-runtime: HTTP 500).
+**Problema:** O operador `&&` está incorreto. Quando `tipouser` é `null` (usuário recém-ativado que ainda não possui registro de vínculo na tabela `UserEmpresa`), a primeira expressão avalia como verdadeira (`tipouser == null`), o que força o C# a avaliar a segunda expressão (`tipouser.UserTipo != UserTipo.Admin`). Como o objeto está nulo, isso gera uma exceção `System.NullReferenceException: Object reference not set to an instance of an object` em tempo de execução.
 
 **Correção sugerida:**
-
+Substituir o operador `&&` pelo operador de curto-circuito `||` (OU):
 ```csharp
 if (tipouser == null || tipouser.UserTipo != UserTipo.Admin)
     return Unauthorized(new { message = "Usuário não é administrador ou não possui empresa vinculada." });
@@ -61,35 +41,7 @@ if (tipouser == null || tipouser.UserTipo != UserTipo.Admin)
 
 ---
 
-## 2. `login-admin` bloqueado por dependência obrigatória do gateway Bixs
-
-**Arquivo:** `Controllers/UserAdminController.cs` (linhas 49–51) +
-`Services/ExternalTokenManagerService.cs`
-
-Após criar empresa e vincular o usuário como admin, o `login-admin` retorna:
-
-```json
-{ "message": "Erro ao verificar acesso ao sistema externo." }
-```
-
-**Causa:** Todo login administrativo chama `VerificaAcesso()`, que autentica as
-mesmas credenciais na API externa `https://api.bixs.com.br/v1/auth/login`.
-Usuários PagWeb sem conta correspondente no Bixs (ou com credenciais
-divergentes) **nunca conseguem obter JWT Admin**, bloqueando todos os endpoints
-`[Authorize(Roles = "Admin")]` — incluindo os 27 novos endpoints de catálogo e
-cobranças.
-
-**Impacto:** Impossibilita onboarding de novos estabelecimentos e torna os
-testes de regressão dos perfis MCP `estabelecimento` / `estabelecimento_novo`
-inviáveis.
-
-**Correção sugerida:** Separar autenticação PagWeb da validação Bixs (tornar
-Bixs lazy/opcional no login, ou criar fluxo de provisionamento automático no
-Bixs ao criar empresa).
-
----
-
-## 3. Bug crítico de permissão invertida em `GET /api/Cobrancas/{id}`
+## 2. Bug crítico de permissão invertida em `GET /api/Cobrancas/{id}`
 
 **Arquivo:** `Controllers/CobrancasController.cs` (linhas 159–222)
 
@@ -106,17 +58,11 @@ else if (cobranca.IdUser == idAdmin)
 return BadRequest("Você não tem permissão para acessar esta cobrança.");
 ```
 
-**Problema:** A lógica está **invertida**:
-
-1. Admin da **mesma** empresa (`IdEmpresa == cobranca.IdEmpresa`) cai no
-   `else if`, falha (pois `idAdmin != cobranca.IdUser`) e recebe **negação de
-   acesso**.
-2. Admin de **outra** empresa (`IdEmpresa != cobranca.IdEmpresa`) entra no
-   primeiro `if` e recebe **acesso indevido** — vazamento de dados entre
-   tenants.
+**Problema:** A validação está **invertida**:
+1. O administrador da **mesma** empresa da cobrança (`IdEmpresa == cobranca.IdEmpresa`) falha no primeiro `if`, cai no `else if` (onde `idAdmin != cobranca.IdUser` porque a cobrança é de um cliente) e tem seu **acesso negado**.
+2. O administrador de **outra** empresa (`IdEmpresa != cobranca.IdEmpresa`) entra no primeiro `if` e recebe acesso total à cobrança, gerando vazamento de dados de cobranças entre tenants.
 
 **Correção sugerida:**
-
 ```csharp
 bool temPermissao = false;
 
@@ -136,7 +82,7 @@ if (!temPermissao)
 
 ---
 
-## 4. Ordem incorreta de verificação de nulo em `UserService.cs`
+## 3. Ordem incorreta de verificação de nulo em `UserService.cs`
 
 **Arquivo:** `Services/UserService.cs` (linhas 712–714)
 
@@ -146,96 +92,66 @@ var adminconfig = await _context.UserConfigs.FindAsync(adminEmpresa.IdUser);
 if (adminEmpresa != null && adminconfig.Notificacoes == true)
 ```
 
-**Problema:** `adminEmpresa.IdUser` é acessado **antes** da verificação
-`adminEmpresa != null`. Se a empresa não tiver admin cadastrado, ocorre
-`NullReferenceException` em runtime.
-
-**Nota:** O mesmo padrão foi corrigido em outros trechos do arquivo (ex.: linhas
-2197–2199), mas este bloco permanece vulnerável.
+**Problema:** O ID de `adminEmpresa` é consultado na linha 712 (`adminEmpresa.IdUser`) antes da verificação condicional na linha 714 de que o objeto não é nulo. Caso o administrador não esteja devidamente mapeado, ocorrerá um erro de desreferência de ponteiro nulo.
 
 **Correção sugerida:**
-
 ```csharp
 if (adminEmpresa != null)
 {
     var adminconfig = await _context.UserConfigs.FindAsync(adminEmpresa.IdUser);
     if (adminconfig?.Notificacoes == true)
     {
-        // ... fluxo de notificação ...
+        // ...
     }
 }
 ```
 
 ---
 
-## 5. Warnings CS8602 (desreferência de referência nula) — 348 ocorrências
-
-A compilação limpa (`dotnet build --no-incremental`) ainda reporta **348
-warnings CS8602**, concentrados principalmente em:
-
-- `Controllers/CobrancasController.cs` — coleções `Produtos`/`Servicos`
-  possivelmente nulas no `.Select()`
-- `Controllers/ProdutosController.cs` e `Controllers/ServicosController.cs` —
-  navegação `Categorias` sem null-check
-- `Controllers/UserAdminController.cs`, `AssinaturaController.cs`,
-  `MensalidadeController.cs` — claims e includes sem verificação
-
-**Risco:** `NullReferenceException` intermitente em produção dependendo dos
-dados retornados pelo EF Core.
-
-**Correção sugerida:** Aplicar null-conditional (`?.`), null-coalescing
-(`?? []`) e verificações explícitas antes de acessar propriedades de navegação.
-
----
-
-## 6. Exposição de dados cross-tenant em endpoints de Categorias
+## 4. Exposição de dados cross-tenant em endpoints de Categorias
 
 **Arquivo:** `Controllers/CategoriasController.cs`
 
-| Endpoint                                                     | Atributo                       | Problema                                                                                |
-| :----------------------------------------------------------- | :----------------------------- | :-------------------------------------------------------------------------------------- |
-| `GET /api/Categorias`                                        | `[AllowAnonymous]`             | Retorna **todas** as categorias ativas de **todas** as empresas                         |
-| `GET /api/Categorias/{id}`                                   | `[AllowAnonymous]`             | Retorna qualquer categoria pelo ID, sem verificar tenant                                |
-| `GET /api/Categorias/empresa-categorias-privado/{idEmpresa}` | `[Authorize(Roles = "Admin")]` | Parâmetro `{idEmpresa}` da rota é **ignorado**; usa sempre `vinculo.IdEmpresa` do token |
+| Endpoint | Atributo | Problema |
+| :--- | :--- | :--- |
+| `GET /api/Categorias` | `[AllowAnonymous]` | Retorna todas as categorias ativas de todas as empresas registradas. |
+| `GET /api/Categorias/{id}` | `[AllowAnonymous]` | Retorna os detalhes de qualquer categoria de qualquer empresa apenas passando o ID na rota. |
+| `GET /api/Categorias/empresa-categorias-privado/{idEmpresa}` | `[Authorize(Roles = "Admin")]` | O parâmetro `{idEmpresa}` da rota é ignorado pelo método, que utiliza estritamente o `vinculo.IdEmpresa` extraído do token JWT. |
 
-**Confirmado em teste:** Cliente autenticado (`idUser: 66`) recebeu lista com
-categorias da `idEmpresa: 26` ao chamar `GET /api/Categorias`.
-
-**Correção sugerida:** Remover `[AllowAnonymous]` dos endpoints globais ou
-filtrar por empresa; validar que `{idEmpresa}` da rota corresponde ao vínculo do
-admin.
+**Correção sugerida:** Exigir autorização ou filtro por empresa nas consultas públicas de categorias, e garantir que a rota privada valide se o `{idEmpresa}` corresponde ao vínculo da empresa do token do administrador.
 
 ---
 
-## 7. Migration pendente em ambientes que não aplicaram `correcao-cobranca`
+## 5. NullReferenceException em Claims de Usuário sem Operador Condicional
 
-**Arquivo:** `Migrations/20260706181006_correcao-cobranca.cs`
+**Arquivo:** `Controllers/UserAdminController.cs` (linhas 96, 110, 153 e 255)
 
-A migration remove colunas shadow (`UsuarioIdUser`, `EmpresaIdEmpresa`) e
-consolida FKs em `IdUser`/`IdEmpresa`. Ambientes que ainda não executaram esta
-migration continuarão com o erro:
+```csharp
+// Exemplo na linha 96:
+var idAdmin = User.FindFirst(ClaimTypes.NameIdentifier).Value;
 
+// Exemplo na linha 255:
+var idAdmin = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
 ```
-SqlException: Cannot insert the value NULL into column 'UsuarioIdUser'
-```
 
-**Ação necessária:** Executar `dotnet ef database update` no servidor de
-produção após deploy do commit `988d8b9`.
+**Problema:** O método `User.FindFirst(ClaimTypes.NameIdentifier)` busca a claim de identificação. Se por alguma razão o usuário estiver sem a claim no contexto (ou ocorrer uma falha de autenticação parcial), o retorno será nulo. O acesso direto a `.Value` provocará um erro de `NullReferenceException`.
+
+**Correção sugerida:** Validar a claim antes de tentar acessar seu valor:
+```csharp
+var idAdminClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+if (idAdminClaim == null)
+    return Unauthorized(new { message = "Identificador de usuário ausente no token." });
+
+var idAdmin = int.Parse(idAdminClaim.Value);
+```
 
 ---
 
-## Histórico — Itens resolvidos nesta versão
+## 6. Warnings CS8602 (desreferência de referência nula) — 384 ocorrências
 
-Os itens abaixo constavam no relatório anterior e foram **corrigidos** no commit
-`988d8b9`:
+A compilação limpa do projeto gera **384 avisos de desreferência de nulos** no compilador, concentrados principalmente em:
+- Coleções `Produtos`/`Servicos` no mapping `.Select()` de `Controllers/CobrancasController.cs`.
+- Navegação de chaves estrangeiras sem null-check em `Controllers/ProdutosController.cs` e `CategoriasController.cs`.
+- Validações de claims JWT nos controllers.
 
-1. **CS4014** — `await` adicionado em `EnviarLembretesMensalidadeAbertoAsync` e
-   `EnviarWhatsAppMensalidadeAbertoAsync` (`UserService.cs` linhas 2180, 2191,
-   2320).
-2. **OPENJSON / `.Contains()`** — Controllers de Produtos, Serviços e Cobranças
-   passaram a carregar registros com `.ToListAsync()` e filtrar em memória.
-3. **Shadow properties em Cobranca** — Migration `correcao-cobranca` +
-   configuração explícita de FK no `AppDbContext`.
-4. **Null-check `adminEmpresa`** — Corrigido em vários fluxos de
-   `UserService.cs` (ex.: linhas 2197–2208), embora um bloco permaneça (ver item
-   4 acima).
+**Risco:** Queda e travamentos inesperados com retornos `500 Internal Server Error` se as propriedades relacionadas no banco de dados estiverem parcialmente vazias.

@@ -3,6 +3,7 @@ import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, Sparkles } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { AuthLayout } from '../../components/layout/AuthLayout';
+import { fileCache } from '../../utils/fileCache';
 import { Button } from '../../components/ui/Button';
 import { AuthAlert } from '../../components/features/auth/AuthAlert';
 import { AuthStepIndicator } from '../../components/features/auth/AuthStepIndicator';
@@ -248,6 +249,10 @@ export const Register: React.FC = () => {
         return;
       }
 
+      if (isBusiness && formData.companyLogo) {
+        fileCache.setCompanyLogo(formData.companyLogo);
+      }
+
       navigate('/activate', {
         state: {
           email: formData.email,
@@ -259,7 +264,7 @@ export const Register: React.FC = () => {
                 nome: formData.companyNome,
                 cnpj: cleanCNPJ,
                 telefone: formData.companyDdi + cleanCompPhone,
-                logo: formData.companyLogo,
+                logo: null,
               }
             : null,
         },
