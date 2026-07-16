@@ -28,7 +28,6 @@ import { Assinaturas } from './app/(business)/Assinaturas';
 import { Pagamentos } from './app/(business)/Pagamentos';
 import { PagamentoUnico } from './app/(business)/PagamentoUnico';
 import { Relatorios } from './app/(business)/Relatorios';
-import { Repasses } from './app/(business)/Repasses';
 import { Configuracoes } from './app/(business)/Configuracoes';
 import { ConectarWhatsapp } from './app/(business)/ConectarWhatsapp';
 import { MenuMobile } from './app/(business)/MenuMobile';
@@ -315,14 +314,6 @@ const App: React.FC = () => {
             element={
               <BusinessRoute>
                 <Relatorios />
-              </BusinessRoute>
-            } 
-          />
-          <Route 
-            path="/business/repasses" 
-            element={
-              <BusinessRoute>
-                <Repasses />
               </BusinessRoute>
             } 
           />

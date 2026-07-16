@@ -1,157 +1,191 @@
 # Relatório de Erros - API PagWebV1
 
-> **Última auditoria:** 13/07/2026  
-> **API local:** `apps/PagWebFuncional/api` atualizada para o commit mais recente  
-> **API em produção:** `https://lojas.vlks.com.br`  
-> **Frontend:** PagWeb rodando em `http://localhost:3000`
+> **Última auditoria:** 15/07/2026  
+> **API local:** `apps/PagWebFuncional/api/PagWebV1` compilada e testada  
+> **API em produção/homologação:** `https://lojas.vlks.com.br`  
+> **Frontend:** PagWeb rodando em `http://localhost:3000` ou localmente
 
 ---
 
-## Resumo da Auditoria de Erros Pendentes
+## Resumo da Auditoria de Erros Pendentes e Novos Encontrados
 
-| Categoria                                               | Status                                                                                            |
-| :------------------------------------------------------ | :------------------------------------------------------------------------------------------------ |
-| CS8602 — desreferências nulas                           | **Pendente** — 384 warnings restantes na compilação do dotnet                                     |
-| Permissões `GET /api/Cobrancas/{id}`                    | **Ainda com bug** — lógica de validação de acesso invertida (vazamento cross-tenant)              |
-| NullReferenceException no login de admin                | **Ainda com bug** — operador lógico incorreto na validação de tipo de usuário sem empresa         |
-| Exposição de dados cross-tenant em endpoints            | **Ainda com bug** — endpoints de categoria retornam dados globais sem filtro de empresa           |
-| Acesso inseguro a claims de identificação no Controller | **Novo erro** — chamada direta a `.Value` em `User.FindFirst()` sem verificar se a claim é nula   |
+Todos os erros listados na auditoria anterior foram confirmados como **ainda pendentes** (não foram corrigidos no código do repositório). Foram identificados novos problemas de segurança e estabilidade (erros de runtime).
+
+| Categoria / Bug | Status | Descrição rápida |
+| :--- | :--- | :--- |
+| **CS8602 — desreferências nulas** | **Pendente** | 384 warnings restantes na compilação do dotnet (testado via `dotnet build`). |
+| **Permissões `GET /api/Cobrancas/{id}`** | **Pendente** | Lógica de validação de acesso invertida (vazamento cross-tenant de cobranças). |
+| **NullReferenceException no login de admin** | **Pendente** | Operador lógico incorreto (`&&`) na validação de tipo de usuário sem empresa. |
+| **Exposição de dados cross-tenant em Categorias** | **Pendente** | Endpoints de categoria retornam dados globais sem filtro de empresa e rota privada ignora parâmetro. |
+| **Acesso inseguro a claims de identificação** | **Pendente** | Chamada direta a `.Value` em `User.FindFirst()` sem verificar se a claim é nula em vários controllers. |
+| **NullReferenceException em `meus-bloqueios` (NOVO)** | **Novo Erro** | Uso da claim string `"id"` em vez de `ClaimTypes.NameIdentifier` em `UserBloqueioController.cs`. |
+| **Exposição global sem autorização (NOVO)** | **Novo Erro** | `zTemporarioController.cs` expõe listagens de dados confidenciais a usuários anônimos. |
 
 ---
 
 ## 1. NullReferenceException no `login-admin` para usuários sem empresa
 
-**Arquivo:** `Controllers/UserAdminController.cs` (linha 46)
+*   **Arquivo:** `Controllers/UserAdminController.cs` (linha 46)
+*   **Código atual:**
+    ```csharp
+    var tipouser = await _userService.TipoUser(user.IdUser, true);
 
-```csharp
-var tipouser = await _userService.TipoUser(user.IdUser, true);
-
-if (tipouser == null && tipouser.UserTipo != UserTipo.Admin)
-    return Unauthorized(new { message = "Usuario não encontrado" });
-```
-
-**Problema:** O operador `&&` está incorreto. Quando `tipouser` é `null` (usuário recém-ativado que ainda não possui registro de vínculo na tabela `UserEmpresa`), a primeira expressão avalia como verdadeira (`tipouser == null`), o que força o C# a avaliar a segunda expressão (`tipouser.UserTipo != UserTipo.Admin`). Como o objeto está nulo, isso gera uma exceção `System.NullReferenceException: Object reference not set to an instance of an object` em tempo de execução.
-
-**Correção sugerida:**
-Substituir o operador `&&` pelo operador de curto-circuito `||` (OU):
-```csharp
-if (tipouser == null || tipouser.UserTipo != UserTipo.Admin)
-    return Unauthorized(new { message = "Usuário não é administrador ou não possui empresa vinculada." });
-```
+    if (tipouser == null && tipouser.UserTipo != UserTipo.Admin)
+        return Unauthorized(new { message = "Usuario não encontrado" });
+    ```
+*   **Problema:** O operador `&&` está incorreto. Quando `tipouser` é `null` (como em novos usuários sem empresa cadastrada), a primeira parte (`tipouser == null`) é verdadeira, forçando a avaliação da segunda parte (`tipouser.UserTipo`). Como o objeto é nulo, ocorre um travamento por `System.NullReferenceException`.
+*   **Correção sugerida:**
+    Substituir o operador `&&` pelo operador de curto-circuito `||` (OU):
+    ```csharp
+    if (tipouser == null || tipouser.UserTipo != UserTipo.Admin)
+        return Unauthorized(new { message = "Usuário não é administrador ou não possui empresa vinculada." });
+    ```
 
 ---
 
 ## 2. Bug crítico de permissão invertida em `GET /api/Cobrancas/{id}`
 
-**Arquivo:** `Controllers/CobrancasController.cs` (linhas 159–222)
+*   **Arquivo:** `Controllers/CobrancasController.cs` (linhas 159–222)
+*   **Código atual:**
+    ```csharp
+    if (vinculo != null && vinculo.UserTipo == UserTipo.Admin && vinculo.IdEmpresa != cobranca.IdEmpresa)
+    {
+        // retorna os dados da cobrança
+        return Ok(cobrancaDto);
+    }
+    else if (cobranca.IdUser == idAdmin)
+    {
+        return Ok(cobrancaDto);
+    }
+    return BadRequest("Você não tem permissão para acessar esta cobrança.");
+    ```
+*   **Problema:** A validação de escopo de empresa está **invertida**:
+    1.  Se o administrador logado pertencer à **mesma** empresa da cobrança (`vinculo.IdEmpresa == cobranca.IdEmpresa`), ele falha no primeiro `if` e tem seu acesso negado (a menos que ele mesmo tenha criado a cobrança e seja o proprietário dela, caindo no `else if`).
+    2.  Se o administrador logado pertencer a uma empresa **diferente** da cobrança (`vinculo.IdEmpresa != cobranca.IdEmpresa`), ele entra na primeira condição e visualiza a cobrança de terceiros normalmente, gerando vazamento de dados cross-tenant.
+*   **Correção sugerida:**
+    ```csharp
+    bool temPermissao = false;
 
-```csharp
-if (vinculo != null && vinculo.UserTipo == UserTipo.Admin && vinculo.IdEmpresa != cobranca.IdEmpresa)
-{
-    // retorna os dados da cobrança
-    return Ok(cobrancaDto);
-}
-else if (cobranca.IdUser == idAdmin)
-{
-    return Ok(cobrancaDto);
-}
-return BadRequest("Você não tem permissão para acessar esta cobrança.");
-```
-
-**Problema:** A validação está **invertida**:
-1. O administrador da **mesma** empresa da cobrança (`IdEmpresa == cobranca.IdEmpresa`) falha no primeiro `if`, cai no `else if` (onde `idAdmin != cobranca.IdUser` porque a cobrança é de um cliente) e tem seu **acesso negado**.
-2. O administrador de **outra** empresa (`IdEmpresa != cobranca.IdEmpresa`) entra no primeiro `if` e recebe acesso total à cobrança, gerando vazamento de dados de cobranças entre tenants.
-
-**Correção sugerida:**
-```csharp
-bool temPermissao = false;
-
-if (vinculo != null && vinculo.UserTipo == UserTipo.Admin)
-{
-    if (vinculo.IdEmpresa == cobranca.IdEmpresa)
+    if (vinculo != null && vinculo.UserTipo == UserTipo.Admin)
+    {
+        if (vinculo.IdEmpresa == cobranca.IdEmpresa)
+            temPermissao = true;
+    }
+    else if (cobranca.IdUser == idAdmin)
+    {
         temPermissao = true;
-}
-else if (cobranca.IdUser == idAdmin)
-{
-    temPermissao = true;
-}
+    }
 
-if (!temPermissao)
-    return BadRequest(new { message = "Você não tem permissão para acessar esta cobrança." });
-```
+    if (!temPermissao)
+        return BadRequest(new { message = "Você não tem permissão para acessar esta cobrança." });
+    ```
 
 ---
 
 ## 3. Ordem incorreta de verificação de nulo em `UserService.cs`
 
-**Arquivo:** `Services/UserService.cs` (linhas 712–714)
-
-```csharp
-var adminconfig = await _context.UserConfigs.FindAsync(adminEmpresa.IdUser);
-
-if (adminEmpresa != null && adminconfig.Notificacoes == true)
-```
-
-**Problema:** O ID de `adminEmpresa` é consultado na linha 712 (`adminEmpresa.IdUser`) antes da verificação condicional na linha 714 de que o objeto não é nulo. Caso o administrador não esteja devidamente mapeado, ocorrerá um erro de desreferência de ponteiro nulo.
-
-**Correção sugerida:**
-```csharp
-if (adminEmpresa != null)
-{
+*   **Arquivo:** `Services/UserService.cs` (linhas 712–714)
+*   **Código atual:**
+    ```csharp
     var adminconfig = await _context.UserConfigs.FindAsync(adminEmpresa.IdUser);
-    if (adminconfig?.Notificacoes == true)
+
+    if (adminEmpresa != null && adminconfig.Notificacoes == true)
+    ```
+*   **Problema:** A propriedade `adminEmpresa.IdUser` é acessada para buscar a configuração antes de validar se o próprio objeto `adminEmpresa` é nulo. Caso seja nulo, a linha 712 lançará `NullReferenceException` antes mesmo da verificação condicional na linha 714.
+*   **Correção sugerida:**
+    ```csharp
+    if (adminEmpresa != null)
     {
-        // ...
+        var adminconfig = await _context.UserConfigs.FindAsync(adminEmpresa.IdUser);
+        if (adminconfig?.Notificacoes == true)
+        {
+            // ...
+        }
     }
-}
-```
+    ```
 
 ---
 
 ## 4. Exposição de dados cross-tenant em endpoints de Categorias
 
-**Arquivo:** `Controllers/CategoriasController.cs`
-
-| Endpoint | Atributo | Problema |
-| :--- | :--- | :--- |
-| `GET /api/Categorias` | `[AllowAnonymous]` | Retorna todas as categorias ativas de todas as empresas registradas. |
-| `GET /api/Categorias/{id}` | `[AllowAnonymous]` | Retorna os detalhes de qualquer categoria de qualquer empresa apenas passando o ID na rota. |
-| `GET /api/Categorias/empresa-categorias-privado/{idEmpresa}` | `[Authorize(Roles = "Admin")]` | O parâmetro `{idEmpresa}` da rota é ignorado pelo método, que utiliza estritamente o `vinculo.IdEmpresa` extraído do token JWT. |
-
-**Correção sugerida:** Exigir autorização ou filtro por empresa nas consultas públicas de categorias, e garantir que a rota privada valide se o `{idEmpresa}` corresponde ao vínculo da empresa do token do administrador.
-
----
-
-## 5. NullReferenceException em Claims de Usuário sem Operador Condicional
-
-**Arquivo:** `Controllers/UserAdminController.cs` (linhas 96, 110, 153 e 255)
-
-```csharp
-// Exemplo na linha 96:
-var idAdmin = User.FindFirst(ClaimTypes.NameIdentifier).Value;
-
-// Exemplo na linha 255:
-var idAdmin = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-```
-
-**Problema:** O método `User.FindFirst(ClaimTypes.NameIdentifier)` busca a claim de identificação. Se por alguma razão o usuário estiver sem a claim no contexto (ou ocorrer uma falha de autenticação parcial), o retorno será nulo. O acesso direto a `.Value` provocará um erro de `NullReferenceException`.
-
-**Correção sugerida:** Validar a claim antes de tentar acessar seu valor:
-```csharp
-var idAdminClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-if (idAdminClaim == null)
-    return Unauthorized(new { message = "Identificador de usuário ausente no token." });
-
-var idAdmin = int.Parse(idAdminClaim.Value);
-```
+*   **Arquivo:** `Controllers/CategoriasController.cs`
+*   **Problemas encontrados:**
+    1.  `GET /api/Categorias` (linha 43) e `GET /api/Categorias/{id}` (linha 85) possuem o atributo `[AllowAnonymous]` e não aplicam nenhum filtro de tenant (`idEmpresa`), permitindo que qualquer usuário leia todas as categorias de qualquer empresa cadastrada no banco.
+    2.  `GET /api/Categorias/empresa-categorias-privado/{idEmpresa}` (linha 57) define a rota solicitando `{idEmpresa}`, mas o método correspondente `GetCategoriasByEmpresaP()` não recebe o parâmetro no escopo e usa apenas a empresa do token JWT (`vinculo.IdEmpresa`). O parâmetro da rota é completamente ignorado.
+*   **Correção sugerida:**
+    Remover o `[AllowAnonymous]` se as categorias não forem de acesso público e filtrar pelo ID da empresa correto nos métodos. Na rota privada, aceitar o parâmetro e validar se condiz com o token:
+    ```csharp
+    [HttpGet("empresa-categorias-privado/{idEmpresa}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult> GetCategoriasByEmpresaP(int idEmpresa)
+    {
+        // ... validar se o idEmpresa é compatível com o vínculo do administrador logado
+    }
+    ```
 
 ---
 
-## 6. Warnings CS8602 (desreferência de referência nula) — 384 ocorrências
+## 5. NullReferenceException em Claims de Usuário sem Operador Condicional (Generalizado)
 
-A compilação limpa do projeto gera **384 avisos de desreferência de nulos** no compilador, concentrados principalmente em:
-- Coleções `Produtos`/`Servicos` no mapping `.Select()` de `Controllers/CobrancasController.cs`.
-- Navegação de chaves estrangeiras sem null-check em `Controllers/ProdutosController.cs` e `CategoriasController.cs`.
-- Validações de claims JWT nos controllers.
+*   **Arquivos:** `UserAdminController.cs` (linhas 64, 96, 110, 153, 255), `AssinaturaController.cs` (linhas 26, 78, 143), `ChatsController.cs` (linhas 32, 120, 161, 187, 248), `EnderecoController.cs` (linhas 29, 56), `MensalidadeController.cs` (linhas 21, 43), `NotificacaoController.cs` (linhas 100, 111, 122), e `PagamentoController.cs` (linha 429).
+*   **Problema:** Chamadas constantes no padrão:
+    ```csharp
+    var idAdmin = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+    // ou
+    var idAdmin = User.FindFirst(ClaimTypes.NameIdentifier).Value;
+    ```
+    Se em algum momento o token do usuário não possuir a claim `NameIdentifier` ou estiver malformado, `User.FindFirst` retornará `null`, lançando `NullReferenceException` ao acessar `.Value`.
+*   **Correção sugerida:** Criar uma propriedade auxiliar de controller ou classe de extensão para ler o ID do usuário de forma segura:
+    ```csharp
+    protected int? GetUserIdLogado()
+    {
+        var claim = User.FindFirst(ClaimTypes.NameIdentifier);
+        return claim != null && int.TryParse(claim.Value, out var id) ? id : null;
+    }
+    ```
 
-**Risco:** Queda e travamentos inesperados com retornos `500 Internal Server Error` se as propriedades relacionadas no banco de dados estiverem parcialmente vazias.
+---
+
+## 6. NullReferenceException Crítico em `UserBloqueioController` (Claim Incorreta) — [NOVO]
+
+*   **Arquivo:** `Controllers/UserBloqueioController.cs` (linhas 65 e 87)
+*   **Código com erro:**
+    ```csharp
+    [HttpGet("meus-bloqueios/empresas")]
+    public async Task<IActionResult> GetEmpresasBloqueadas([FromQuery] string? busca)
+    {
+        try
+        {
+            // Pega o ID do usuário logado do Token (exemplo)
+            int idUser = int.Parse(User.FindFirst("id").Value);
+            // ...
+    ```
+*   **Problema:** O método tenta ler a claim literal `"id"`. Porém, o JWT gerado e decodificado no sistema armazena a identificação do usuário na claim `ClaimTypes.NameIdentifier` (ou `"sub"`). Como a claim `"id"` não é mapeada e não existe no token, `User.FindFirst("id")` retorna `null`, e o acesso a `.Value` gera um erro crítico de `NullReferenceException`. 
+    Esse erro impede o carregamento da lista de bloqueios no frontend, resultando no erro HTTP 400 Bad Request reportado pelo console.
+*   **Correção sugerida:**
+    Substituir a consulta à claim pelo padrão correto (`ClaimTypes.NameIdentifier`):
+    ```csharp
+    int idUser = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
+    ```
+    *(Preferencialmente aplicando o null-check sugerido no item 5 para evitar quebras).*
+
+---
+
+## 7. Exposição global sem autorização no `zTemporarioController` — [NOVO]
+
+*   **Arquivo:** `Controllers/zTemporarioController.cs`
+*   **Problema:** O controller está desprotegido (não possui o atributo `[Authorize]`). Ele expõe endpoints para fins de desenvolvimento que revelam dados confidenciais do banco de dados, tais como:
+    - `/api/zTemporario/dev/lista-usuarios`: Retorna todos os usuários (Nome, CPF, E-mail, Status).
+    - `/api/zTemporario/dev/lista-empresas`: Retorna a lista de todas as empresas cadastradas.
+    - `/api/zTemporario/dev/lista-assinatura`: Retorna as assinaturas do sistema.
+    
+    Qualquer atacante anônimo pode enviar requisições HTTP para esses endpoints e obter as listagens completas.
+*   **Correção sugerida:**
+    Adicionar `[Authorize(Roles = "Admin")]` ao controller ou restringir seu acesso apenas em ambientes de desenvolvimento (`if (env.IsDevelopment())`) desativando o mapeamento das rotas em produção no arquivo `Program.cs`.
+
+---
+
+## 8. Compilação e Warnings de Nulidade (CS8602)
+
+*   **Status de compilação:** Aprovado (0 erros, 384 avisos de desreferência nula).
+*   **Análise:** O alto volume de avisos `CS8602` do compilador (especialmente no mapeamento das cobranças em `CobrancasController.cs` e navegação de classes em `ProdutosController.cs` / `CategoriasController.cs`) reflete a falta de verificações robustas antes de acessar dados que podem vir vazios ou nulos do Entity Framework Core. Isso eleva significativamente a probabilidade de falhas e erros `500 Internal Server Error` no ambiente de execução de produção caso o banco de dados possua inconsistências.
