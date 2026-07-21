@@ -13,7 +13,6 @@ import {
   User,
   Compass,
   BarChart3,
-  Calendar,
   Banknote,
   Ban,
 } from 'lucide-react';
@@ -25,7 +24,6 @@ export const MenuMobile: React.FC = () => {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
     { icon: Compass, label: 'Explorar', path: '/explorar' },
-    { icon: Calendar, label: 'Meus Agendamentos', path: '/meus-agendamentos' },
     { icon: Banknote, label: 'Pagamento Único', path: '/pagamento-unico' },
     { icon: Store, label: 'Estabelecimentos', path: '/empresas' },
     { icon: CreditCard, label: 'Minhas Assinaturas', path: '/assinaturas' },

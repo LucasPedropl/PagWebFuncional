@@ -71,3 +71,33 @@ export const getCachedUnreadTotal = (
   readStore()
     .chats.filter(filter)
     .reduce((sum, chat) => sum + Number(chat.naoLidas ?? 0), 0);
+
+const readPendingSyncUntil = new Map<number, number>();
+
+/** Zera não lidas no cache até a API refletir a leitura (evita badge voltar no merge). */
+export const markChatReadPendingSync = (idChat: number): void => {
+  const store = readStore();
+  const chat = store.chats.find((c) => c.idChat === idChat);
+  if (chat) {
+    chat.naoLidas = 0;
+    writeStore(store);
+  }
+  readPendingSyncUntil.set(idChat, Date.now() + 90_000);
+};
+
+export const clearChatReadPendingSync = (idChat: number): void => {
+  readPendingSyncUntil.delete(idChat);
+};
+
+export const applyReadPendingSync = (chats: Chat[]): Chat[] => {
+  const now = Date.now();
+  return chats.map((chat) => {
+    const until = readPendingSyncUntil.get(chat.idChat);
+    if (!until) return chat;
+    if (now < until) return { ...chat, naoLidas: 0 };
+    if (Number(chat.naoLidas ?? 0) === 0) {
+      readPendingSyncUntil.delete(chat.idChat);
+    }
+    return chat;
+  });
+};

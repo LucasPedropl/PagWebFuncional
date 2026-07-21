@@ -1,5 +1,6 @@
 import { sessionService } from '../../../services/session';
 import { parseApiError } from '../../../utils/formatters';
+import { apiUrl } from '../../../utils/apiOrigin';
 import {
   EmpresaBloqueada,
   EmpresaBloqueadaSchema,
@@ -7,7 +8,7 @@ import {
   PlanoBloqueadoSchema,
 } from '../schemas/bloqueioSchemas';
 
-const BASE = 'https://lojas.vlks.com.br/api/UserBloqueio';
+const BASE = `${apiUrl()}/UserBloqueio`;
 
 const buildHeaders = (): HeadersInit => {
   const { token } = sessionService.getSession();
@@ -40,32 +41,44 @@ const parsePlanoList = (raw: unknown): PlanoBloqueado[] => {
 export const bloqueioService = {
   async listEmpresas(busca?: string): Promise<EmpresaBloqueada[]> {
     const qs = busca?.trim() ? `?busca=${encodeURIComponent(busca.trim())}` : '';
-    const response = await fetch(`${BASE}/meus-bloqueios/empresas${qs}`, {
-      headers: buildHeaders(),
-    });
-    if (!response.ok) {
-      throw new Error((await parseApiError(response)) || 'Erro ao listar empresas bloqueadas');
-    }
-    const raw: unknown = await response.json();
-    if (raw && typeof raw === 'object' && 'message' in raw && !Array.isArray(raw)) {
+    try {
+      const response = await fetch(`${BASE}/meus-bloqueios/empresas${qs}`, {
+        headers: buildHeaders(),
+      });
+      if (!response.ok) {
+        console.warn('[bloqueioService] listEmpresas', response.status);
+        return [];
+      }
+      const raw: unknown = await response.json();
+      if (raw && typeof raw === 'object' && 'message' in raw && !Array.isArray(raw)) {
+        return [];
+      }
+      return parseEmpresaList(raw);
+    } catch (err) {
+      console.warn('[bloqueioService] listEmpresas', err);
       return [];
     }
-    return parseEmpresaList(raw);
   },
 
   async listPlanos(busca?: string): Promise<PlanoBloqueado[]> {
     const qs = busca?.trim() ? `?busca=${encodeURIComponent(busca.trim())}` : '';
-    const response = await fetch(`${BASE}/meus-bloqueios/planos${qs}`, {
-      headers: buildHeaders(),
-    });
-    if (!response.ok) {
-      throw new Error((await parseApiError(response)) || 'Erro ao listar planos bloqueados');
-    }
-    const raw: unknown = await response.json();
-    if (raw && typeof raw === 'object' && 'message' in raw && !Array.isArray(raw)) {
+    try {
+      const response = await fetch(`${BASE}/meus-bloqueios/planos${qs}`, {
+        headers: buildHeaders(),
+      });
+      if (!response.ok) {
+        console.warn('[bloqueioService] listPlanos', response.status);
+        return [];
+      }
+      const raw: unknown = await response.json();
+      if (raw && typeof raw === 'object' && 'message' in raw && !Array.isArray(raw)) {
+        return [];
+      }
+      return parsePlanoList(raw);
+    } catch (err) {
+      console.warn('[bloqueioService] listPlanos', err);
       return [];
     }
-    return parsePlanoList(raw);
   },
 
   async bloquearEmpresa(empresaId: number): Promise<void> {

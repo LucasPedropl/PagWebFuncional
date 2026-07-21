@@ -19,6 +19,9 @@ interface CobrancaFormProps {
   servicos: CatalogItemLike[];
   isSaving: boolean;
   onCancel: () => void;
+  counterpartyLabel?: string;
+  counterpartyPlaceholder?: string;
+  showCatalogFields?: boolean;
   onSubmit: (data: {
     descricao: string;
     observacao?: string;
@@ -35,6 +38,9 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
   servicos,
   isSaving,
   onCancel,
+  counterpartyLabel = 'Cliente',
+  counterpartyPlaceholder = 'Selecione o cliente...',
+  showCatalogFields = true,
   onSubmit,
 }) => {
   const [clientId, setClientId] = useState<string | number>('');
@@ -122,19 +128,21 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
     }
   };
 
+  const hasCatalog =
+    showCatalogFields && (produtos.length > 0 || servicos.length > 0);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Cliente */}
       <SearchSelect
-        label="Cliente"
+        label={counterpartyLabel}
         options={clientOptions}
         value={clientId}
         onChange={setClientId}
-        placeholder="Selecione o cliente..."
+        placeholder={counterpartyPlaceholder}
       />
 
-      {/* Catálogo de Serviços e Produtos lado a lado */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {hasCatalog ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <SearchSelect
           label="Serviço do catálogo (opcional)"
           options={servicoOptions}
@@ -157,6 +165,7 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
           placeholder="Nenhum"
         />
       </div>
+      ) : null}
 
       {/* Descrição */}
       <Input

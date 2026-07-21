@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { chatService, ChatAudience } from '../services/chatService';
+import { CHAT_READ_EVENT, ChatReadEventDetail } from '../utils/chatEvents';
 
 const POLL_MS = 5000;
 
@@ -26,11 +27,21 @@ export function useUnreadChatCount(enabled: boolean, audience: ChatAudience = 'c
 
     const interval = window.setInterval(() => void refresh(), POLL_MS);
     const onRefresh = () => void refresh();
+    const onChatRead = (e: Event) => {
+      const { cleared } = (e as CustomEvent<ChatReadEventDetail>).detail;
+      if (cleared > 0) {
+        setCount((prev) => Math.max(0, prev - cleared));
+      }
+      void refresh();
+    };
+
     window.addEventListener('pagweb:refresh-chat-counts', onRefresh);
+    window.addEventListener(CHAT_READ_EVENT, onChatRead);
 
     return () => {
       window.clearInterval(interval);
       window.removeEventListener('pagweb:refresh-chat-counts', onRefresh);
+      window.removeEventListener(CHAT_READ_EVENT, onChatRead);
     };
   }, [enabled, refresh]);
 

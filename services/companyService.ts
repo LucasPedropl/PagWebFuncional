@@ -10,8 +10,9 @@ import {
 import { sessionService } from './session';
 import { parseApiError } from '../utils/formatters';
 import { resolveContractPath } from '../utils/api';
+import { apiV1Url } from '../utils/apiOrigin';
 
-const API_BASE = 'https://lojas.vlks.com.br/api/v1';
+const API_BASE = apiV1Url();
 const COMPANY_URL = `${API_BASE}/Empresa`;
 const USER_URL = `${API_BASE}/User`;
 

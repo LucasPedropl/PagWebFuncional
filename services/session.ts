@@ -1,10 +1,11 @@
 import { AuthResponse } from "../types";
+import { apiV1Url } from "../utils/apiOrigin";
 
 const EMPRESA_OWNER_KEY = "pagweb_empresa_owner";
 const TOKEN_CLIENT_KEY = "pagweb_token_client";
 const TOKEN_ADMIN_KEY = "pagweb_token_admin";
 const ACTIVE_MODE_KEY = "pagweb_active_token_mode";
-const API_BASE = "https://lojas.vlks.com.br/api/v1";
+const API_BASE = apiV1Url();
 
 export type TokenMode = "client" | "admin";
 

@@ -1,6 +1,6 @@
 # Relatório de Erros - API PagWebV1
 
-> **Última auditoria:** 16/07/2026  
+> **Última auditoria:** 21/07/2026  
 > **API local:** `apps/PagWebFuncional/api/PagWebV1` compilada e testada  
 > **API em produção/homologação:** `https://lojas.vlks.com.br`  
 > **Frontend:** PagWeb rodando em `http://localhost:3000` ou localmente
@@ -13,19 +13,21 @@ Todos os erros listados na auditoria anterior foram confirmados como **ainda
 pendentes** (não foram corrigidos no código do repositório). Foram identificados
 novos problemas de segurança e estabilidade (erros de runtime).
 
-| Categoria / Bug                                              | Status        | Descrição rápida                                                                                                           |
-| :----------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------------------- |
-| **CS8602 — desreferências nulas**                            | **Pendente**  | 384 warnings restantes na compilação do dotnet (testado via `dotnet build`).                                               |
-| **Permissões `GET /api/Cobrancas/{id}`**                     | **Pendente**  | Lógica de validação de acesso invertida (vazamento cross-tenant de cobranças).                                             |
-| **NullReferenceException no login de admin**                 | **Pendente**  | Operador lógico incorreto (`&&`) na validação de tipo de usuário sem empresa.                                              |
-| **Exposição de dados cross-tenant em Categorias**            | **Pendente**  | Endpoints de categoria retornam dados globais sem filtro de empresa e rota privada ignora parâmetro.                       |
-| **Acesso inseguro a claims de identificação**                | **Pendente**  | Chamada direta a `.Value` em `User.FindFirst()` sem verificar se a claim é nula em vários controllers.                     |
-| **NullReferenceException em `meus-bloqueios` (NOVO)**        | **Novo Erro** | Uso da claim string `"id"` em vez de `ClaimTypes.NameIdentifier` em `UserBloqueioController.cs`.                           |
-| **Exposição global sem autorização (NOVO)**                  | **Novo Erro** | `zTemporarioController.cs` expõe listagens de dados confidenciais a usuários anônimos.                                     |
-| **Bug Lógico de Validação no Cadastro de Assinatura (NOVO)** | **Novo Erro** | Filtro de verificação usa o administrador em vez do cliente em `AssinaturaController.cs`.                                  |
-| **IDOR crítico em configurações de assinatura (NOVO)**       | **Novo Erro** | Endpoints em `NotificacaoController.cs` públicos sem `[Authorize]` permitindo leitura/edição global de dados de terceiros. |
-| **Restrição de acesso indevida em planos (NOVO)**            | **Novo Erro** | `GET /api/v1/Plano/{idPlano}` exige role de Admin impedindo leitura de clientes para assinatura.                           |
-| **Falha de design em POST de Endereço (NOVO)**               | **Novo Erro** | Rota de cadastro em `EnderecoController.cs` não retorna o ID gerado e não há rota de GET para recuperar o ID.              |
+| Categoria / Bug                                              | Status        | Descrição rápida                                                                                                                     |
+| :----------------------------------------------------------- | :------------ | :----------------------------------------------------------------------------------------------------------------------------------- |
+| **CS8602 — desreferências nulas**                            | **Pendente**  | 384 warnings restantes na compilação do dotnet (testado via `dotnet build`).                                                         |
+| **Permissões `GET /api/Cobrancas/{id}`**                     | **Pendente**  | Lógica de validação de acesso invertida (vazamento cross-tenant de cobranças).                                                       |
+| **NullReferenceException no login de admin**                 | **Pendente**  | Operador lógico incorreto (`&&`) na validação de tipo de usuário sem empresa.                                                        |
+| **Exposição de dados cross-tenant em Categorias**            | **Pendente**  | Endpoints de categoria retornam dados globais sem filtro de empresa e rota privada ignora parâmetro.                                 |
+| **Acesso inseguro a claims de identificação**                | **Pendente**  | Chamada direta a `.Value` em `User.FindFirst()` sem verificar se a claim é nula em vários controllers.                               |
+| **NullReferenceException em `meus-bloqueios` (NOVO)**        | **Novo Erro** | Claim `"id"` em vez de `NameIdentifier` em `UserBloqueioController` — quebra `GET .../empresas` e `GET .../planos` (tela Bloqueios). |
+| **Exposição global sem autorização (NOVO)**                  | **Novo Erro** | `zTemporarioController.cs` expõe listagens de dados confidenciais a usuários anônimos.                                               |
+| **Bug Lógico de Validação no Cadastro de Assinatura (NOVO)** | **Novo Erro** | Filtro de verificação usa o administrador em vez do cliente em `AssinaturaController.cs`.                                            |
+| **IDOR crítico em configurações de assinatura (NOVO)**       | **Novo Erro** | Endpoints em `NotificacaoController.cs` públicos sem `[Authorize]` permitindo leitura/edição global de dados de terceiros.           |
+| **Restrição de acesso indevida em planos (NOVO)**            | **Novo Erro** | `GET /api/v1/Plano/{idPlano}` exige role de Admin impedindo leitura de clientes para assinatura.                                     |
+| **Falha de design em POST de Endereço (NOVO)**               | **Novo Erro** | Rota de cadastro em `EnderecoController.cs` não retorna o ID gerado e não há rota de GET para recuperar o ID.                        |
+| **Cliente bloqueado ao enviar mensagem no chat (NOVO)**      | **Novo Erro** | `POST /api/Chats/{id}/Mensagens` chama `TipoUser(id, AdminLogin: true)`; cliente puro recebe 401. Estabelecimento envia normalmente. |
+| **`login-admin` bloqueado pela Bixs (NOVO)**                 | **Novo Erro** | Após credenciais OK, `VerificaAcesso` falha → 401 *Erro ao verificar acesso ao sistema externo.* (não é CORS nem proxy).          |
 
 ---
 
@@ -187,7 +189,13 @@ novos problemas de segurança e estabilidade (erros de runtime).
 
 ## 6. NullReferenceException Crítico em `UserBloqueioController` (Claim Incorreta) — [NOVO]
 
-- **Arquivo:** `Controllers/UserBloqueioController.cs` (linhas 65 e 87)
+- **Arquivo:** `Controllers/UserBloqueioController.cs` (linhas 65 e 87 — `GetEmpresasBloqueadas` e `GetPlanosBloqueados`)
+- **Endpoints afetados:**
+  - `GET /api/UserBloqueio/meus-bloqueios/empresas`
+  - `GET /api/UserBloqueio/meus-bloqueios/planos`
+- **Sintoma no frontend:** Tela `#/bloqueios` exibia JSON cru
+  `{ "error": "Erro ao buscar bloqueios de planos.", "details": "Object reference not set to an instance of an object." }`
+  (o `details` é o `NullReferenceException` ao acessar `.Value` de claim inexistente).
 - **Código com erro:**
     ```csharp
     [HttpGet("meus-bloqueios/empresas")]
@@ -348,3 +356,121 @@ novos problemas de segurança e estabilidade (erros de runtime).
     ```csharp
     return Ok(new { idEndereco = endereco.IdEndereco, message = "Endereço criado com sucesso!" });
     ```
+
+---
+
+## 13. Cliente não consegue enviar mensagens no chat — [NOVO]
+
+- **Arquivo:** `Controllers/ChatsController.cs` (método `PostMensagem`, linhas
+  187–211)
+- **Endpoint:** `POST /api/Chats/{id}/Mensagens`
+- **Sintoma no frontend:** Usuário com login de **cliente** vê toast _"Não foi
+  possível enviar a mensagem"_; o estabelecimento (login **admin**, role
+  `Admin`) responde normalmente. Dono de empresa na visão cliente ainda pode
+  enviar em alguns fluxos, pois no banco continua com vínculo `UserTipo.Admin`.
+- **Código com erro:**
+
+    ```csharp
+    int usuarioId = int.Parse(userid);
+    // ...
+    var userTipo = await _service.TipoUser(usuarioId, true);
+    if (userTipo == null)
+    {
+        return Unauthorized("Você não tem permissão para enviar mensagens para este chat.");
+    }
+    if (userTipo.IdEmpresa == idEmpresa)
+    {
+        mensagemSave.Tipo = UserTipo.Admin;
+    }
+    else
+    {
+        mensagemSave.Tipo = UserTipo.Cliente;
+    }
+    ```
+
+- **Problema:** O segundo parâmetro de `TipoUser` é `AdminLogin`. Com `true`, o
+  serviço **só** retorna registro de `UserEmpresas` quando o usuário é
+  **Admin**; para cliente comum retorna `null`:
+
+    ```csharp
+    // Services/UserService.cs — TipoUser
+    if (AdminLogin)
+        return await _context.UserEmpresas.FirstOrDefaultAsync(
+            ue => ue.IdUser == idUser && ue.UserTipo == UserTipo.Admin);
+
+    return new UserEmpresa() { IdUser = idUser, UserTipo = UserTipo.Cliente };
+    ```
+
+    Todo envio de mensagem passa por `TipoUser(usuarioId, true)`. Cliente
+    autenticado via `login-cliente` cai no `Unauthorized` antes de persistir a
+    mensagem. Leitura de chats/mensagens (`GET /api/Chats`, `GET .../Mensagens`)
+    e marcação de leitura (`POST .../Ler`) não usam essa validação da mesma
+    forma — o bug é específico do **POST de mensagem**.
+
+- **Impacto:** Chat inutilizável para o perfil que deveria iniciar conversas com
+  estabelecimentos (Explorar → chat, intenção de plano, suporte).
+
+- **Correção sugerida:** Diferenciar admin e cliente com base na role do token e
+  validar posse do chat para clientes:
+
+    ```csharp
+    int usuarioId = int.Parse(userid);
+    var chat = await _context.Chats.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
+    if (chat == null)
+        return BadRequest("Chat não encontrado.");
+
+    var idEmpresa = chat.IdEmpresa;
+
+    if (User.IsInRole("Admin"))
+    {
+        var vinculo = await _service.TipoUser(usuarioId, true);
+        if (vinculo == null || vinculo.UserTipo != UserTipo.Admin)
+            return Unauthorized("Você não tem permissão para enviar mensagens para este chat.");
+        if (vinculo.IdEmpresa != idEmpresa)
+            return Unauthorized("Este chat não pertence à sua empresa.");
+
+        mensagemSave.Tipo = UserTipo.Admin;
+    }
+    else
+    {
+        if (chat.IdUsuario != usuarioId)
+            return Unauthorized("Você não tem permissão para enviar mensagens neste chat.");
+
+        mensagemSave.Tipo = UserTipo.Cliente;
+    }
+    ```
+
+    Alternativa mínima (menos segura se não validar `chat.IdUsuario`): usar
+    `TipoUser(usuarioId, User.IsInRole("Admin"))` e tratar `null` apenas quando
+    a role for Admin.
+
+- **Nota (frontend):** O PagWeb já chama `POST /api/Chats/{id}/Ler` e exibe
+  `lida` nas mensagens enviadas; não há workaround no front para este 401 —
+  depende de deploy da API.
+
+---
+
+## 14. `login-admin` retorna 401 após validar senha (integração Bixs) — [NOVO]
+
+- **Arquivo:** `Controllers/UserAdminController.cs` (linhas 49–51)
+- **Endpoint:** `POST /api/v1/User/login-admin`
+- **Sintoma:** No DevTools aparece `POST http://localhost:8888/api/v1/User/login-admin 401`
+  (requisição passa pelo proxy Vite — **não é erro de CORS**). Corpo típico:
+  `{ "message": "Erro ao verificar acesso ao sistema externo." }`.
+- **Código:**
+
+    ```csharp
+    var tokenexterno = await _apiBixs.VerificaAcesso(dto, tipouser.IdEmpresa);
+    if (tokenexterno == null || string.IsNullOrEmpty(tokenexterno) || tokenexterno == "Erro")
+        return Unauthorized(new { message = "Erro ao verificar acesso ao sistema externo." });
+    ```
+
+- **Problema:** E-mail/senha podem estar corretos no PagWeb, mas o login **só**
+  conclui se a Bixs validar e vincular tokens usando `tipouser.IdEmpresa`.
+  Falha comum: credenciais PagWeb ≠ Bixs, empresa sem tokens, Bixs fora, ou
+  admin sem vínculo `UserEmpresa` admin (item 1 — NRE em `tipouser == null`).
+- **Correção sugerida:** Desacoplar autenticação PagWeb da Bixs no login (ver
+  `docs/relatorio_auth_onboarding_admin.md`): JWT após validar usuário local;
+  vincular Bixs no onboarding ou na primeira operação de pagamento.
+- **Nota (frontend):** Proxy `/api` em dev está correto; mensagem amigável na
+  tela de login quando a API devolve *sistema externo*.

@@ -207,7 +207,7 @@ export const ConectarWhatsapp: React.FC = () => {
           ) : (
             <>
               <div className="bg-gray-50 p-6 rounded-2xl border-2 border-dashed border-gray-200 mb-6 w-full flex flex-col items-center relative overflow-hidden">
-                  <div className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4 transition-all duration-500 w-full flex justify-center ${!qrCode ? 'blur-md grayscale' : ''}`}>
+                  <div className={`bg-white p-4 rounded-xl shadow-sm border border-gray-100 transition-all duration-500 w-full flex justify-center ${!qrCode ? 'blur-md grayscale' : ''}`}>
                   {qrCode ? (
                       <QRCodeSVG 
                       value={qrCode} 
@@ -236,28 +236,7 @@ export const ConectarWhatsapp: React.FC = () => {
                       {loading ? 'Criando instância...' : 'Gerar QR Code'}
                       </span>
                   </button>
-                  ) : (
-                  <div className="flex flex-col items-center gap-3">
-                      <div className="flex items-center gap-2 text-sm text-green-600 font-bold">
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                          <span>QR Code Ativo</span>
-                      </div>
-                      <div className="text-xs text-gray-500 font-medium flex flex-col items-center gap-1">
-                      <div>Expira em: <span className="text-slate-900 font-bold">{timeLeft}s</span></div>
-                      <div className="text-[10px] text-gray-400 uppercase tracking-wider">
-                          Ciclo: <span className="font-bold">{refreshCount + 1} de {MAX_REFRESHES + 1}</span>
-                      </div>
-                      </div>
-                      <button 
-                      onClick={handleRefreshQRCode}
-                      disabled={loading}
-                      className="mt-2 text-xs text-blue-600 hover:underline flex items-center gap-1"
-                      >
-                      {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                      Atualizar agora
-                      </button>
-                  </div>
-                  )}
+                  ) : null}
               </div>
               <p className="text-xs text-gray-400">
                   {qrCode ? 'Aponte a câmera do seu celular para o código acima.' : 'Clique no botão acima para iniciar uma nova conexão.'}

@@ -18,7 +18,6 @@ export const Bloqueios: React.FC = () => {
     empresas,
     planos,
     isLoading,
-    error,
     bloquearEmpresa,
     desbloquearEmpresa,
     bloquearPlano,
@@ -131,8 +130,6 @@ export const Bloqueios: React.FC = () => {
           placeholder="Nome ou ID..."
         />
       </div>
-
-      {error ? <p className="text-sm text-red-600 mb-4">{error}</p> : null}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         <section className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">

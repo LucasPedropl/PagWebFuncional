@@ -37,6 +37,11 @@ export default defineConfig(async ({ mode }) => {
         host: '0.0.0.0',
         strictPort: true, // Evita prompts interativos de confirmação no terminal
         proxy: {
+          '/api': {
+            target: apiAssetsTarget,
+            changeOrigin: true,
+            secure: true,
+          },
           '/api-assets': {
             target: apiAssetsTarget,
             changeOrigin: true,
@@ -49,6 +54,11 @@ export default defineConfig(async ({ mode }) => {
         port: previewPort,
         strictPort: true,
         proxy: {
+          '/api': {
+            target: apiAssetsTarget,
+            changeOrigin: true,
+            secure: true,
+          },
           '/api-assets': {
             target: apiAssetsTarget,
             changeOrigin: true,

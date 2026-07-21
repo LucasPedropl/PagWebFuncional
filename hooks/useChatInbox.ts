@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChatAudience, chatService } from '../services/chatService';
 import { Chat, ChatMessage } from '../types';
+import { markChatReadPendingSync } from '../utils/chatCache';
+import { dispatchChatRead } from '../utils/chatEvents';
 
 const LIST_POLL_MS = 5000;
 const MESSAGE_POLL_MS = 3000;
@@ -28,8 +30,15 @@ export function useChatInbox(options?: UseChatInboxOptions) {
           new Date(b.ultimaMensagemData).getTime() -
           new Date(a.ultimaMensagemData).getTime(),
       );
-      setChats(sorted);
-      return sorted;
+      const activeId = selectedIdRef.current;
+      const withActiveRead =
+        activeId == null
+          ? sorted
+          : sorted.map((c) =>
+              c.idChat === activeId ? { ...c, naoLidas: 0 } : c,
+            );
+      setChats(withActiveRead);
+      return withActiveRead;
     } catch (err) {
       console.error('[PagWeb] Erro ao carregar chats:', err);
       return [];
@@ -43,20 +52,33 @@ export function useChatInbox(options?: UseChatInboxOptions) {
       const list = await chatService.getChatMessages(idChat);
       setMessages(list);
 
+      const viewing = selectedIdRef.current === idChat;
+      const shouldMarkRead = markRead || viewing;
+
       const mySide: ChatMessage['tipoRemetente'] =
         audience === 'business' ? 'Empresa' : 'Cliente';
       const unread = list.filter((m) => !m.lida && m.tipoRemetente !== mySide).length;
 
+      let clearedForEvent = 0;
       setChats((prev) =>
         prev.map((c) => {
           if (c.idChat !== idChat) return c;
-          return { ...c, naoLidas: markRead ? 0 : unread };
+          if (shouldMarkRead && (c.naoLidas ?? 0) > 0) {
+            clearedForEvent = c.naoLidas ?? 0;
+          }
+          return {
+            ...c,
+            naoLidas: shouldMarkRead ? 0 : unread,
+          };
         }),
       );
 
-      if (markRead) {
+      if (shouldMarkRead) {
+        markChatReadPendingSync(idChat);
+        if (clearedForEvent > 0) {
+          dispatchChatRead(idChat, clearedForEvent);
+        }
         await chatService.markChatAsRead(idChat);
-        window.dispatchEvent(new CustomEvent('pagweb:refresh-chat-counts'));
       }
     } catch (err) {
       console.error('[PagWeb] Erro ao carregar mensagens:', err);
@@ -67,6 +89,14 @@ export function useChatInbox(options?: UseChatInboxOptions) {
     async (chat: Chat) => {
       selectedIdRef.current = chat.idChat;
       setSelectedChat(chat);
+      const unread = Number(chat.naoLidas ?? 0);
+      if (unread > 0) {
+        dispatchChatRead(chat.idChat, unread);
+        markChatReadPendingSync(chat.idChat);
+        setChats((prev) =>
+          prev.map((c) => (c.idChat === chat.idChat ? { ...c, naoLidas: 0 } : c)),
+        );
+      }
       await loadMessages(chat.idChat);
     },
     [loadMessages],
@@ -109,14 +139,14 @@ export function useChatInbox(options?: UseChatInboxOptions) {
     selectedIdRef.current = idChat;
     const msgTimer = window.setInterval(() => {
       if (selectedIdRef.current === idChat) {
-        void loadMessages(idChat, false);
+        void loadMessages(idChat, true);
       }
     }, MESSAGE_POLL_MS);
 
     const onNewMessage = (e: Event) => {
       const eventChatId = (e as CustomEvent<{ idChat?: number }>).detail?.idChat;
       if (!eventChatId || eventChatId === idChat) {
-        void loadMessages(idChat, false);
+        void loadMessages(idChat, true);
       }
     };
     window.addEventListener('pagweb:new-chat-message', onNewMessage);

@@ -3,9 +3,11 @@ import { sessionService } from './session';
 import { companyService } from './companyService';
 import { parseApiError } from '../utils/formatters';
 import {
+  applyReadPendingSync,
   findCachedChatByThread,
   getCachedChatsForBusiness,
   getCachedChatsForClient,
+  markChatReadPendingSync,
   touchCachedChatMessage,
   upsertCachedChat,
 } from '../utils/chatCache';
@@ -156,7 +158,7 @@ export const chatService = {
         ? mapApiChatsForBusiness(data, idEmpresaBusiness, nomeEmpresaBusiness)
         : mapApiChatsForClient(data, currentUserId, user.nome || 'Cliente');
 
-    const merged = mergeChatLists(mapped, cachedFallback);
+    const merged = applyReadPendingSync(mergeChatLists(mapped, cachedFallback));
     merged.forEach((chat) => upsertCachedChat(chat));
     return merged;
   },
@@ -350,6 +352,8 @@ export const chatService = {
   async markChatAsRead(idChat: number): Promise<void> {
     const { token } = sessionService.getSession();
     if (!token) return;
+
+    markChatReadPendingSync(idChat);
 
     await fetch(`${API_BASE}/Chats/${idChat}/Ler`, {
       method: 'POST',

@@ -54,6 +54,9 @@ export const parseApiError = async (response: Response): Promise<string> => {
     if (json && json.message) {
       return json.message;
     }
+    if (json && typeof json.error === 'string') {
+      return json.error;
+    }
     // As vezes o erro vem como { "errors": { "field": ["msg"] } }
     if (json && json.errors) {
         const firstKey = Object.keys(json.errors)[0];
@@ -66,3 +69,54 @@ export const parseApiError = async (response: Response): Promise<string> => {
     return text; // Se não for JSON (texto puro)
   }
 };
+
+/** Mensagem segura para UI (login, formulários) — oculta falhas de rede/CORS. */
+export function toUserFacingNetworkError(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) {
+    return fallback;
+  }
+  const message = error.message.trim();
+  if (
+    !message ||
+    /^failed to fetch$/i.test(message) ||
+    /networkerror/i.test(message) ||
+    /load failed/i.test(message) ||
+    /cors/i.test(message)
+  ) {
+    return 'Não foi possível conectar ao servidor. Verifique sua internet ou tente novamente em instantes.';
+  }
+  return message;
+}
+
+/** Mensagens curtas na tela de login — sem jargão de integrações. */
+export function toUserFacingLoginError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return 'E-mail ou senha incorretos.';
+  }
+
+  const message = error.message.trim();
+
+  if (
+    !message ||
+    /^failed to fetch$/i.test(message) ||
+    /networkerror/i.test(message) ||
+    /load failed/i.test(message) ||
+    /cors/i.test(message)
+  ) {
+    return 'Não foi possível conectar. Verifique sua internet e tente de novo.';
+  }
+
+  if (/inativ|ativação|ativacao/i.test(message)) {
+    return 'Sua conta está inativa. Confira seu e-mail para ativar o cadastro.';
+  }
+
+  if (
+    /inválid|invalid|incorret|e-mail ou senha|email ou senha|credenciais|não encontrado|nao encontrado|usuario não encontrado/i.test(
+      message,
+    )
+  ) {
+    return 'E-mail ou senha incorretos.';
+  }
+
+  return 'Não foi possível entrar agora. Tente novamente em instantes.';
+}

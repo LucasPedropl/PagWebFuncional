@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext';
 import { Send, ArrowLeft, Store, MessageSquare, Tag } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { formChatInputClass } from '../../components/ui/formStyles';
+import { ChatMessageTicks } from '../../components/chat/ChatMessageTicks';
 import {
   buildPlanChatRequestMessage,
   PlanChatRequestReason,
@@ -205,7 +206,12 @@ export const Chat: React.FC = () => {
                           </div>
                         )}
                         <p className="leading-relaxed whitespace-pre-wrap">{m.texto}</p>
-                        <span className="text-[9px] text-gray-400 block text-right mt-1">
+                        <span
+                          className={`text-[9px] block text-right mt-1 flex items-center justify-end gap-1 ${
+                            isMe ? 'text-slate-400' : 'text-gray-400'
+                          }`}
+                        >
+                          {isMe && <ChatMessageTicks read={m.lida} onDarkBubble />}
                           {new Date(m.dataEnvio).toLocaleTimeString([], {
                             hour: '2-digit',
                             minute: '2-digit',

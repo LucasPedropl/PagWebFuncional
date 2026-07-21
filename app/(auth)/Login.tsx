@@ -7,6 +7,7 @@ import { AuthLayout } from '../../components/layout/AuthLayout';
 import { Button } from '../../components/ui/Button';
 import { AuthInput } from '../../components/features/auth/AuthInput';
 import { AuthAlert } from '../../components/features/auth/AuthAlert';
+import { toUserFacingLoginError } from '../../utils/formatters';
 import { getAuthTheme } from '../../utils/authTheme';
 
 const CLIENT_LOGIN_DEFAULTS = {
@@ -60,8 +61,7 @@ export const Login: React.FC = () => {
         navigate('/dashboard');
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Credenciais inválidas.';
-      setError(message);
+      setError(toUserFacingLoginError(err));
     } finally {
       setIsLoading(false);
     }

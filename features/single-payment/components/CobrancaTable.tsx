@@ -11,11 +11,16 @@ import {
   Wallet,
 } from 'lucide-react';
 
+import { CobrancaListaScope } from '../types/cobrancaListaScope';
+import { CobrancaScopeTabs } from './CobrancaScopeTabs';
+
 interface CobrancaTableProps {
   cobrancas: Cobranca[];
   isLoading: boolean;
   error: string | null;
   variant?: 'business' | 'client';
+  listaScope: CobrancaListaScope;
+  onListaScopeChange?: (scope: CobrancaListaScope) => void;
   onCancel?: (id: number) => Promise<void>;
   onPay?: (cobranca: Cobranca) => void;
 }
@@ -71,6 +76,8 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
   isLoading,
   error,
   variant = 'business',
+  listaScope,
+  onListaScopeChange,
   onCancel,
   onPay,
 }) => {
@@ -105,12 +112,22 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
     }
   };
 
-  const isClientView = variant === 'client';
-  const tableTitle = isClientView ? 'Cobranças recebidas' : 'Cobranças registradas';
-  const searchPlaceholder = isClientView
-    ? 'Buscar por estabelecimento ou descrição...'
-    : 'Buscar por cliente ou descrição...';
-  const partyColumnLabel = isClientView ? 'Estabelecimento' : 'Cliente';
+  const isPayerList = listaScope === 'a_pagar';
+  const tableTitle = isPayerList ? 'Cobranças a pagar' : 'Cobranças criadas por mim';
+  const searchPlaceholder = isPayerList
+    ? variant === 'client'
+      ? 'Buscar por estabelecimento ou descrição...'
+      : 'Buscar por credor ou descrição...'
+    : variant === 'client'
+      ? 'Buscar por pagador ou descrição...'
+      : 'Buscar por cliente ou descrição...';
+  const partyColumnLabel = isPayerList
+    ? variant === 'client'
+      ? 'Estabelecimento'
+      : 'Credor'
+    : variant === 'client'
+      ? 'Pagador'
+      : 'Cliente';
 
   const statusOptions = [
     { value: 'Todos', label: 'Todos os status' },
@@ -124,11 +141,16 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
   return (
     <div className="bg-white rounded-[5px] border border-gray-100 shadow-sm overflow-hidden flex flex-col h-full">
       {/* Header com totalizadores */}
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <div className="px-6 py-4 border-b border-gray-100 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-base font-semibold text-slate-900">{tableTitle}</h2>
-        <span className="text-xs font-semibold px-2 py-0.5 bg-slate-50 text-slate-600 rounded-full border border-slate-100">
-          {filteredCobrancas.length} de {cobrancas.length} total
-        </span>
+        <div className="flex flex-wrap items-center gap-3">
+          {onListaScopeChange ? (
+            <CobrancaScopeTabs value={listaScope} onChange={onListaScopeChange} />
+          ) : null}
+          <span className="text-xs font-semibold px-2 py-0.5 bg-slate-50 text-slate-600 rounded-full border border-slate-100">
+            {filteredCobrancas.length} de {cobrancas.length} total
+          </span>
+        </div>
       </div>
 
       {/* Barra de Filtros */}
@@ -190,10 +212,10 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
             <tbody className="divide-y divide-gray-100">
               {filteredCobrancas.map((c) => {
                 const statusStyle = STATUS_CLASSES[c.status] || STATUS_CLASSES.Aberto;
-                const partyName = isClientView
+                const partyName = isPayerList
                   ? (c.empresa?.nome ?? '—')
                   : (c.usuario?.nome ?? '—');
-                const partySubline = isClientView
+                const partySubline = isPayerList
                   ? (c.empresa?.cnpj ?? '')
                   : (c.usuario?.email ?? '');
                 const initials = getInitials(partyName);
@@ -245,7 +267,7 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
 
                     {/* Ações */}
                     <td className="px-6 py-4 text-right whitespace-nowrap">
-                      {isClientView && isPayable(c) && onPay && (
+                      {isPayerList && isPayable(c) && onPay && (
                         <button
                           type="button"
                           onClick={() => onPay(c)}
@@ -255,7 +277,7 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
                           Pagar
                         </button>
                       )}
-                      {!isClientView && isCancellable(c) && onCancel && (
+                      {!isPayerList && isCancellable(c) && onCancel && (
                         <button
                           type="button"
                           onClick={() => void handleCancelClick(c.id)}

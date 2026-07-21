@@ -6,7 +6,6 @@ interface UseBloqueiosResult {
   empresas: EmpresaBloqueada[];
   planos: PlanoBloqueado[];
   isLoading: boolean;
-  error: string | null;
   refresh: () => Promise<void>;
   bloquearEmpresa: (id: number) => Promise<void>;
   desbloquearEmpresa: (id: number) => Promise<void>;
@@ -19,11 +18,9 @@ export const useBloqueios = (busca?: string): UseBloqueiosResult => {
   const [empresas, setEmpresas] = useState<EmpresaBloqueada[]>([]);
   const [planos, setPlanos] = useState<PlanoBloqueado[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
-    setError(null);
     try {
       const [emps, plans] = await Promise.all([
         bloqueioService.listEmpresas(busca),
@@ -32,9 +29,7 @@ export const useBloqueios = (busca?: string): UseBloqueiosResult => {
       setEmpresas(emps);
       setPlanos(plans);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao carregar bloqueios';
       console.error('[useBloqueios]', err);
-      setError(msg);
       setEmpresas([]);
       setPlanos([]);
     } finally {
@@ -70,7 +65,6 @@ export const useBloqueios = (busca?: string): UseBloqueiosResult => {
     empresas,
     planos,
     isLoading,
-    error,
     refresh,
     bloquearEmpresa,
     desbloquearEmpresa,

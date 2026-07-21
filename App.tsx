@@ -14,7 +14,6 @@ import { Configuracoes as UserConfiguracoes } from './app/(user)/Configuracoes';
 import { Bloqueios as UserBloqueios } from './app/(user)/Bloqueios';
 import { MenuMobile as UserMenuMobile } from './app/(user)/MenuMobile';
 import { Explorar as UserExplorar } from './app/(user)/Explorar';
-import { MeusAgendamentos } from './app/(user)/MeusAgendamentos';
 import { PagamentoUnicoCliente } from './app/(user)/PagamentoUnicoCliente';
 import { BusinessDashboard } from './app/(business)/Dashboard';
 import { Clientes } from './app/(business)/Clientes';
@@ -143,7 +142,7 @@ const App: React.FC = () => {
             path="/meus-agendamentos" 
             element={
               <ClientRoute>
-                <MeusAgendamentos />
+                <Navigate to="/dashboard" replace />
               </ClientRoute>
             } 
           />

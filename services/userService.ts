@@ -9,7 +9,9 @@ import {
   toAssinaturaStatusCode,
 } from "../utils/api";
 
-const BASE_URL = "https://lojas.vlks.com.br/api/v1";
+import { apiV1Url } from "../utils/apiOrigin";
+
+const BASE_URL = apiV1Url();
 
 const isEmpresaDualAccount = (): boolean =>
   sessionService.isEmpresaOwner() || sessionService.getSession().user?.tipo === "Empresa";
@@ -35,7 +37,7 @@ const authRequest = async (endpoint: string, options: RequestInit = {}, isRetry 
 
   const url = endpoint.startsWith('http') 
     ? endpoint 
-    : (endpoint.startsWith('/api/') ? `https://lojas.vlks.com.br${endpoint}` : `${BASE_URL}${endpoint}`);
+    : (endpoint.startsWith('/api/') ? `${apiV1Url().replace(/\/api\/v1$/, '')}${endpoint}` : `${BASE_URL}${endpoint}`);
 
   const isFormData = options.body instanceof FormData || 
                      (options.body && typeof options.body === 'object' && typeof (options.body as any).append === 'function');
