@@ -8,16 +8,16 @@ import {
   Loader2, 
   AlertCircle, 
   Ban, 
-  FileText, 
-  MessageSquare,
-  Filter
+  Wallet,
 } from 'lucide-react';
 
 interface CobrancaTableProps {
   cobrancas: Cobranca[];
   isLoading: boolean;
   error: string | null;
-  onCancel: (id: number) => Promise<void>;
+  variant?: 'business' | 'client';
+  onCancel?: (id: number) => Promise<void>;
+  onPay?: (cobranca: Cobranca) => void;
 }
 
 const STATUS_CLASSES: Record<string, { bg: string; text: string; dot: string; border: string }> = {
@@ -63,11 +63,16 @@ const getInitials = (name: string): string => {
 const isCancellable = (c: Cobranca): boolean =>
   c.status === 'Aberto' || c.status === 'Atrasado';
 
+const isPayable = (c: Cobranca): boolean =>
+  c.status === 'Aberto' || c.status === 'Atrasado';
+
 export const CobrancaTable: React.FC<CobrancaTableProps> = ({
   cobrancas,
   isLoading,
   error,
+  variant = 'business',
   onCancel,
+  onPay,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('Todos');
@@ -77,11 +82,13 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
     return cobrancas.filter((c) => {
       const clientName = c.usuario?.nome || '';
       const clientEmail = c.usuario?.email || '';
+      const companyName = c.empresa?.nome || '';
       const description = c.descricao || '';
       
       const matchesSearch = 
         clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         clientEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         description.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesStatus = 
@@ -92,10 +99,18 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
   }, [cobrancas, searchTerm, statusFilter]);
 
   const handleCancelClick = async (id: number) => {
+    if (!onCancel) return;
     if (window.confirm('Tem certeza que deseja cancelar esta cobrança?')) {
       await onCancel(id);
     }
   };
+
+  const isClientView = variant === 'client';
+  const tableTitle = isClientView ? 'Cobranças recebidas' : 'Cobranças registradas';
+  const searchPlaceholder = isClientView
+    ? 'Buscar por estabelecimento ou descrição...'
+    : 'Buscar por cliente ou descrição...';
+  const partyColumnLabel = isClientView ? 'Estabelecimento' : 'Cliente';
 
   const statusOptions = [
     { value: 'Todos', label: 'Todos os status' },
@@ -110,7 +125,7 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
     <div className="bg-white rounded-[5px] border border-gray-100 shadow-sm overflow-hidden flex flex-col h-full">
       {/* Header com totalizadores */}
       <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-slate-900">Cobranças registradas</h2>
+        <h2 className="text-base font-semibold text-slate-900">{tableTitle}</h2>
         <span className="text-xs font-semibold px-2 py-0.5 bg-slate-50 text-slate-600 rounded-full border border-slate-100">
           {filteredCobrancas.length} de {cobrancas.length} total
         </span>
@@ -123,7 +138,7 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
           <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-gray-400" />
           <input
             type="text"
-            placeholder="Buscar por cliente ou descrição..."
+            placeholder={searchPlaceholder}
             className="w-full pl-9 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-[5px] focus:outline-none focus:ring-2 focus:ring-slate-950/10 focus:border-slate-400 transition-all placeholder:text-gray-400"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -165,7 +180,7 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
           <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-slate-50/70 text-[11px] text-gray-500 uppercase font-semibold tracking-wider border-b border-gray-100">
               <tr>
-                <th className="px-6 py-3.5">Cliente</th>
+                <th className="px-6 py-3.5">{partyColumnLabel}</th>
                 <th className="px-6 py-3.5">Serviço/Descrição</th>
                 <th className="px-6 py-3.5">Valor</th>
                 <th className="px-6 py-3.5">Status</th>
@@ -175,13 +190,16 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
             <tbody className="divide-y divide-gray-100">
               {filteredCobrancas.map((c) => {
                 const statusStyle = STATUS_CLASSES[c.status] || STATUS_CLASSES.Aberto;
-                const clientName = c.usuario?.nome ?? '—';
-                const clientEmail = c.usuario?.email ?? '';
-                const initials = getInitials(clientName);
+                const partyName = isClientView
+                  ? (c.empresa?.nome ?? '—')
+                  : (c.usuario?.nome ?? '—');
+                const partySubline = isClientView
+                  ? (c.empresa?.cnpj ?? '')
+                  : (c.usuario?.email ?? '');
+                const initials = getInitials(partyName);
 
                 return (
                   <tr key={c.id} className="hover:bg-slate-50/50 transition-colors group">
-                    {/* Cliente com Avatar */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-700 font-bold border border-slate-200/50 flex items-center justify-center text-xs shrink-0 shadow-sm group-hover:bg-white transition-colors">
@@ -189,11 +207,11 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
                         </div>
                         <div className="min-w-0">
                           <p className="font-medium text-slate-900 truncate text-sm leading-tight">
-                            {clientName}
+                            {partyName}
                           </p>
-                          {clientEmail && (
+                          {partySubline && (
                             <p className="text-[11px] text-gray-400 truncate mt-0.5">
-                              {clientEmail}
+                              {partySubline}
                             </p>
                           )}
                         </div>
@@ -227,10 +245,20 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
 
                     {/* Ações */}
                     <td className="px-6 py-4 text-right whitespace-nowrap">
-                      {isCancellable(c) && (
+                      {isClientView && isPayable(c) && onPay && (
                         <button
                           type="button"
-                          onClick={() => handleCancelClick(c.id)}
+                          onClick={() => onPay(c)}
+                          className="text-xs font-semibold text-slate-900 hover:bg-slate-100 px-2.5 py-1.5 rounded-[5px] transition-all inline-flex items-center gap-1"
+                        >
+                          <Wallet className="w-3.5 h-3.5" />
+                          Pagar
+                        </button>
+                      )}
+                      {!isClientView && isCancellable(c) && onCancel && (
+                        <button
+                          type="button"
+                          onClick={() => void handleCancelClick(c.id)}
                           className="text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 p-1.5 rounded-[5px] transition-all flex items-center gap-1 opacity-0 group-hover:opacity-100 focus:opacity-100 float-right"
                           title="Cancelar cobrança"
                         >

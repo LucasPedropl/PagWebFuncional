@@ -5,9 +5,36 @@ import { DollarSign, CheckCircle2, Clock, AlertTriangle, TrendingUp } from 'luci
 
 interface CobrancaStatsProps {
   cobrancas: Cobranca[];
+  /** Rótulos e tooltips para visão do cliente (cobranças recebidas). */
+  variant?: 'business' | 'client';
 }
 
-export const CobrancaStats: React.FC<CobrancaStatsProps> = ({ cobrancas }) => {
+const STATS_COPY = {
+  business: {
+    emitidoLabel: 'Emitido',
+    emitidoTooltip: 'Total acumulado de cobranças ativas (exclui canceladas)',
+    emitidoFooter: 'cobranças emitidas',
+    pagoTooltip: 'Cobranças com status Pago ou Repassado',
+    pagoFooter: 'Faturamento liquidado',
+    pendenteTooltip: 'Cobranças que estão em aberto e no prazo',
+    atrasadoTooltip: 'Cobranças vencidas e não pagas',
+  },
+  client: {
+    emitidoLabel: 'Total',
+    emitidoTooltip: 'Soma das cobranças ativas enviadas pelos estabelecimentos',
+    emitidoFooter: 'cobranças recebidas',
+    pagoTooltip: 'Valores que você já quitou',
+    pagoFooter: 'Pagamentos concluídos',
+    pendenteTooltip: 'Cobranças em aberto dentro do prazo',
+    atrasadoTooltip: 'Cobranças vencidas aguardando pagamento',
+  },
+} as const;
+
+export const CobrancaStats: React.FC<CobrancaStatsProps> = ({
+  cobrancas,
+  variant = 'business',
+}) => {
+  const copy = STATS_COPY[variant];
   const stats = useMemo(() => {
     let totalEmitido = 0;
     let totalPago = 0;
@@ -47,8 +74,10 @@ export const CobrancaStats: React.FC<CobrancaStatsProps> = ({ cobrancas }) => {
         <div className="flex justify-between items-start">
           <div>
             <div className="flex items-center">
-              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Emitido</span>
-              <InfoTooltip text="Total acumulado de cobranças ativas (exclui canceladas)" popoverRadiusClass="rounded-[5px]" />
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {copy.emitidoLabel}
+              </span>
+              <InfoTooltip text={copy.emitidoTooltip} popoverRadiusClass="rounded-[5px]" />
             </div>
             <h3 className="text-xl font-bold text-gray-900 mt-2">{formatCurrency(stats.totalEmitido)}</h3>
           </div>
@@ -57,7 +86,8 @@ export const CobrancaStats: React.FC<CobrancaStatsProps> = ({ cobrancas }) => {
           </div>
         </div>
         <div className="mt-2 flex items-center text-xs text-gray-500">
-          <span className="font-semibold text-slate-800 mr-1">{stats.quantidade}</span> cobranças emitidas
+          <span className="font-semibold text-slate-800 mr-1">{stats.quantidade}</span>{' '}
+          {copy.emitidoFooter}
         </div>
       </div>
 
@@ -67,7 +97,7 @@ export const CobrancaStats: React.FC<CobrancaStatsProps> = ({ cobrancas }) => {
           <div>
             <div className="flex items-center">
               <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Pago</span>
-              <InfoTooltip text="Cobranças com status Pago ou Repassado" popoverRadiusClass="rounded-[5px]" />
+              <InfoTooltip text={copy.pagoTooltip} popoverRadiusClass="rounded-[5px]" />
             </div>
             <h3 className="text-xl font-bold text-emerald-700 mt-2">{formatCurrency(stats.totalPago)}</h3>
           </div>
@@ -76,7 +106,7 @@ export const CobrancaStats: React.FC<CobrancaStatsProps> = ({ cobrancas }) => {
           </div>
         </div>
         <div className="mt-2 flex items-center text-xs text-emerald-600 font-medium">
-          <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Faturamento liquidado
+          <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> {copy.pagoFooter}
         </div>
       </div>
 
@@ -86,7 +116,7 @@ export const CobrancaStats: React.FC<CobrancaStatsProps> = ({ cobrancas }) => {
           <div>
             <div className="flex items-center">
               <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Pendente</span>
-              <InfoTooltip text="Cobranças que estão em aberto e no prazo" popoverRadiusClass="rounded-[5px]" />
+              <InfoTooltip text={copy.pendenteTooltip} popoverRadiusClass="rounded-[5px]" />
             </div>
             <h3 className="text-xl font-bold text-indigo-700 mt-2">{formatCurrency(stats.totalPendente)}</h3>
           </div>
@@ -105,7 +135,7 @@ export const CobrancaStats: React.FC<CobrancaStatsProps> = ({ cobrancas }) => {
           <div>
             <div className="flex items-center">
               <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Atrasado</span>
-              <InfoTooltip text="Cobranças vencidas e não pagas" popoverRadiusClass="rounded-[5px]" />
+              <InfoTooltip text={copy.atrasadoTooltip} popoverRadiusClass="rounded-[5px]" />
             </div>
             <h3 className="text-xl font-bold text-rose-600 mt-2">{formatCurrency(stats.totalAtrasado)}</h3>
           </div>

@@ -290,7 +290,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
     { icon: Compass, label: 'Explorar', path: '/explorar' },
     { icon: Calendar, label: 'Agendamentos', path: '/meus-agendamentos' },
-    { icon: Banknote, label: 'Cobranças', path: '/historico-servicos' },
+    { icon: Banknote, label: 'Pagamento Único', path: '/pagamento-unico' },
     { icon: Store, label: 'Estabelecimentos', path: '/empresas', badge: pendingConnectionsCount }, 
     { icon: CreditCard, label: 'Assinaturas', path: '/assinaturas', badge: pendingSubscriptionsCount },
     { icon: Receipt, label: 'Faturas', path: '/pagamentos', badge: pendingInvoicesCount }, 

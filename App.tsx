@@ -15,7 +15,7 @@ import { Bloqueios as UserBloqueios } from './app/(user)/Bloqueios';
 import { MenuMobile as UserMenuMobile } from './app/(user)/MenuMobile';
 import { Explorar as UserExplorar } from './app/(user)/Explorar';
 import { MeusAgendamentos } from './app/(user)/MeusAgendamentos';
-import { HistoricoServicos } from './app/(user)/HistoricoServicos';
+import { PagamentoUnicoCliente } from './app/(user)/PagamentoUnicoCliente';
 import { BusinessDashboard } from './app/(business)/Dashboard';
 import { Clientes } from './app/(business)/Clientes';
 import { Planos } from './app/(business)/Planos';
@@ -151,7 +151,15 @@ const App: React.FC = () => {
             path="/historico-servicos" 
             element={
               <ClientRoute>
-                <HistoricoServicos />
+                <Navigate to="/pagamento-unico" replace />
+              </ClientRoute>
+            } 
+          />
+          <Route 
+            path="/pagamento-unico" 
+            element={
+              <ClientRoute>
+                <PagamentoUnicoCliente />
               </ClientRoute>
             } 
           />

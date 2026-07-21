@@ -91,7 +91,7 @@ export const Produtos: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
           <p className="text-gray-500 mt-1">Catálogo de produtos da empresa (API).</p>
         </div>
-        <Button onClick={openCreate} className="bg-violet-600 hover:bg-violet-700">
+        <Button onClick={openCreate}>
           <Plus className="w-4 h-4 mr-2" />
           Novo produto
         </Button>
@@ -99,7 +99,7 @@ export const Produtos: React.FC = () => {
 
       {isLoading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-slate-600" />
         </div>
       ) : error ? (
         <div className="flex flex-col items-center py-16 gap-2 text-center">
@@ -136,16 +136,18 @@ export const Produtos: React.FC = () => {
               <div className="flex gap-2 mt-4">
                 <Button
                   type="button"
+                  variant="outline"
                   onClick={() => openEdit(item)}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  className="flex-1"
                 >
                   <Edit2 className="w-4 h-4 mr-1" />
                   Editar
                 </Button>
                 <Button
                   type="button"
+                  variant="outline"
                   onClick={() => void handleDelete(item)}
-                  className="bg-red-50 hover:bg-red-100 text-red-700"
+                  className="text-red-600 hover:bg-red-50 hover:border-red-200 px-3"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -190,16 +192,13 @@ export const Produtos: React.FC = () => {
           <div className="flex gap-3 pt-2">
             <Button
               type="button"
+              variant="outline"
               onClick={() => setIsModalOpen(false)}
-              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700"
+              className="flex-1"
             >
               Cancelar
             </Button>
-            <Button
-              type="submit"
-              isLoading={isSaving}
-              className="flex-1 bg-violet-600 hover:bg-violet-700"
-            >
+            <Button type="submit" isLoading={isSaving} className="flex-1">
               Salvar
             </Button>
           </div>

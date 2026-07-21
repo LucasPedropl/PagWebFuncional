@@ -118,11 +118,12 @@ export const CategoriaSearchField: React.FC<CategoriaSearchFieldProps> = ({
           <div className="flex gap-2">
             <Button
               type="button"
+              variant="outline"
               onClick={() => {
                 setShowQuickForm(false);
                 setQuickError(null);
               }}
-              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700"
+              className="flex-1"
               disabled={isCreating}
             >
               Cancelar
@@ -130,7 +131,7 @@ export const CategoriaSearchField: React.FC<CategoriaSearchFieldProps> = ({
             <Button
               type="button"
               onClick={() => void handleQuickCreate()}
-              className="flex-1 bg-violet-600 hover:bg-violet-700"
+              className="flex-1"
               disabled={isCreating}
             >
               {isCreating ? <Loader2 className="w-4 h-4 animate-spin mr-1 inline" /> : null}
