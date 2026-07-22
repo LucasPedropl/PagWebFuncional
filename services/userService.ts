@@ -319,28 +319,26 @@ export const userService = {
   },
 
   async getSubscriptionNotificationSettings(idAssinatura: number): Promise<any> {
+    const defaultSettings = {
+      usarConfigsGerais: true,
+      notificacoes: true,
+      notificacoesAtraso: 0,
+      email: true,
+      whatsApp: true,
+      sms: true,
+    };
     const response = await authRequest(`/Notificacao/${idAssinatura}/assinatura`, { method: 'GET' });
     if (!response.ok) {
-        return {
-            usarConfigsGerais: true,
-            notificacoes: true,
-            notificacoesAtraso: 0,
-            email: true,
-            whatsApp: true,
-            sms: true
-        };
+        return defaultSettings;
     }
     try {
-        return await response.json();
+        const data: unknown = await response.json();
+        if (Array.isArray(data)) {
+          return data[0] ?? defaultSettings;
+        }
+        return data ?? defaultSettings;
     } catch {
-        return {
-            usarConfigsGerais: true,
-            notificacoes: true,
-            notificacoesAtraso: 0,
-            email: true,
-            whatsApp: true,
-            sms: true
-        };
+        return defaultSettings;
     }
   },
 

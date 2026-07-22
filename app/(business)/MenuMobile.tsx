@@ -13,6 +13,7 @@ import {
   ChevronRight,
   LogOut,
   MessageCircle,
+  MessageSquareWarning,
   Scissors,
   Banknote,
   Tags,
@@ -40,6 +41,7 @@ export const MenuMobile: React.FC = () => {
     { icon: DollarSign, label: 'Gestão de Cobranças', path: '/business/pagamentos' },
     { icon: Banknote, label: 'Pagamento Único', path: '/business/pagamento-unico' },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
+    { icon: MessageSquareWarning, label: 'Feedback PagWeb', path: '/business/feedback' },
     { icon: MessageCircle, label: 'WhatsApp', path: '/business/whatsapp' },
     { icon: Settings, label: 'Configurações', path: '/business/configuracoes' },
   ];

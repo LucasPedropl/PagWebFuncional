@@ -142,7 +142,7 @@ export const enderecoService = {
       const id = extractIdFromUnknown(raw);
       if (id) this.setStoredAddressId('client', id);
     } catch {
-      // API atual retorna string; id fica só após PATCH bem-sucedido.
+      // Resposta não-JSON ou sem idEndereco; id pode vir no PATCH.
     }
   },
 
@@ -174,7 +174,7 @@ export const enderecoService = {
       const id = extractIdFromUnknown(raw);
       if (id) this.setStoredAddressId('empresa', id);
     } catch {
-      // API atual retorna string.
+      // Resposta não-JSON ou sem idEndereco; id pode vir no PATCH.
     }
   },
 
@@ -198,7 +198,7 @@ export const enderecoService = {
 
   /**
    * Salva endereço: PATCH se houver id local; senão POST create.
-   * A API de create não devolve IdEndereco — o id é capturado no PATCH.
+   * O POST pode devolver o endereço com idEndereco; fallback no PATCH.
    */
   async saveForScope(scope: AddressScope, input: EnderecoInput): Promise<void> {
     const existingId = this.getStoredAddressId(scope);

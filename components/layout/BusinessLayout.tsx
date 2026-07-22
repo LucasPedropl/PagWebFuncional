@@ -12,6 +12,7 @@ import {
   Menu as MenuIcon,
   MessageCircle,
   MessageSquare,
+  MessageSquareWarning,
   Scissors,
   Banknote,
   Tags,
@@ -227,6 +228,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: Banknote, label: 'Pagamento Único', path: '/business/pagamento-unico' },
     { icon: MessageSquare, label: 'Chat com Clientes', path: '/business/chat', badge: unreadChatCount },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
+    { icon: MessageSquareWarning, label: 'Feedback PagWeb', path: '/business/feedback' },
     { icon: MessageCircle, label: 'WhatsApp', path: '/business/whatsapp' },
   ];
 

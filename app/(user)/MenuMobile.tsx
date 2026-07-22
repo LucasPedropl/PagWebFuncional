@@ -15,6 +15,7 @@ import {
   BarChart3,
   Banknote,
   Ban,
+  MessageSquareWarning,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 
@@ -31,6 +32,7 @@ export const MenuMobile: React.FC = () => {
     { icon: BarChart3, label: 'Relatórios Financeiros', path: '/relatorios' },
     { icon: CreditCard, label: 'Métodos de Pagamento', path: '/metodos-pagamento' },
     { icon: Ban, label: 'Bloqueios', path: '/bloqueios' },
+    { icon: MessageSquareWarning, label: 'Feedback PagWeb', path: '/feedback' },
     { icon: Settings, label: 'Configurações da Conta', path: '/configuracoes' },
   ];
 

@@ -57,9 +57,9 @@ export const categoriaService = {
     return result.data;
   },
 
-  /** Admin: usa vínculo do token; idEmpresa na URL é ignorado pela API. */
-  async listPrivado(idEmpresa = 0): Promise<Categoria[]> {
-    const response = await fetch(`${BASE}/empresa-categorias-privado/${idEmpresa}`, {
+  /** Admin: empresa vem do vínculo no token (GET .../empresa-categorias-privado/). */
+  async listPrivado(): Promise<Categoria[]> {
+    const response = await fetch(`${BASE}/empresa-categorias-privado/`, {
       headers: buildHeaders(),
     });
     if (!response.ok) {

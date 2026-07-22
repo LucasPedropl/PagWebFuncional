@@ -44,6 +44,8 @@ estruturadas e fluxos de pagamento.
 | **PUT**    | `/api/Cobrancas/Status/{id}`                                       | Atualizar Status da Cobrança      | ✅          | `#/business/pagamento-unico` (cancelar)                                     |
 | **POST**   | `/api/v1/Pagamento/solicitar`                                      | Solicitar Pagamento de Assinatura | ✅          | `#/pagamentos` → `pagamentoService.solicitarMensalidade`                    |
 | **POST**   | `/api/v1/Pagamento/unico-solicitar`                                | Solicitar Pagamento Único         | ✅          | `#/historico-servicos`                                                      |
+| **POST**   | `/api/v1/Feedback`                                                 | Enviar feedback PagWeb (cliente ou estabelecimento) | ⏳ Pendente | `#/feedback`, `#/business/feedback` → `feedbackService.submit`              |
+| **GET**    | `/api/v1/Feedback`                                                 | Listar feedbacks (app central **Bix**, time dev)  | ⏳ Pendente | **Não** integrar no PagWeb — ver `relatorio_erros_backend.md` item **17**   |
 
 ---
 

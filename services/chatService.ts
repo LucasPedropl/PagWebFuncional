@@ -18,6 +18,12 @@ import {
   mapApiChatsForClient,
   mergeChatLists,
 } from './chatListMapper';
+import { mapApiChatMessage } from '../utils/mapApiChatMessage';
+import {
+  applyMessageTipoOverrides,
+  rememberSentMessageTipo,
+  tipoRemetenteForActiveSession,
+} from '../utils/chatSelfThread';
 
 const API_BASE = 'https://lojas.vlks.com.br/api';
 
@@ -44,7 +50,7 @@ const getAuthHeaders = (token: string, withJson = false): HeadersInit => {
   return headers;
 };
 
-const getUserIdFromToken = (token: string): number => {
+export const getUserIdFromToken = (token: string): number => {
   try {
     const base64Url = token.split('.')[1];
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -71,22 +77,12 @@ const getUserIdFromToken = (token: string): number => {
   }
 };
 
-interface ApiMessageResponse {
-  id: number;
-  idMensagem: number;
-  conteudo: string;
-  idUsuario: number;
-  nomeUsuario: string;
-  tipo: number | string; // UserTipo (0/Admin ou 1/Cliente) ou string
-  dataEnvio: string;
-  lida: boolean;
-  arquivos?: { urlArquivo: string }[];
-  plano?: {
-    idPlano: number;
-    nomePlano: string;
-    valorPlano: number;
-  } | null;
-}
+/** ID do usuário autenticado no chat (JWT ou sessão). */
+export const getChatSessionUserId = (): number => {
+  const { token, user } = sessionService.getSession();
+  const fromToken = token ? getUserIdFromToken(token) : 0;
+  return fromToken || Number(user?.idUser ?? 0);
+};
 
 export type ChatAudience = 'client' | 'business';
 
@@ -181,36 +177,18 @@ export const chatService = {
       return [];
     }
 
-    let data: ApiMessageResponse[];
+    let data: unknown[];
     try {
-      data = JSON.parse(text) as ApiMessageResponse[];
+      data = JSON.parse(text) as unknown[];
     } catch {
       return [];
     }
 
     if (!Array.isArray(data)) return [];
 
-    return data.map((m) => {
-      let tipoRemetente: 'Cliente' | 'Empresa' = 'Cliente';
-      if (m.tipo === 0 || m.tipo === 'Admin' || m.tipo === 'Empresa') {
-        tipoRemetente = 'Empresa';
-      }
-
-      return {
-        idMensagem: Number(m.idMensagem ?? m.id),
-        idChat: idChat,
-        texto: String(m.conteudo || ''),
-        tipoRemetente,
-        idRemetente: Number(m.idUsuario),
-        dataEnvio: m.dataEnvio || new Date().toISOString(),
-        lida: Boolean(m.lida),
-        metadata: m.plano ? {
-          idPlano: Number(m.plano.idPlano),
-          nomePlano: String(m.plano.nomePlano || ''),
-          valorMensalidade: Number(m.plano.valorPlano ?? 0),
-        } : undefined,
-      };
-    });
+    return applyMessageTipoOverrides(
+      data.map((m) => mapApiChatMessage(m, idChat)),
+    );
   },
 
   async sendMessage(
@@ -241,25 +219,22 @@ export const chatService = {
     touchCachedChatMessage(idChat, text);
     dispatchChatRefresh(idChat);
 
-    const m = (await response.json()) as ApiMessageResponse;
-
-    let tipoRemetente: 'Cliente' | 'Empresa' = 'Cliente';
-    if (m.tipo === 0 || m.tipo === 'Admin' || m.tipo === 'Empresa') {
-      tipoRemetente = 'Empresa';
+    const m = await response.json();
+    const mapped = mapApiChatMessage(m, idChat);
+    if (metadata) {
+      mapped.metadata = metadata;
     }
-
-    const currentUserId = getUserIdFromToken(token);
-
-    return {
-      idMensagem: Number(m.idMensagem ?? m.id ?? Date.now()),
-      idChat: idChat,
-      texto: String(m.conteudo || text),
-      tipoRemetente,
-      idRemetente: Number(m.idUsuario ?? currentUserId ?? user.idUser),
-      dataEnvio: m.dataEnvio || new Date().toISOString(),
-      lida: Boolean(m.lida),
-      metadata: metadata,
-    };
+    if (!mapped.texto) {
+      mapped.texto = text;
+    }
+    if (!mapped.idRemetente) {
+      const currentUserId = getUserIdFromToken(token);
+      mapped.idRemetente = currentUserId || Number(user.idUser ?? 0);
+    }
+    const intendedTipo = tipoRemetenteForActiveSession();
+    mapped.tipoRemetente = intendedTipo;
+    rememberSentMessageTipo(mapped.idMensagem, intendedTipo);
+    return mapped;
   },
 
   async createOrGetChat(

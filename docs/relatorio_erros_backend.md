@@ -1,476 +1,226 @@
 # Relatório de Erros - API PagWebV1
 
-> **Última auditoria:** 21/07/2026  
-> **API local:** `apps/PagWebFuncional/api/PagWebV1` compilada e testada  
-> **API em produção/homologação:** `https://lojas.vlks.com.br`  
-> **Frontend:** PagWeb rodando em `http://localhost:3000` ou localmente
+> **Última auditoria:** 21/07/2026 (revisão pós-atualização do submodule
+> `apps/PagWebFuncional/api`)  
+> **API local:** `apps/PagWebFuncional/api/PagWebV1` — `dotnet build`: 0 erros,
+> **419** avisos de nulidade  
+> **API em produção/homologação:** `https://lojas.vlks.com.br` (vários fixes do
+> repositório **ainda não refletidos** em produção)  
+> **Frontend:** PagWeb em `http://localhost:3000` ou localmente  
+> **MCP:** `openapi-pagwebv1` — `install_mcp` (`openapi_sync`, server
+> `1b701ad2-2d9c-49fb-92f6-2259eb998eda`) executado com sucesso; chamadas via
+> `call_mcp_tool` falharam com _Connection closed_ nesta sessão — testes
+> complementares via `curl.exe` em homologação.
 
 ---
 
-## Resumo da Auditoria de Erros Pendentes e Novos Encontrados
+## Resumo
 
-Todos os erros listados na auditoria anterior foram confirmados como **ainda
-pendentes** (não foram corrigidos no código do repositório). Foram identificados
-novos problemas de segurança e estabilidade (erros de runtime).
-
-| Categoria / Bug                                              | Status        | Descrição rápida                                                                                                                     |
-| :----------------------------------------------------------- | :------------ | :----------------------------------------------------------------------------------------------------------------------------------- |
-| **CS8602 — desreferências nulas**                            | **Pendente**  | 384 warnings restantes na compilação do dotnet (testado via `dotnet build`).                                                         |
-| **Permissões `GET /api/Cobrancas/{id}`**                     | **Pendente**  | Lógica de validação de acesso invertida (vazamento cross-tenant de cobranças).                                                       |
-| **NullReferenceException no login de admin**                 | **Pendente**  | Operador lógico incorreto (`&&`) na validação de tipo de usuário sem empresa.                                                        |
-| **Exposição de dados cross-tenant em Categorias**            | **Pendente**  | Endpoints de categoria retornam dados globais sem filtro de empresa e rota privada ignora parâmetro.                                 |
-| **Acesso inseguro a claims de identificação**                | **Pendente**  | Chamada direta a `.Value` em `User.FindFirst()` sem verificar se a claim é nula em vários controllers.                               |
-| **NullReferenceException em `meus-bloqueios` (NOVO)**        | **Novo Erro** | Claim `"id"` em vez de `NameIdentifier` em `UserBloqueioController` — quebra `GET .../empresas` e `GET .../planos` (tela Bloqueios). |
-| **Exposição global sem autorização (NOVO)**                  | **Novo Erro** | `zTemporarioController.cs` expõe listagens de dados confidenciais a usuários anônimos.                                               |
-| **Bug Lógico de Validação no Cadastro de Assinatura (NOVO)** | **Novo Erro** | Filtro de verificação usa o administrador em vez do cliente em `AssinaturaController.cs`.                                            |
-| **IDOR crítico em configurações de assinatura (NOVO)**       | **Novo Erro** | Endpoints em `NotificacaoController.cs` públicos sem `[Authorize]` permitindo leitura/edição global de dados de terceiros.           |
-| **Restrição de acesso indevida em planos (NOVO)**            | **Novo Erro** | `GET /api/v1/Plano/{idPlano}` exige role de Admin impedindo leitura de clientes para assinatura.                                     |
-| **Falha de design em POST de Endereço (NOVO)**               | **Novo Erro** | Rota de cadastro em `EnderecoController.cs` não retorna o ID gerado e não há rota de GET para recuperar o ID.                        |
-| **Cliente bloqueado ao enviar mensagem no chat (NOVO)**      | **Novo Erro** | `POST /api/Chats/{id}/Mensagens` chama `TipoUser(id, AdminLogin: true)`; cliente puro recebe 401. Estabelecimento envia normalmente. |
-| **`login-admin` bloqueado pela Bixs (NOVO)**                 | **Novo Erro** | Após credenciais OK, `VerificaAcesso` falha → 401 *Erro ao verificar acesso ao sistema externo.* (não é CORS nem proxy).          |
-
----
-
-## 1. NullReferenceException no `login-admin` para usuários sem empresa
-
-- **Arquivo:** `Controllers/UserAdminController.cs` (linha 46)
-- **Código atual:**
-
-    ```csharp
-    var tipouser = await _userService.TipoUser(user.IdUser, true);
-
-    if (tipouser == null && tipouser.UserTipo != UserTipo.Admin)
-        return Unauthorized(new { message = "Usuario não encontrado" });
-    ```
-
-- **Problema:** O operador `&&` está incorreto. Quando `tipouser` é `null` (como
-  em novos usuários sem empresa cadastrada), a primeira parte
-  (`tipouser == null`) é verdadeira, forçando a avaliação da segunda parte
-  (`tipouser.UserTipo`). Como o objeto é nulo, ocorre um travamento por
-  `System.NullReferenceException`.
-- **Correção sugerida:** Substituir o operador `&&` pelo operador de
-  curto-circuito `||` (OU):
-    ```csharp
-    if (tipouser == null || tipouser.UserTipo != UserTipo.Admin)
-        return Unauthorized(new { message = "Usuário não é administrador ou não possui empresa vinculada." });
-    ```
+| Categoria / Bug                                               | Status         | Notas                                                                                                                                        |
+| :------------------------------------------------------------ | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CS8602 / avisos de nulidade**                               | **Pendente**   | 419 avisos no build limpo (antes ~384).                                                                                                      |
+| **Exposição cross-tenant em Categorias (listagens públicas)** | **Pendente**   | `GET /api/Categorias` e `GET /api/Categorias/{id}` seguem `[AllowAnonymous]` sem filtro de empresa. Rota privada foi corrigida (ver abaixo). |
+| **Rota privada de categorias (parâmetro ignorado)**           | **Corrigido**  | Rota alterada para `GET /api/Categorias/empresa-categorias-privado/` usando só o vínculo do token.                                           |
+| **Claims sem null-check (generalizado)**                      | **Pendente**   | Padrão `.Value` sem checagem persiste em vários controllers.                                                                                 |
+| **`meus-bloqueios/planos` (claim `"id"`)**                    | **Pendente**   | `GetPlanosBloqueados` ainda usa `FindFirst("id")`; `empresas` já usa `NameIdentifier`. Confirmado em homologação (400 + NRE).                |
+| **`UserBloqueioController` sem `[Authorize]`**                | **Pendente**   | Controller inteiro sem autorização; anônimo recebe 400/NRE em vez de 401.                                                                    |
+| **IDOR em configs de assinatura (autenticado)**               | **Pendente**   | `[Authorize]` no controller remove acesso anônimo, mas GET/PATCH `{id}/assinatura` não validam posse da assinatura.                          |
+| **`GET /api/v1/Plano/{idPlano}` para cliente**                | **Pendente**   | Método tem `[Authorize]`, mas a classe exige `Roles = "Admin"` — cliente continua sem acesso.                                                |
+| **POST mensagem no chat (cliente)**                           | **Pendente**   | `TipoUser(usuarioId, true)` ainda bloqueia cliente.                                                                                          |
+| **Módulo de feedback PagWeb (NOVO)**                          | **Solicitado** | POST para cliente e estabelecimento; GET para app central Bix — item **17**.                                                                 |
+| **Permissão invertida em `GET /api/Cobrancas/{id}`**          | **Corrigido**  | Condição usa `IdEmpresa == cobranca.IdEmpresa`.                                                                                              |
+| **Ordem de nulo em `UserService` (adminEmpresa)**             | **Corrigido**  | Checagem `adminEmpresa != null` antes de `FindAsync`.                                                                                        |
+| **Validação de status no POST Assinatura**                    | **Corrigido**  | Filtro usa `dto.IdUser`.                                                                                                                     |
+| **POST Endereço sem retornar ID**                             | **Corrigido**  | Retorna `Ok(endereco)` com `IdEndereco`.                                                                                                     |
+| **NRE `login-admin` (`&&` em tipouser nulo)**                 | **Corrigido**  | Trecho removido com o novo fluxo de login.                                                                                                   |
+| **IDOR público em Notificacao (sem login)**                   | **Corrigido**  | `NotificacaoController` com `[Authorize]` na classe.                                                                                         |
 
 ---
 
-## 2. Bug crítico de permissão invertida em `GET /api/Cobrancas/{id}`
-
-- **Arquivo:** `Controllers/CobrancasController.cs` (linhas 159–222)
-- **Código atual:**
-    ```csharp
-    if (vinculo != null && vinculo.UserTipo == UserTipo.Admin && vinculo.IdEmpresa != cobranca.IdEmpresa)
-    {
-        // retorna os dados da cobrança
-        return Ok(cobrancaDto);
-    }
-    else if (cobranca.IdUser == idAdmin)
-    {
-        return Ok(cobrancaDto);
-    }
-    return BadRequest("Você não tem permissão para acessar esta cobrança.");
-    ```
-- **Problema:** A validação de escopo de empresa está **invertida**:
-    1.  Se o administrador logado pertencer à **mesma** empresa da cobrança
-        (`vinculo.IdEmpresa == cobranca.IdEmpresa`), ele falha no primeiro `if`
-        e tem seu acesso negado (a menos que ele mesmo tenha criado a cobrança e
-        seja o proprietário dela, caindo no `else if`).
-    2.  Se o administrador logado pertencer a uma empresa **diferente** da
-        cobrança (`vinculo.IdEmpresa != cobranca.IdEmpresa`), ele entra na
-        primeira condição e visualiza a cobrança de terceiros normalmente,
-        gerando vazamento de dados cross-tenant.
-- **Correção sugerida:**
-
-    ```csharp
-    bool temPermissao = false;
-
-    if (vinculo != null && vinculo.UserTipo == UserTipo.Admin)
-    {
-        if (vinculo.IdEmpresa == cobranca.IdEmpresa)
-            temPermissao = true;
-    }
-    else if (cobranca.IdUser == idAdmin)
-    {
-        temPermissao = true;
-    }
-
-    if (!temPermissao)
-        return BadRequest(new { message = "Você não tem permissão para acessar esta cobrança." });
-    ```
-
----
-
-## 3. Ordem incorreta de verificação de nulo em `UserService.cs`
-
-- **Arquivo:** `Services/UserService.cs` (linhas 712–714)
-- **Código atual:**
-
-    ```csharp
-    var adminconfig = await _context.UserConfigs.FindAsync(adminEmpresa.IdUser);
-
-    if (adminEmpresa != null && adminconfig.Notificacoes == true)
-    ```
-
-- **Problema:** A propriedade `adminEmpresa.IdUser` é acessada para buscar a
-  configuração antes de validar se o próprio objeto `adminEmpresa` é nulo. Caso
-  seja nulo, a linha 712 lançará `NullReferenceException` antes mesmo da
-  verificação condicional na linha 714.
-- **Correção sugerida:**
-    ```csharp
-    if (adminEmpresa != null)
-    {
-        var adminconfig = await _context.UserConfigs.FindAsync(adminEmpresa.IdUser);
-        if (adminconfig?.Notificacoes == true)
-        {
-            // ...
-        }
-    }
-    ```
-
----
-
-## 4. Exposição de dados cross-tenant em endpoints de Categorias
+## 1. Exposição de dados cross-tenant em endpoints de Categorias (parcial)
 
 - **Arquivo:** `Controllers/CategoriasController.cs`
-- **Problemas encontrados:**
-    1.  `GET /api/Categorias` (linha 43) e `GET /api/Categorias/{id}` (linha 85)
-        possuem o atributo `[AllowAnonymous]` e não aplicam nenhum filtro de
-        tenant (`idEmpresa`), permitindo que qualquer usuário leia todas as
-        categorias de qualquer empresa cadastrada no banco.
-    2.  `GET /api/Categorias/empresa-categorias-privado/{idEmpresa}` (linha 57)
-        define a rota solicitando `{idEmpresa}`, mas o método correspondente
-        `GetCategoriasByEmpresaP()` não recebe o parâmetro no escopo e usa
-        apenas a empresa do token JWT (`vinculo.IdEmpresa`). O parâmetro da rota
-        é completamente ignorado.
-- **Correção sugerida:** Remover o `[AllowAnonymous]` se as categorias não forem
-  de acesso público e filtrar pelo ID da empresa correto nos métodos. Na rota
-  privada, aceitar o parâmetro e validar se condiz com o token:
-    ```csharp
-    [HttpGet("empresa-categorias-privado/{idEmpresa}")]
-    [Authorize(Roles = "Admin")]
-    public async Task<ActionResult> GetCategoriasByEmpresaP(int idEmpresa)
-    {
-        // ... validar se o idEmpresa é compatível com o vínculo do administrador logado
-    }
-    ```
+- **Ainda pendente:**
+    1. `GET /api/Categorias` e `GET /api/Categorias/{id}` com `[AllowAnonymous]`
+       listam categorias de **todas** as empresas (apenas filtro `Ativo`).
+- **Corrigido nesta versão:**
+    - `GET /api/Categorias/empresa-categorias-privado/` — rota sem `{idEmpresa}`
+      ignorado; filtra por `vinculo.IdEmpresa` do admin autenticado.
+- **Correção sugerida (restante):** Remover `[AllowAnonymous]` das listagens
+  globais ou exigir `idEmpresa` nas rotas públicas
+  (`empresa-categorias-publico/{idEmpresa}` já existe).
 
 ---
 
-## 5. NullReferenceException em Claims de Usuário sem Operador Condicional (Generalizado)
+## 2. NullReferenceException em Claims de Usuário (generalizado)
 
-- **Arquivos:** `UserAdminController.cs` (linhas 64, 96, 110, 153, 255),
-  `AssinaturaController.cs` (linhas 26, 78, 143), `ChatsController.cs` (linhas
-  32, 120, 161, 187, 248), `EnderecoController.cs` (linhas 29, 56),
-  `MensalidadeController.cs` (linhas 21, 43), `NotificacaoController.cs` (linhas
-  100, 111, 122), e `PagamentoController.cs` (linha 429).
-- **Problema:** Chamadas constantes no padrão:
-    ```csharp
-    var idAdmin = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-    // ou
-    var idAdmin = User.FindFirst(ClaimTypes.NameIdentifier).Value;
-    ```
-    Se em algum momento o token do usuário não possuir a claim `NameIdentifier`
-    ou estiver malformado, `User.FindFirst` retornará `null`, lançando
-    `NullReferenceException` ao acessar `.Value`.
-- **Correção sugerida:** Criar uma propriedade auxiliar de controller ou classe
-  de extensão para ler o ID do usuário de forma segura:
-    ```csharp
-    protected int? GetUserIdLogado()
-    {
-        var claim = User.FindFirst(ClaimTypes.NameIdentifier);
-        return claim != null && int.TryParse(claim.Value, out var id) ? id : null;
-    }
-    ```
+- **Arquivos:** `UserAdminController.cs`, `AssinaturaController.cs`,
+  `ChatsController.cs`, `EnderecoController.cs`, `MensalidadeController.cs`,
+  `NotificacaoController.cs` (métodos legados), `PagamentoController.cs`,
+  `UserBloqueioController.cs`, entre outros.
+- **Problema:** `User.FindFirst(ClaimTypes.NameIdentifier).Value` sem verificar
+  `null`.
+- **Correção sugerida:** Helper `GetUserIdLogado()` com `TryParse` (padrão já
+  usado em partes de `CobrancasController` e `PlanoController`).
 
 ---
 
-## 6. NullReferenceException Crítico em `UserBloqueioController` (Claim Incorreta) — [NOVO]
+## 3. `UserBloqueioController` — claim errada, sem `[Authorize]`
 
-- **Arquivo:** `Controllers/UserBloqueioController.cs` (linhas 65 e 87 — `GetEmpresasBloqueadas` e `GetPlanosBloqueados`)
-- **Endpoints afetados:**
-  - `GET /api/UserBloqueio/meus-bloqueios/empresas`
-  - `GET /api/UserBloqueio/meus-bloqueios/planos`
-- **Sintoma no frontend:** Tela `#/bloqueios` exibia JSON cru
-  `{ "error": "Erro ao buscar bloqueios de planos.", "details": "Object reference not set to an instance of an object." }`
-  (o `details` é o `NullReferenceException` ao acessar `.Value` de claim inexistente).
-- **Código com erro:**
-    ```csharp
-    [HttpGet("meus-bloqueios/empresas")]
-    public async Task<IActionResult> GetEmpresasBloqueadas([FromQuery] string? busca)
-    {
-        try
-        {
-            // Pega o ID do usuário logado do Token (exemplo)
-            int idUser = int.Parse(User.FindFirst("id").Value);
-            // ...
-    ```
-- **Problema:** O método tenta ler a claim literal `"id"`. Porém, o JWT gerado e
-  decodificado no sistema armazena a identificação do usuário na claim
-  `ClaimTypes.NameIdentifier` (ou `"sub"`). Como a claim `"id"` não é mapeada e
-  não existe no token, `User.FindFirst("id")` retorna `null`, e o acesso a
-  `.Value` gera um erro crítico de `NullReferenceException`. Esse erro impede o
-  carregamento da lista de bloqueios no frontend, resultando no erro HTTP 400
-  Bad Request reportado pelo console.
-- **Correção sugerida:** Substituir a consulta à claim pelo padrão correto
-  (`ClaimTypes.NameIdentifier`):
-    ```csharp
-    int idUser = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier).Value);
-    ```
-    _(Preferencialmente aplicando o null-check sugerido no item 5 para evitar
-    quebras)._
+- **Arquivo:** `Controllers/UserBloqueioController.cs`
+- **Endpoints:**
+    - `GET /api/UserBloqueio/meus-bloqueios/planos` — **ainda**
+      `int.Parse(User.FindFirst("id").Value)` (linha ~93).
+    - `GET /api/UserBloqueio/meus-bloqueios/empresas` — corrigido para
+      `ClaimTypes.NameIdentifier` + null-check.
+- **Problema adicional:** Nenhum `[Authorize]` no controller; requisição anônima
+  em planos gera NRE e HTTP 400 (reproduzido em `https://lojas.vlks.com.br`).
+- **Correção sugerida:** `[Authorize]` na classe; mesmo padrão de claim que em
+  `GetEmpresasBloqueadas`.
 
 ---
 
-## 7. Exposição global sem autorização no `zTemporarioController` — [NOVO]
+## 4. Compilação e warnings de nulidade (CS8602)
 
-- **Arquivo:** `Controllers/zTemporarioController.cs`
-- **Problema:** O controller está desprotegido (não possui o atributo
-  `[Authorize]`). Ele expõe endpoints para fins de desenvolvimento que revelam
-  dados confidenciais do banco de dados, tais como:
-    - `/api/zTemporario/dev/lista-usuarios`: Retorna todos os usuários (Nome,
-      CPF, E-mail, Status).
-    - `/api/zTemporario/dev/lista-empresas`: Retorna a lista de todas as
-      empresas cadastradas.
-    - `/api/zTemporario/dev/lista-assinatura`: Retorna as assinaturas do
-      sistema.
-
-    Qualquer atacante anônimo pode enviar requisições HTTP para esses endpoints
-    e obter as listagens completas.
-
-- **Correção sugerida:** Adicionar `[Authorize(Roles = "Admin")]` ao controller
-  ou restringir seu acesso apenas em ambientes de desenvolvimento
-  (`if (env.IsDevelopment())`) desativando o mapeamento das rotas em produção no
-  arquivo `Program.cs`.
+- **Status:** Build OK, **419** avisos (clean + rebuild).
+- **Análise:** Risco de `500` em runtime com dados inconsistentes; volume
+  aumentou em relação à auditoria anterior.
 
 ---
 
-## 8. Compilação e Warnings de Nulidade (CS8602)
+## 5. IDOR em configurações de assinatura (usuário autenticado)
 
-- **Status de compilação:** Aprovado (0 erros, 384 avisos de desreferência
-  nula).
-- **Análise:** O alto volume de avisos `CS8602` do compilador (especialmente no
-  mapeamento das cobranças em `CobrancasController.cs` e navegação de classes em
-  `ProdutosController.cs` / `CategoriasController.cs`) reflete a falta de
-  verificações robustas antes de acessar dados que podem vir vazios ou nulos do
-  Entity Framework Core. Isso eleva significativamente a probabilidade de falhas
-  e erros `500 Internal Server Error` no ambiente de execução de produção caso o
-  banco de dados possua inconsistências.
-
----
-
-## 9. Bug Lógico de Validação no Cadastro de Assinatura — [NOVO]
-
-- **Arquivo:** `Controllers/AssinaturaController.cs` (linhas 44–48)
-- **Código com erro:**
-    ```csharp
-    var usuario = await _context.UserEmpresas.Where(s=>s.IdEmpresa==vinculo.IdEmpresa && s.IdUser==idAdmin).FirstOrDefaultAsync();
-    if (usuario==null || usuario.Status == UserStatus.Inativo)
-    {
-        return BadRequest("Não é possível gerar assinaturas para usuários com cadastro inativo ou pendente.");
-    }
-    ```
-- **Problema:** O código quer validar se o cliente da assinatura (`dto.IdUser`)
-  está Ativo antes de criar a assinatura. Porém, o filtro busca por
-  `s.IdUser == idAdmin` (que é o ID do administrador logado). Isso faz com que a
-  API valide o status do próprio administrador que cria a assinatura, permitindo
-  que assinaturas sejam cadastradas para clientes suspensos/inativos sem
-  validação.
-- **Correção sugerida:** Substituir `idAdmin` por `dto.IdUser` na consulta ao
-  banco de dados:
-    ```csharp
-    var usuario = await _context.UserEmpresas.Where(s=>s.IdEmpresa==vinculo.IdEmpresa && s.IdUser==dto.IdUser).FirstOrDefaultAsync();
-    ```
+- **Arquivo:** `Controllers/NotificacaoController.cs` (`GetConfigs`,
+  `UpdateConfigs`)
+- **Evolução:** Acesso **anônimo** foi corrigido (`[Authorize]` no controller).
+- **Problema remanescente:** Qualquer usuário logado pode ler/alterar configs de
+  **qualquer** `id` de assinatura; `idUsuario` é lido do token mas **não** usado
+  para autorizar o recurso.
+- **Correção sugerida:** Validar no serviço se o usuário é dono da assinatura ou
+  admin da empresa do plano.
 
 ---
 
-## 10. IDOR Crítico em Configurações de Assinatura (Exposição e Edição de Dados) — [NOVO]
+## 6. Restrição indevida em `GET /api/v1/Plano/{idPlano}`
 
-- **Arquivo:** `Controllers/NotificacaoController.cs` (linhas 128–145)
-- **Código com erro:**
-
-    ```csharp
-    [HttpGet("{id}/assinatura")]
-    public async Task<IActionResult> GetConfigs(int id)
-    {
-        var configs = await _userService.GetAssinaturaConfigsAsync(id);
-        if (configs == null) return NotFound(new { message = "Configurações não encontradas..." });
-        return Ok(configs);
-    }
-
-    [HttpPatch("{id}/assinatura")]
-    public async Task<IActionResult> UpdateConfigs(int id, [FromBody] AssinConfigsUpdateDto dto)
-    {
-        var sucesso = await _userService.UpdateAssinaturaConfigsAsync(id, dto);
-        // ...
-    ```
-
-- **Problema:** Estes endpoints estão expostos publicamente (não contêm o
-  atributo `[Authorize]`). Qualquer cliente ou atacante pode ler e editar
-  configurações confidenciais de qualquer assinatura (Notificações, status,
-  permissões, etc.) simplesmente passando o ID da assinatura desejada.
-- **Correção sugerida:** Adicionar `[Authorize]` e aplicar verificações na
-  camada do serviço para validar se o usuário autenticado é o dono da assinatura
-  ou o administrador da empresa correspondente.
+- **Arquivo:** `Controllers/PlanoController.cs`
+- **Código:** Classe `[Authorize(Roles = "Admin")]`; método `GetPlano` com
+  `[Authorize]` (sem `AllowAnonymous`).
+- **Problema:** Políticas combinadas ainda exigem role **Admin**; cliente
+  autenticado recebe 403 ao visualizar plano para assinatura.
+- **Correção sugerida:** `[AllowAnonymous]` ou
+  `[Authorize(Roles = "Admin,Cliente")]` apenas neste método.
 
 ---
 
-## 11. Restrição de Acesso Indevida a Detalhes do Plano — [NOVO]
+## 7. Cliente não consegue enviar mensagens no chat
 
-- **Arquivo:** `Controllers/PlanoController.cs` (linha 95)
-- **Código com erro:**
-    ```csharp
-    [HttpGet("{idPlano}")]
-    public async Task<IActionResult> GetPlano(int idPlano)
-    ```
-- **Problema:** O controller inteiro possui o atributo
-  `[Authorize(Roles = "Admin")]` no escopo da classe. Isso herda a exigência da
-  role Admin para todos os métodos. Porém, o endpoint
-  `GET /api/v1/Plano/{idPlano}` é necessário para que a UI carregue os detalhes
-  do plano quando um cliente normal ("Cliente") tenta assinar ou visualizar a
-  oferta. Do modo atual, a API retorna `403 Forbidden` a clientes logados
-  comuns.
-- **Correção sugerida:** Adicionar `[AllowAnonymous]` (ou pelo menos um
-  `[Authorize]` que permita qualquer role autenticada) no método:
-    ```csharp
-    [HttpGet("{idPlano}")]
-    [AllowAnonymous]
-    public async Task<IActionResult> GetPlano(int idPlano)
-    ```
-
----
-
-## 12. Falha de Design no Retorno de Cadastro de Endereço — [NOVO]
-
-- **Arquivo:** `Controllers/EnderecoController.cs` (linhas 23–49)
-- **Problema:** O método `CreateEndUser` (`POST /api/v1/Endereco/usuario`) cria
-  o endereço no banco e na tabela associativa, mas retorna apenas uma mensagem
-  de texto simples `return Ok("Endereço criado com sucesso!");` sem o ID do
-  endereço gerado. Como a API não expõe uma rota de `GET` para recuperar os
-  endereços do usuário logado, o frontend fica impedido de saber qual ID foi
-  gerado para realizar alterações subsequentes (`PATCH /api/v1/Endereco/{id}`).
-- **Correção sugerida:** Alterar o retorno do POST para fornecer o ID e os dados
-  do endereço recém-criados:
-    ```csharp
-    return Ok(new { idEndereco = endereco.IdEndereco, message = "Endereço criado com sucesso!" });
-    ```
-
----
-
-## 13. Cliente não consegue enviar mensagens no chat — [NOVO]
-
-- **Arquivo:** `Controllers/ChatsController.cs` (método `PostMensagem`, linhas
-  187–211)
+- **Arquivo:** `Controllers/ChatsController.cs` — `PostMensagem`
 - **Endpoint:** `POST /api/Chats/{id}/Mensagens`
-- **Sintoma no frontend:** Usuário com login de **cliente** vê toast _"Não foi
-  possível enviar a mensagem"_; o estabelecimento (login **admin**, role
-  `Admin`) responde normalmente. Dono de empresa na visão cliente ainda pode
-  enviar em alguns fluxos, pois no banco continua com vínculo `UserTipo.Admin`.
-- **Código com erro:**
-
-    ```csharp
-    int usuarioId = int.Parse(userid);
-    // ...
-    var userTipo = await _service.TipoUser(usuarioId, true);
-    if (userTipo == null)
-    {
-        return Unauthorized("Você não tem permissão para enviar mensagens para este chat.");
-    }
-    if (userTipo.IdEmpresa == idEmpresa)
-    {
-        mensagemSave.Tipo = UserTipo.Admin;
-    }
-    else
-    {
-        mensagemSave.Tipo = UserTipo.Cliente;
-    }
-    ```
-
-- **Problema:** O segundo parâmetro de `TipoUser` é `AdminLogin`. Com `true`, o
-  serviço **só** retorna registro de `UserEmpresas` quando o usuário é
-  **Admin**; para cliente comum retorna `null`:
-
-    ```csharp
-    // Services/UserService.cs — TipoUser
-    if (AdminLogin)
-        return await _context.UserEmpresas.FirstOrDefaultAsync(
-            ue => ue.IdUser == idUser && ue.UserTipo == UserTipo.Admin);
-
-    return new UserEmpresa() { IdUser = idUser, UserTipo = UserTipo.Cliente };
-    ```
-
-    Todo envio de mensagem passa por `TipoUser(usuarioId, true)`. Cliente
-    autenticado via `login-cliente` cai no `Unauthorized` antes de persistir a
-    mensagem. Leitura de chats/mensagens (`GET /api/Chats`, `GET .../Mensagens`)
-    e marcação de leitura (`POST .../Ler`) não usam essa validação da mesma
-    forma — o bug é específico do **POST de mensagem**.
-
-- **Impacto:** Chat inutilizável para o perfil que deveria iniciar conversas com
-  estabelecimentos (Explorar → chat, intenção de plano, suporte).
-
-- **Correção sugerida:** Diferenciar admin e cliente com base na role do token e
-  validar posse do chat para clientes:
-
-    ```csharp
-    int usuarioId = int.Parse(userid);
-    var chat = await _context.Chats.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id);
-    if (chat == null)
-        return BadRequest("Chat não encontrado.");
-
-    var idEmpresa = chat.IdEmpresa;
-
-    if (User.IsInRole("Admin"))
-    {
-        var vinculo = await _service.TipoUser(usuarioId, true);
-        if (vinculo == null || vinculo.UserTipo != UserTipo.Admin)
-            return Unauthorized("Você não tem permissão para enviar mensagens para este chat.");
-        if (vinculo.IdEmpresa != idEmpresa)
-            return Unauthorized("Este chat não pertence à sua empresa.");
-
-        mensagemSave.Tipo = UserTipo.Admin;
-    }
-    else
-    {
-        if (chat.IdUsuario != usuarioId)
-            return Unauthorized("Você não tem permissão para enviar mensagens neste chat.");
-
-        mensagemSave.Tipo = UserTipo.Cliente;
-    }
-    ```
-
-    Alternativa mínima (menos segura se não validar `chat.IdUsuario`): usar
-    `TipoUser(usuarioId, User.IsInRole("Admin"))` e tratar `null` apenas quando
-    a role for Admin.
-
-- **Nota (frontend):** O PagWeb já chama `POST /api/Chats/{id}/Ler` e exibe
-  `lida` nas mensagens enviadas; não há workaround no front para este 401 —
-  depende de deploy da API.
+- **Problema:** `TipoUser(usuarioId, true)` retorna `null` para cliente → `401`
+  antes de salvar.
+- **Correção sugerida:** Separar fluxo Admin/Cliente conforme auditoria anterior
+  (validar `chat.IdUsuario` para cliente).
 
 ---
 
-## 14. `login-admin` retorna 401 após validar senha (integração Bixs) — [NOVO]
+## 15. Chat — confirmação de leitura (checks azuis) nas mensagens enviadas
 
-- **Arquivo:** `Controllers/UserAdminController.cs` (linhas 49–51)
-- **Endpoint:** `POST /api/v1/User/login-admin`
-- **Sintoma:** No DevTools aparece `POST http://localhost:8888/api/v1/User/login-admin 401`
-  (requisição passa pelo proxy Vite — **não é erro de CORS**). Corpo típico:
-  `{ "message": "Erro ao verificar acesso ao sistema externo." }`.
-- **Código:**
+- **Endpoint:** `GET /api/Chats/{id}/Mensagens` (e fluxo `POST .../Ler`)
+- **Problema:** Para mensagens **enviadas por mim**, o campo `lida` / `Lida` (ou
+  `dataLeitura`) precisa passar a `true` quando o **outro participante** abre o
+  chat e chama `POST /Chats/{id}/Ler`. Se a API só marca leitura das mensagens
+  **recebidas** pelo usuário que leu, o front nunca exibirá checks azuis no
+  remetente.
+- **Correção sugerida:** Ao registrar leitura, atualizar `Lida` (ou equivalente)
+  nas mensagens do outro participante já entregues, e devolver esse estado no
+  GET de mensagens. Garantir serialização JSON (`lida` ou `Lida`) e, se
+  aplicável, `idRemetente`/`idUsuario` distinto por remetente real (não repetir
+  sempre o `idUsuario` do thread).
 
-    ```csharp
-    var tokenexterno = await _apiBixs.VerificaAcesso(dto, tipouser.IdEmpresa);
-    if (tokenexterno == null || string.IsNullOrEmpty(tokenexterno) || tokenexterno == "Erro")
-        return Unauthorized(new { message = "Erro ao verificar acesso ao sistema externo." });
-    ```
+---
 
-- **Problema:** E-mail/senha podem estar corretos no PagWeb, mas o login **só**
-  conclui se a Bixs validar e vincular tokens usando `tipouser.IdEmpresa`.
-  Falha comum: credenciais PagWeb ≠ Bixs, empresa sem tokens, Bixs fora, ou
-  admin sem vínculo `UserEmpresa` admin (item 1 — NRE em `tipouser == null`).
-- **Correção sugerida:** Desacoplar autenticação PagWeb da Bixs no login (ver
-  `docs/relatorio_auth_onboarding_admin.md`): JWT após validar usuário local;
-  vincular Bixs no onboarding ou na primeira operação de pagamento.
-- **Nota (frontend):** Proxy `/api` em dev está correto; mensagem amigável na
-  tela de login quando a API devolve *sistema externo*.
+## 16. Autochat — `Tipo` da mensagem sempre como Admin
+
+- **Arquivo:** `Controllers/ChatsController.cs` — `PostMensagem`
+- **Problema:** Quem é dono da empresa e envia pelo perfil **cliente** ainda
+  passa em `TipoUser(..., AdminLogin: true)`; se `IdEmpresa` bate, `Tipo` vira
+  `Admin` em todas as mensagens. No front, bolhas preto/branco ficam iguais
+  (mesmo “lado”).
+- **Correção sugerida:** Definir `Tipo` pelo papel do token (`Cliente` vs
+  `Admin`) ou pelo vínculo do chat, não só por `IdEmpresa == idEmpresaDoChat`.
+
+---
+
+## 17. Módulo de feedback da plataforma PagWeb (funcionalidade nova)
+
+- **Status:** **Não implementado na API** — frontend PagWeb com **envio** pronto
+  (aguardando `POST`).
+- **Escopo:** Feedback sobre o **produto PagWeb** (bugs, UX, sugestões) —
+  **não** é canal de atendimento cliente ↔ estabelecimento (isso é o chat).
+- **Quem envia:** Usuário **cliente** e usuário **estabelecimento (admin)**,
+  autenticados no PagWeb.
+- **Quem lista:** Aplicação **central Bix** (time de desenvolvimento). **Não**
+  há tela de listagem no PagWeb.
+
+### Endpoints propostos
+
+| Método   | Rota               | Auth                                                               | Descrição                                                                                                                                                                                                                                                  |
+| :------- | :----------------- | :----------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **POST** | `/api/v1/Feedback` | `[Authorize]` — roles **Cliente** e **Admin** (estabelecimento)    | Cria feedback PagWeb. **Body:** `multipart/form-data`: `titulo` (máx. 120), `descricao` (máx. 4000), `arquivos` (0–5: JPEG/PNG/WebP/GIF/PDF, máx. 10 MB cada). Opcional: `tipoPerfil` (`Cliente` / `Empresa`) ou inferir do token. **201:** objeto criado. |
+| **GET**  | `/api/v1/Feedback` | Credencial **Bix / backoffice** (não expor ao JWT comum do PagWeb) | Lista feedbacks para o time de dev na **app central Bix**. Paginação: `?page=&pageSize=`, ordenação por data desc. Filtros opcionais: `tipoPerfil`, intervalo de datas. **Não** usar no frontend PagWeb.                                                   |
+
+> **Nota:** Evitar rotas tipo `/Feedback/admin` consumíveis pelo admin de
+> estabelecimento no PagWeb — o admin de loja também **envia** feedback, mas
+> **não** tria feedback de outros usuários.
+
+### Modelo sugerido (JSON)
+
+```json
+{
+	"idFeedback": 1,
+	"titulo": "Erro ao abrir chat",
+	"descricao": "Após F5 o chat não reabre.",
+	"dataCriacao": "2026-07-21T14:00:00Z",
+	"idUsuario": 42,
+	"nomeUsuario": "Maria",
+	"emailUsuario": "maria@email.com",
+	"tipoPerfil": "Cliente",
+	"arquivos": [
+		{
+			"idArquivo": 10,
+			"nomeArquivo": "print.png",
+			"urlArquivo": "https://.../uploads/feedback/10.png",
+			"tipoMime": "image/png"
+		}
+	]
+}
+```
+
+### Regras de negócio sugeridas
+
+- `IdUser` e perfil no momento do envio; sem vínculo com `IdEmpresa` do chat.
+- Upload em `wwwroot/uploads/feedback/{idFeedback}/` (padrão anexos do chat).
+- Rate limit por usuário (ex.: 10 envios / hora).
+- **GET:** autenticação separada (API key, client credentials Bix ou role
+  interna) — documentar no contrato da app central Bix.
+- **Frontend PagWeb:** `#/feedback` (cliente), `#/business/feedback`
+  (estabelecimento) — `features/feedback/services/feedbackService.ts` (somente
+  `POST`).
+
+---
+
+## Histórico de correções (removidos deste relatório)
+
+Os itens abaixo foram **corrigidos no código** da pasta `api` auditada em
+21/07/2026 e saíram das seções detalhadas:
+
+| Item anterior                                                 | Correção observada                               |
+| :------------------------------------------------------------ | :----------------------------------------------- |
+| Permissão invertida em `GET /api/Cobrancas/{id}`              | `vinculo.IdEmpresa == cobranca.IdEmpresa`        |
+| NRE `login-admin` (`&&` com `tipouser` nulo)                  | Novo fluxo de login sem `TipoUser` nesse ponto   |
+| Ordem de nulo `adminEmpresa` / `adminconfig` em `UserService` | `if (adminEmpresa != null)` antes de `FindAsync` |
+| Validação de status no POST Assinatura (`idAdmin` vs cliente) | Filtro com `dto.IdUser`                          |
+| POST Endereço sem ID                                          | `return Ok(endereco)`                            |
+| Rota privada categorias com `{idEmpresa}` ignorado            | Rota sem parâmetro, escopo pelo token            |
+| IDOR **público** em `Notificacao` `{id}/assinatura`           | `[Authorize]` no controller                      |
