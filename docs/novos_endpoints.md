@@ -46,6 +46,15 @@ estruturadas e fluxos de pagamento.
 | **POST**   | `/api/v1/Pagamento/unico-solicitar`                                | Solicitar Pagamento Único         | ✅          | `#/historico-servicos`                                                      |
 | **POST**   | `/api/v1/Feedback`                                                 | Enviar feedback PagWeb (cliente ou estabelecimento) | ⏳ Pendente | `#/feedback`, `#/business/feedback` → `feedbackService.submit`              |
 | **GET**    | `/api/v1/Feedback`                                                 | Listar feedbacks (app central **Bix**, time dev)  | ⏳ Pendente | **Não** integrar no PagWeb — ver `relatorio_erros_backend.md` item **17**   |
+| **GET**    | `/api/ChavesPix`                                                   | Listar chaves PIX do admin                        | ✅          | `#/business/integracoes` → `chavePixService.list`                             |
+| **POST**   | `/api/ChavesPix`                                                   | Cadastrar chave PIX (PIX na caixa)                | ✅          | `#/business/integracoes`                                                      |
+| **PUT**    | `/api/ChavesPix/{idchavepix}`                                      | Atualizar chave PIX                               | ✅          | `chavePixService.update` (camada de serviço)                                  |
+| **DELETE** | `/api/ChavesPix/{idchavepix}`                                      | Desativar chave PIX                               | ✅          | `#/business/integracoes`                                                      |
+| **GET**    | `/api/ControleAcessos`                                             | Listar solicitações (Master)                      | ✅          | `#/business/integracoes` (painel Master)                                      |
+| **POST**   | `/api/ControleAcessos`                                             | Solicitar integração Bixs (Admin)                 | ✅          | `#/business/integracoes`                                                      |
+| **GET**    | `/api/ControleAcessos/{idcontrole}`                                | Detalhe da solicitação                            | ✅          | `controleAcessoService.getById`                                               |
+| **PUT**    | `/api/ControleAcessos/{idcontrole}`                                | Aprovar/recusar (Master)                          | ✅          | `#/business/integracoes` (painel Master)                                      |
+| **DELETE** | `/api/ControleAcessos/{idcontrole}`                                | Remover solicitação (Master)                      | ✅          | `controleAcessoService.remove`                                                |
 
 ---
 
@@ -85,6 +94,10 @@ opcionais de catálogo em `#/business/pagamento-unico`.
 | Criar cobrança                            | Sim   | Não              |
 | Pagar cobrança avulsa (`unico-solicitar`) | —     | Sim (+ endereço) |
 | Pagar mensalidade (`solicitar`)           | —     | Sim (+ endereço) |
+| Cadastrar chave PIX (PIX na caixa)        | Sim   | Não              |
+| Solicitar integração Bixs               | Sim   | Não              |
+
+**`MetodoPagamento` (enum C#):** `PIX`, `Cartao`, `Boleto`, `Transferencia`, `Dinheiro`, `BoletoPix`, `PixCaixa` (índice 6). O FE mapeia em `features/single-payment/schemas/cobrancaSchemas.ts`.
 
 ---
 

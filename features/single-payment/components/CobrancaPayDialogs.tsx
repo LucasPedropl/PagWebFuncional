@@ -12,6 +12,7 @@ import {
 
 const METODO_OPTIONS: Array<{ value: MetodoPagamento; label: string }> = [
   { value: 'PIX', label: 'PIX' },
+  { value: 'PixCaixa', label: 'PIX na caixa' },
   { value: 'Boleto', label: 'Boleto bancário' },
   { value: 'BoletoPix', label: 'Boleto + PIX' },
   { value: 'Cartao', label: 'Cartão de crédito' },

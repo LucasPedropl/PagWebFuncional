@@ -20,6 +20,7 @@ export const METODO_PAGAMENTO_VALUES = [
   'Transferencia',
   'Dinheiro',
   'BoletoPix',
+  'PixCaixa',
 ] as const;
 
 export const MetodoPagamentoEnum = z.enum(METODO_PAGAMENTO_VALUES);
@@ -32,6 +33,7 @@ export const METODO_PAGAMENTO_TO_API: Record<MetodoPagamento, number> = {
   Transferencia: 3,
   Dinheiro: 4,
   BoletoPix: 5,
+  PixCaixa: 6,
 };
 
 /** Aceita status como número (API) ou string. */

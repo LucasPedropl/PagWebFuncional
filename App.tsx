@@ -37,6 +37,7 @@ import { Chat as UserChat } from './app/(user)/Chat';
 import { Chat as BusinessChat } from './app/(business)/Chat';
 import { Feedback as UserFeedback } from './app/(user)/Feedback';
 import { Feedback as BusinessFeedback } from './app/(business)/Feedback';
+import { Integracoes } from './app/(business)/Integracoes';
 
 // --- Guards de Rota (Proteção por Tipo de Usuário) ---
 
@@ -347,6 +348,14 @@ const App: React.FC = () => {
             element={
               <BusinessRoute>
                 <ConectarWhatsapp />
+              </BusinessRoute>
+            } 
+          />
+          <Route 
+            path="/business/integracoes" 
+            element={
+              <BusinessRoute>
+                <Integracoes />
               </BusinessRoute>
             } 
           />

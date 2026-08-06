@@ -1,6 +1,7 @@
 # Relatório de Erros - API PagWebV1
 
-> **Última auditoria:** 21/07/2026 (revisão pós-atualização do submodule
+> **Última auditoria:** 06/08/2026 (testes HTTP em `https://lojas.vlks.com.br` + análise estática do submodule `api`) — ver **`auditoria_api_2026-08-06.md`** para bugs novos (ChavesPix, PixCaixa, ControleAcessos).  
+> **Auditoria anterior:** 21/07/2026 (revisão pós-atualização do submodule
 > `apps/PagWebFuncional/api`)  
 > **API local:** `apps/PagWebFuncional/api/PagWebV1` — `dotnet build`: 0 erros,
 > **419** avisos de nulidade  
@@ -28,6 +29,10 @@
 | **`GET /api/v1/Plano/{idPlano}` para cliente**                | **Pendente**   | Método tem `[Authorize]`, mas a classe exige `Roles = "Admin"` — cliente continua sem acesso.                                                |
 | **POST mensagem no chat (cliente)**                           | **Pendente**   | `TipoUser(usuarioId, true)` ainda bloqueia cliente.                                                                                          |
 | **Módulo de feedback PagWeb (NOVO)**                          | **Solicitado** | POST para cliente e estabelecimento; GET para app central Bix — item **17**.                                                                 |
+| **`POST /api/ChavesPix` — IdUser não persistido**             | **Pendente**   | Item **18** em `auditoria_api_2026-08-06.md` — bloqueia PIX na caixa.                                                                       |
+| **`PixCaixa` — return BadRequest após sucesso**                | **Pendente**   | Item **19** — `solicitar` e `unico-solicitar` sempre falham no case PixCaixa.                                                               |
+| **`GET /api/ChavesPix/{id}` IDOR**                            | **Pendente**   | Item **20** — qualquer auth lê chave de outro admin.                                                                                         |
+| **`POST ControleAcessos` sobrescreve senha em claro**         | **Pendente**   | Item **22** — `usuario.PasswordHash = controleacesso.Password`.                                                                              |
 | **Permissão invertida em `GET /api/Cobrancas/{id}`**          | **Corrigido**  | Condição usa `IdEmpresa == cobranca.IdEmpresa`.                                                                                              |
 | **Ordem de nulo em `UserService` (adminEmpresa)**             | **Corrigido**  | Checagem `adminEmpresa != null` antes de `FindAsync`.                                                                                        |
 | **Validação de status no POST Assinatura**                    | **Corrigido**  | Filtro usa `dto.IdUser`.                                                                                                                     |
