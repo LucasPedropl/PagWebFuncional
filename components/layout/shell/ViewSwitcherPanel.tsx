@@ -22,6 +22,8 @@ export interface ViewSwitcherPanelProps {
   sessionPhotoPath?: string | null;
   sessionName?: string;
   onSwitch: (view: ShellAudience) => void;
+  /** Quando o cliente ainda não tem empresa — CTA de upgrade. */
+  businessSubtitle?: string;
 }
 
 export const ViewSwitcherPanel: React.FC<ViewSwitcherPanelProps> = ({
@@ -31,6 +33,7 @@ export const ViewSwitcherPanel: React.FC<ViewSwitcherPanelProps> = ({
   sessionPhotoPath,
   sessionName,
   onSwitch,
+  businessSubtitle,
 }) => (
   <div>
     <p className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 border-b border-slate-100">
@@ -39,7 +42,7 @@ export const ViewSwitcherPanel: React.FC<ViewSwitcherPanelProps> = ({
     <SwitcherOption
       active={activeView === 'business'}
       title="Estabelecimento"
-      subtitle="Planos, clientes e cobranças"
+      subtitle={businessSubtitle ?? 'Planos, clientes e cobranças'}
       onClick={() => onSwitch('business')}
       avatar={
         companyProfile?.logo ? (

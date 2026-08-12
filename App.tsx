@@ -28,6 +28,7 @@ import { Pagamentos } from './app/(business)/Pagamentos';
 import { PagamentoUnico } from './app/(business)/PagamentoUnico';
 import { Relatorios } from './app/(business)/Relatorios';
 import { Configuracoes } from './app/(business)/Configuracoes';
+import { Integracoes } from './app/(business)/Integracoes';
 import { ConectarWhatsapp } from './app/(business)/ConectarWhatsapp';
 import { MenuMobile } from './app/(business)/MenuMobile';
 import { Landing } from './app/Landing';
@@ -37,6 +38,7 @@ import { Chat as UserChat } from './app/(user)/Chat';
 import { Chat as BusinessChat } from './app/(business)/Chat';
 import { Feedback as UserFeedback } from './app/(user)/Feedback';
 import { Feedback as BusinessFeedback } from './app/(business)/Feedback';
+import { TornarEstabelecimento } from './app/(user)/TornarEstabelecimento';
 
 // --- Guards de Rota (Proteção por Tipo de Usuário) ---
 
@@ -236,6 +238,14 @@ const App: React.FC = () => {
               </ClientRoute>
             } 
           />
+          <Route
+            path="/tornar-estabelecimento"
+            element={
+              <ClientRoute>
+                <TornarEstabelecimento />
+              </ClientRoute>
+            }
+          />
 
           {/* Rotas de Estabelecimento (Business) */}
           <Route 
@@ -325,6 +335,14 @@ const App: React.FC = () => {
                 <PagamentoUnico />
               </BusinessRoute>
             } 
+          />
+          <Route
+            path="/business/integracoes"
+            element={
+              <BusinessRoute>
+                <Integracoes />
+              </BusinessRoute>
+            }
           />
           <Route 
             path="/business/relatorios" 

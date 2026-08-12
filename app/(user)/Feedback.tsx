@@ -1,10 +1,7 @@
 import React from 'react';
-import { UserLayout } from '../../components/layout/UserLayout';
-import { PagWebFeedbackForm } from '../../features/feedback/components/PagWebFeedbackForm';
+import { Navigate } from 'react-router-dom';
 
-/** Cliente — feedback sobre a plataforma PagWeb. */
+/** Mantém deep link antigo; feedback fica no menu de Configurações. */
 export const Feedback: React.FC = () => (
-  <UserLayout>
-    <PagWebFeedbackForm />
-  </UserLayout>
+  <Navigate to="/configuracoes?tab=feedback" replace />
 );

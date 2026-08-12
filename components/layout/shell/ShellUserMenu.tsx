@@ -97,6 +97,7 @@ export const ShellUserMenu: React.FC<ShellUserMenuProps> = ({
                 sessionPhotoPath={viewSwitcher.sessionPhotoPath}
                 sessionName={viewSwitcher.sessionName}
                 onSwitch={handleSwitch}
+                businessSubtitle={viewSwitcher.businessSubtitle}
               />
             ) : null}
 

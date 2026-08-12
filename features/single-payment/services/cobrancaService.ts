@@ -10,8 +10,19 @@ import {
 /** Cobranças usam /api sem /v1 (mesmo padrão de Chats). */
 const COBRANCAS_BASE = 'https://lojas.vlks.com.br/api/Cobrancas';
 
-const buildHeaders = (withJson = false): HeadersInit => {
-  const { token } = sessionService.getSession();
+const isEmpresaDualAccount = (): boolean =>
+  sessionService.isEmpresaOwner() || sessionService.getSession().user?.tipo === 'Empresa';
+
+/** Token do pagador: preferir client em conta dual (GET Usuario / pagamento). */
+const resolvePayerToken = (): string | null => {
+  if (isEmpresaDualAccount()) {
+    return sessionService.getCachedToken('client') || sessionService.getSession().token;
+  }
+  return sessionService.getSession().token;
+};
+
+const buildHeaders = (withJson = false, preferPayerToken = false): HeadersInit => {
+  const token = preferPayerToken ? resolvePayerToken() : sessionService.getSession().token;
   const headers: Record<string, string> = {
     accept: '*/*',
     Authorization: `Bearer ${token ?? ''}`,
@@ -48,7 +59,7 @@ export const cobrancaService = {
 
   async listByUsuario(): Promise<Cobranca[]> {
     const response = await fetch(`${COBRANCAS_BASE}/Usuario`, {
-      headers: buildHeaders(),
+      headers: buildHeaders(false, true),
     });
     if (!response.ok) {
       throw new Error((await parseApiError(response)) || 'Erro ao listar cobranças do usuário');

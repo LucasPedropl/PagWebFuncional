@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Loader2, Send, CheckCircle2, Mail, Unplug, AlertTriangle, User as UserIcon, Calendar, CreditCard, MessageSquare, FlaskConical } from 'lucide-react';
+import { Plus, Search, Filter, Loader2, Send, CheckCircle2, Mail, Unplug, AlertTriangle, User as UserIcon, Calendar, CreditCard, MessageSquare, FlaskConical, LogIn } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { User, SubscriptionResponse } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -12,6 +12,8 @@ import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { formSearchInputClass } from '../../components/ui/formStyles';
 import { SeedTestClientsModal } from '../../features/test-clients/components/SeedTestClientsModal';
+import { isTestClientEmail } from '../../features/test-clients/utils/testClientGenerators';
+import { openTestClientDashboardInNewTab } from '../../features/test-clients/utils/openTestClientDashboard';
 
 export const Clientes: React.FC = () => {
   const navigate = useNavigate();
@@ -57,6 +59,17 @@ export const Clientes: React.FC = () => {
   const handleOpenChat = (client: User, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     navigate(`/business/chat?clientId=${client.idUser}&clientName=${encodeURIComponent(client.nome)}`);
+  };
+
+  const handleQuickTestLogin = (client: User, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      openTestClientDashboardInNewTab(client.email);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Não foi possível abrir o dashboard do cliente.';
+      addToast('error', 'Login rápido', message);
+    }
   };
 
   const fetchClients = async () => {
@@ -275,7 +288,14 @@ export const Clientes: React.FC = () => {
                     onClick={() => handleClientClick(client)}
                   >
                     <td className="px-6 py-4 text-sm font-medium text-gray-900 group-hover:text-slate-900">
-                        {client.nome} {client.sobreNome || ''}
+                        <div className="flex items-center gap-2">
+                          <span>{client.nome} {client.sobreNome || ''}</span>
+                          {isTestClientEmail(client.email) && (
+                            <span className="inline-flex items-center rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+                              Teste
+                            </span>
+                          )}
+                        </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 font-mono">
                         {client.email}
@@ -300,6 +320,15 @@ export const Clientes: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
+                        {isTestClientEmail(client.email) && (
+                          <button
+                              onClick={(e) => handleQuickTestLogin(client, e)}
+                              className="p-1.5 text-violet-500 hover:text-violet-700 hover:bg-violet-50 rounded transition-colors"
+                              title="Login rápido (nova aba)"
+                          >
+                            <LogIn className="w-4 h-4" />
+                          </button>
+                        )}
                         {client.status === 'Ativo' && (
                           <button 
                               onClick={(e) => handleOpenChat(client, e)}
@@ -362,6 +391,16 @@ export const Clientes: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-2">
+                        {selectedClient && isTestClientEmail(selectedClient.email) && (
+                          <Button
+                            variant="outline"
+                            className="border-violet-200 text-violet-700 hover:bg-violet-50 flex items-center gap-1.5 text-xs py-1 h-8 shrink-0"
+                            onClick={() => handleQuickTestLogin(selectedClient)}
+                          >
+                            <LogIn className="w-3.5 h-3.5" />
+                            Login rápido
+                          </Button>
+                        )}
                         {selectedClient?.status === 'Ativo' && (
                           <Button
                             variant="outline"

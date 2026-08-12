@@ -11,6 +11,8 @@ import { SearchSelect } from '../../components/ui/SearchSelect';
 import { formFilterInputClass, formSearchInputClass } from '../../components/ui/formStyles';
 import { pagamentoService } from '../../features/single-payment/services/pagamentoService';
 import { businessService } from '../../services/businessService';
+import { useModuleAccess } from '../../features/controle-acesso/hooks/useModuleAccess';
+import { ModuleAccessBanner } from '../../features/controle-acesso/components/ModuleAccessBanner';
 
 // Componente de Tooltip Interno (Reutilizado)
 const InfoTooltip = ({ text }: { text: string }) => (
@@ -28,6 +30,11 @@ const InfoTooltip = ({ text }: { text: string }) => (
 export const Pagamentos: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initialStatusFilter = searchParams.get('status') || 'Todos';
+  const {
+    paymentUnlocked,
+    paymentStatus,
+    isLoading: isLoadingAccess,
+  } = useModuleAccess();
 
   const [mensalidades, setMensalidades] = useState<Mensalidade[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -202,6 +209,14 @@ export const Pagamentos: React.FC = () => {
             </Button>
         </div>
       </div>
+
+      <ModuleAccessBanner
+        module="payment"
+        status={paymentStatus}
+        unlocked={paymentUnlocked}
+        isLoading={isLoadingAccess}
+        className="mb-6"
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

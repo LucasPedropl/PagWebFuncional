@@ -3,25 +3,61 @@ import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Save, User as UserIcon, Lock, LogOut, Bell, MapPin, Trash2 } from 'lucide-react';
+import { Save, User as UserIcon, Lock, LogOut, Bell, MapPin, Trash2, MessageSquareWarning } from 'lucide-react';
 import { PhoneInput } from '../../components/ui/PhoneInput';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { formatPhone } from '../../utils/formatters';
 import { useToast } from '../../context/ToastContext';
 import { NotificationSettings } from '../../types';
 import { getImageUrl } from '../../utils/api';
 import { AddressSettingsPanel } from '../../features/address/components/AddressSettingsPanel';
 import { isValidName, isValidPhone } from '../../utils/validators';
+import { PagWebFeedbackForm } from '../../features/feedback/components/PagWebFeedbackForm';
+
+type ConfiguracoesTab = 'perfil' | 'seguranca' | 'notificacoes' | 'endereco' | 'feedback';
+
+const CONFIG_TAB_VALUES: ConfiguracoesTab[] = [
+  'perfil',
+  'seguranca',
+  'notificacoes',
+  'endereco',
+  'feedback',
+];
+
+const isConfiguracoesTab = (value: string | null): value is ConfiguracoesTab =>
+  value !== null && CONFIG_TAB_VALUES.includes(value as ConfiguracoesTab);
 
 export const Configuracoes: React.FC = () => {
   const { addToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'perfil' | 'seguranca' | 'notificacoes' | 'endereco'>('perfil');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = isConfiguracoesTab(searchParams.get('tab'))
+    ? (searchParams.get('tab') as ConfiguracoesTab)
+    : 'perfil';
+  const [activeTab, setActiveTab] = useState<ConfiguracoesTab>(initialTab);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (isConfiguracoesTab(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+      return;
+    }
+    setActiveTab('perfil');
+  }, [searchParams]);
+
+  const selectTab = (tab: ConfiguracoesTab) => {
+    setActiveTab(tab);
+    if (tab === 'perfil') {
+      setSearchParams({}, { replace: true });
+      return;
+    }
+    setSearchParams({ tab }, { replace: true });
+  };
 
   // Form States
   const [profileData, setProfileData] = useState({
@@ -216,7 +252,7 @@ export const Configuracoes: React.FC = () => {
          <div className="w-full lg:w-64 flex-shrink-0">
             <nav className="space-y-1">
                 <button
-                    onClick={() => setActiveTab('perfil')}
+                    onClick={() => selectTab('perfil')}
                     className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
                         activeTab === 'perfil' 
                         ? 'bg-slate-900 text-white' 
@@ -227,7 +263,7 @@ export const Configuracoes: React.FC = () => {
                     Meu Perfil
                 </button>
                 <button
-                    onClick={() => setActiveTab('seguranca')}
+                    onClick={() => selectTab('seguranca')}
                     className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
                         activeTab === 'seguranca' 
                         ? 'bg-slate-900 text-white' 
@@ -238,7 +274,7 @@ export const Configuracoes: React.FC = () => {
                     Senha e Segurança
                 </button>
                 <button
-                    onClick={() => setActiveTab('notificacoes')}
+                    onClick={() => selectTab('notificacoes')}
                     className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
                         activeTab === 'notificacoes' 
                         ? 'bg-slate-900 text-white' 
@@ -249,7 +285,7 @@ export const Configuracoes: React.FC = () => {
                     Notificações
                 </button>
                 <button
-                    onClick={() => setActiveTab('endereco')}
+                    onClick={() => selectTab('endereco')}
                     className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
                         activeTab === 'endereco'
                         ? 'bg-slate-900 text-white'
@@ -258,6 +294,17 @@ export const Configuracoes: React.FC = () => {
                 >
                     <MapPin className="w-4 h-4 mr-3" />
                     Endereço
+                </button>
+                <button
+                    onClick={() => selectTab('feedback')}
+                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                        activeTab === 'feedback'
+                        ? 'bg-slate-900 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                >
+                    <MessageSquareWarning className="w-4 h-4 mr-3" />
+                    Feedback PagWeb
                 </button>
                 <div className="pt-4 mt-4 border-t border-gray-100">
                      <button
@@ -272,6 +319,11 @@ export const Configuracoes: React.FC = () => {
          </div>
 
          <div className="flex-1">
+            {activeTab === 'feedback' ? (
+              <div className="animate-fadeIn">
+                <PagWebFeedbackForm />
+              </div>
+            ) : (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8">
                 {activeTab === 'perfil' && (
                     <div className="space-y-6 animate-fadeIn">
@@ -489,6 +541,7 @@ export const Configuracoes: React.FC = () => {
                     </div>
                 )}
             </div>
+            )}
          </div>
       </div>
 

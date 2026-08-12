@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Check, Edit2, Trash2, Loader2, AlertTriangle, ExternalLink, Box, FileText, Download } from 'lucide-react';
+import { Plus, Check, Edit2, Trash2, Loader2, AlertTriangle, ExternalLink, Box, FileText, Download, FlaskConical } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { companyService } from '../../services/companyService';
 import { PlanResponse } from '../../types';
@@ -15,6 +15,7 @@ import { PlanServiceBenefit } from '../../features/services/schemas/serviceTypes
 import { useToast } from '../../context/ToastContext';
 import { TIPO_CONTRATO } from '../../utils/api';
 import { getContractUrl } from '../../utils/api';
+import { seedTestPlansForCurrentCompany } from '../../features/test-plans/services/seedTestPlansService';
 
 export const Planos: React.FC = () => {
   const { addToast } = useToast();
@@ -27,6 +28,7 @@ export const Planos: React.FC = () => {
   const [plans, setPlans] = useState<PlanResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSeedingTestPlans, setIsSeedingTestPlans] = useState(false);
   
   // Selected Plan State
   const [selectedPlan, setSelectedPlan] = useState<PlanResponse | null>(null);
@@ -66,6 +68,37 @@ export const Planos: React.FC = () => {
       setPlans([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSeedTestPlans = async () => {
+    setIsSeedingTestPlans(true);
+    try {
+      const result = await seedTestPlansForCurrentCompany();
+      if (result.created.length > 0) {
+        addToast(
+          'success',
+          'Planos de teste',
+          `${result.created.length} plano(s) criado(s): sem contrato, termo e contrato PDF.`,
+        );
+      }
+      if (result.failed.length > 0) {
+        addToast(
+          'error',
+          'Alguns falharam',
+          `${result.failed.length} não foram criados. Veja o console.`,
+        );
+        console.error('[PagWeb] Falhas ao criar planos de teste:', result.failed);
+      }
+      if (result.created.length === 0 && result.failed.length > 0) {
+        addToast('error', 'Erro', result.failed[0]?.message || 'Nenhum plano criado.');
+      }
+      await fetchPlans();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Falha ao criar planos de teste.';
+      addToast('error', 'Erro', message);
+    } finally {
+      setIsSeedingTestPlans(false);
     }
   };
 
@@ -194,18 +227,34 @@ export const Planos: React.FC = () => {
 
   return (
     <BusinessLayout>
-      <div className="flex justify-between items-start mb-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Catálogo de Planos</h1>
           <p className="text-gray-500 mt-1">Defina os produtos e serviços que sua empresa oferece.</p>
         </div>
-        <Button 
-            onClick={openNewPlanModal}
-            className="bg-slate-900 hover:bg-slate-800"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Plano
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleSeedTestPlans}
+            disabled={isSeedingTestPlans || isLoading}
+            title="Cria 3 planos: sem contrato, termo e contrato PDF"
+          >
+            {isSeedingTestPlans ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <FlaskConical className="w-4 h-4 mr-2" />
+            )}
+            Criar planos de teste
+          </Button>
+          <Button 
+              onClick={openNewPlanModal}
+              className="bg-slate-900 hover:bg-slate-800"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Plano
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (

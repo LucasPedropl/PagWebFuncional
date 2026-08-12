@@ -113,7 +113,7 @@ export const CobrancaTable: React.FC<CobrancaTableProps> = ({
   };
 
   const isPayerList = listaScope === 'a_pagar';
-  const tableTitle = isPayerList ? 'Cobranças a pagar' : 'Cobranças criadas por mim';
+  const tableTitle = isPayerList ? 'Pagar' : 'Receber';
   const searchPlaceholder = isPayerList
     ? variant === 'client'
       ? 'Buscar por estabelecimento ou descrição...'

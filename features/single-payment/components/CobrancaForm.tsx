@@ -3,6 +3,7 @@ import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Textarea } from '../../../components/ui/Textarea';
 import { SearchSelect } from '../../../components/ui/SearchSelect';
+import { MultiSearchSelect } from '../../../components/ui/MultiSearchSelect';
 import { User as UserType } from '../../../types';
 
 interface CatalogItemLike {
@@ -27,8 +28,8 @@ interface CobrancaFormProps {
     observacao?: string;
     clientId: number;
     valor: number;
-    produtoId?: number;
-    servicoId?: number;
+    produtoIds?: number[];
+    servicoIds?: number[];
   }) => Promise<boolean>;
 }
 
@@ -47,8 +48,8 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
   const [descricao, setDescricao] = useState('');
   const [valor, setValor] = useState('');
   const [observacao, setObservacao] = useState('');
-  const [produtoId, setProdutoId] = useState<string | number>('');
-  const [servicoId, setServicoId] = useState<string | number>('');
+  const [produtoIds, setProdutoIds] = useState<Array<string | number>>([]);
+  const [servicoIds, setServicoIds] = useState<Array<string | number>>([]);
 
   const clientOptions = useMemo(
     () =>
@@ -63,39 +64,50 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
   );
 
   const produtoOptions = useMemo(
-    () => [
-      { value: '', label: 'Nenhum' },
-      ...produtos.map((p) => ({
-        value: p.id ?? '',
-        label: p.nome ?? '',
-        subLabel: p.preco != null ? `R$ ${p.preco.toFixed(2)}` : '—',
-      })),
-    ],
+    () =>
+      produtos
+        .filter((p) => p.id != null)
+        .map((p) => ({
+          value: p.id as number,
+          label: p.nome ?? '',
+          subLabel: p.preco != null ? `R$ ${p.preco.toFixed(2)}` : '—',
+        })),
     [produtos],
   );
 
   const servicoOptions = useMemo(
-    () => [
-      { value: '', label: 'Nenhum' },
-      ...servicos.map((s) => ({
-        value: s.id ?? '',
-        label: s.nome ?? '',
-        subLabel: s.preco != null ? `R$ ${s.preco.toFixed(2)}` : '—',
-      })),
-    ],
+    () =>
+      servicos
+        .filter((s) => s.id != null)
+        .map((s) => ({
+          value: s.id as number,
+          label: s.nome ?? '',
+          subLabel: s.preco != null ? `R$ ${s.preco.toFixed(2)}` : '—',
+        })),
     [servicos],
   );
 
-  const suggestFromCatalog = (nextProduto: string | number, nextServico: string | number) => {
+  const suggestFromCatalog = (
+    nextProdutos: Array<string | number>,
+    nextServicos: Array<string | number>,
+  ) => {
     let total = 0;
-    const p = produtos.find((x) => x.id === Number(nextProduto));
-    const s = servicos.find((x) => x.id === Number(nextServico));
-    if (p && p.preco != null) total += p.preco;
-    if (s && s.preco != null) total += s.preco;
+    const names: string[] = [];
+
+    for (const id of nextServicos) {
+      const s = servicos.find((x) => x.id === Number(id));
+      if (s?.preco != null) total += s.preco;
+      if (s?.nome) names.push(s.nome);
+    }
+    for (const id of nextProdutos) {
+      const p = produtos.find((x) => x.id === Number(id));
+      if (p?.preco != null) total += p.preco;
+      if (p?.nome) names.push(p.nome);
+    }
+
     if (total > 0) setValor(total.toFixed(2));
-    if (!descricao.trim()) {
-      const parts = [s?.nome, p?.nome].filter(Boolean) as string[];
-      if (parts.length) setDescricao(parts.join(' + '));
+    if (!descricao.trim() && names.length > 0) {
+      setDescricao(names.join(' + '));
     }
   };
 
@@ -104,8 +116,8 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
     setDescricao('');
     setValor('');
     setObservacao('');
-    setProdutoId('');
-    setServicoId('');
+    setProdutoIds([]);
+    setServicoIds([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -114,13 +126,20 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
     const parsedValor = Number(valor.replace(',', '.'));
     if (parsedValor < 5) return;
 
+    const parsedProdutoIds = produtoIds
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+    const parsedServicoIds = servicoIds
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0);
+
     const success = await onSubmit({
       descricao: descricao.trim(),
       observacao: observacao.trim() || undefined,
       clientId: Number(clientId),
       valor: parsedValor,
-      produtoId: Number(produtoId) > 0 ? Number(produtoId) : undefined,
-      servicoId: Number(servicoId) > 0 ? Number(servicoId) : undefined,
+      produtoIds: parsedProdutoIds.length > 0 ? parsedProdutoIds : undefined,
+      servicoIds: parsedServicoIds.length > 0 ? parsedServicoIds : undefined,
     });
 
     if (success) {
@@ -143,31 +162,32 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
 
       {hasCatalog ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <SearchSelect
-          label="Serviço do catálogo (opcional)"
-          options={servicoOptions}
-          value={servicoId}
-          onChange={(v) => {
-            setServicoId(v);
-            suggestFromCatalog(produtoId, v);
-          }}
-          placeholder="Nenhum"
-        />
+          <MultiSearchSelect
+            label="Serviços do catálogo (opcional)"
+            options={servicoOptions}
+            value={servicoIds}
+            onChange={(next) => {
+              setServicoIds(next);
+              suggestFromCatalog(produtoIds, next);
+            }}
+            placeholder="Nenhum"
+            hint="Pode selecionar mais de um."
+          />
 
-        <SearchSelect
-          label="Produto do catálogo (opcional)"
-          options={produtoOptions}
-          value={produtoId}
-          onChange={(v) => {
-            setProdutoId(v);
-            suggestFromCatalog(v, servicoId);
-          }}
-          placeholder="Nenhum"
-        />
-      </div>
+          <MultiSearchSelect
+            label="Produtos do catálogo (opcional)"
+            options={produtoOptions}
+            value={produtoIds}
+            onChange={(next) => {
+              setProdutoIds(next);
+              suggestFromCatalog(next, servicoIds);
+            }}
+            placeholder="Nenhum"
+            hint="Pode selecionar mais de um."
+          />
+        </div>
       ) : null}
 
-      {/* Descrição */}
       <Input
         label="Descrição da Cobrança"
         value={descricao}
@@ -176,7 +196,6 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
         required
       />
 
-      {/* Valor */}
       <Input
         label="Valor total (R$)"
         type="number"
@@ -185,11 +204,14 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
         value={valor}
         onChange={(e) => setValor(e.target.value)}
         placeholder="0,00"
-        error={valor !== '' && Number(valor.replace(',', '.')) < 5 ? 'O valor mínimo para cobrança é R$ 5,00' : undefined}
+        error={
+          valor !== '' && Number(valor.replace(',', '.')) < 5
+            ? 'O valor mínimo para cobrança é R$ 5,00'
+            : undefined
+        }
         required
       />
 
-      {/* Observação */}
       <Textarea
         label="Observação interna (opcional)"
         value={observacao}
@@ -198,7 +220,6 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
         rows={3}
       />
 
-      {/* Botões de Ação no estilo padrão do sistema */}
       <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
         <Button
           type="button"

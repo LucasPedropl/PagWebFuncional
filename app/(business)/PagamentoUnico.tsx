@@ -2,12 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { Info, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { companyService } from '../../services/companyService';
 import { useToast } from '../../context/ToastContext';
 import { useCobrancas } from '../../features/single-payment/hooks/useCobrancas';
-import { useEmpresaCobrancasAPagarDemo } from '../../features/single-payment/hooks/useEmpresaCobrancasAPagarDemo';
+import { useUserCobrancas } from '../../features/single-payment/hooks/useUserCobrancas';
 import { useProdutos } from '../../features/catalog/hooks/useProdutos';
 import { useServicos } from '../../features/catalog/hooks/useServicos';
 import { User } from '../../types';
@@ -24,9 +24,16 @@ import {
   PaymentResultModal,
 } from '../../features/single-payment/components/CobrancaPayDialogs';
 import { CobrancaListaScope } from '../../features/single-payment/types/cobrancaListaScope';
+import { useModuleAccess } from '../../features/controle-acesso/hooks/useModuleAccess';
+import { ModuleAccessBanner } from '../../features/controle-acesso/components/ModuleAccessBanner';
 
 export const PagamentoUnico: React.FC = () => {
   const { addToast } = useToast();
+  const {
+    paymentUnlocked,
+    paymentStatus,
+    isLoading: isLoadingAccess,
+  } = useModuleAccess();
   const [clients, setClients] = useState<User[]>([]);
   const [idEmpresa, setIdEmpresa] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -39,11 +46,11 @@ export const PagamentoUnico: React.FC = () => {
   const { cobrancas: criadas, isLoading: isLoadingCriadas, error: errorCriadas, createCobranca, cancelCobranca } =
     useCobrancas();
   const {
-    aPagar,
+    cobrancas: aPagar,
     isLoading: isLoadingAPagar,
     error: errorAPagar,
-    pagarCobranca: pagarCobrancaDemo,
-  } = useEmpresaCobrancasAPagarDemo();
+    pagarCobranca,
+  } = useUserCobrancas();
   const { produtos } = useProdutos();
   const { servicos } = useServicos(idEmpresa);
 
@@ -71,8 +78,8 @@ export const PagamentoUnico: React.FC = () => {
     observacao?: string;
     clientId: number;
     valor: number;
-    produtoId?: number;
-    servicoId?: number;
+    produtoIds?: number[];
+    servicoIds?: number[];
   }): Promise<boolean> => {
     setIsSaving(true);
     try {
@@ -81,8 +88,8 @@ export const PagamentoUnico: React.FC = () => {
         observacao: data.observacao,
         idUser: data.clientId,
         valorTotal: data.valor,
-        produtos: data.produtoId ? [data.produtoId] : undefined,
-        servicos: data.servicoId ? [data.servicoId] : undefined,
+        produtos: data.produtoIds,
+        servicos: data.servicoIds,
       });
       addToast('success', 'Cobrança cadastrada', 'A cobrança avulsa foi gerada com sucesso.');
       setIsModalOpen(false);
@@ -113,13 +120,13 @@ export const PagamentoUnico: React.FC = () => {
     if (!payingCobranca) return;
     setIsPaying(true);
     try {
-      const result = await pagarCobrancaDemo(payingCobranca.id, metodo);
+      const result = await pagarCobranca(payingCobranca.id, metodo);
       setPayingCobranca(null);
       setPaymentResult(result);
-      addToast('success', 'Pagamento simulado', 'Lista "Tenho que pagar" usa dados demo até a API existir.');
+      addToast('success', 'Pagamento iniciado', 'Siga as instruções do método escolhido.');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Não foi possível iniciar o pagamento.';
-      console.error('[PagamentoUnico] pay demo:', err);
+      console.error('[PagamentoUnico] pay:', err);
       addToast('error', 'Erro ao pagar', msg);
     } finally {
       setIsPaying(false);
@@ -134,7 +141,7 @@ export const PagamentoUnico: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Pagamento Único</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Cobranças que você emite para clientes e cobranças que você precisa pagar.
+            Receber cobranças emitidas pela empresa e pagar cobranças em que você é o pagador.
           </p>
         </div>
         <Button
@@ -146,15 +153,13 @@ export const PagamentoUnico: React.FC = () => {
         </Button>
       </div>
 
-      {listaScope === 'a_pagar' ? (
-        <div className="mb-6 flex gap-3 rounded-[5px] border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
-          <Info className="w-5 h-5 shrink-0 text-amber-700 mt-0.5" aria-hidden />
-          <p>
-            A aba <span className="font-semibold">Tenho que pagar</span> usa dados de demonstração.
-            A aba <span className="font-semibold">Criei para receber</span> está integrada à API da empresa.
-          </p>
-        </div>
-      ) : null}
+      <ModuleAccessBanner
+        module="payment"
+        status={paymentStatus}
+        unlocked={paymentUnlocked}
+        isLoading={isLoadingAccess}
+        className="mb-6"
+      />
 
       <CobrancaStats cobrancas={statsCobrancas} />
 
@@ -192,6 +197,7 @@ export const PagamentoUnico: React.FC = () => {
           onPay={handlePay}
           onClose={() => setPayingCobranca(null)}
           isPaying={isPaying}
+          gatewayPaymentUnlocked={paymentUnlocked}
         />
       )}
 

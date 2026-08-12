@@ -99,15 +99,25 @@ interface PayDialogProps {
   onPay: (metodo: MetodoPagamento) => Promise<void>;
   onClose: () => void;
   isPaying: boolean;
+  /** Quando false, oculta PIX/boleto gerados via gateway (módulo Payment). */
+  gatewayPaymentUnlocked?: boolean;
 }
+
+const GATEWAY_METODOS: MetodoPagamento[] = ['PIX', 'Boleto', 'BoletoPix'];
 
 export const PayCobrancaDialog: React.FC<PayDialogProps> = ({
   cobranca,
   onPay,
   onClose,
   isPaying,
+  gatewayPaymentUnlocked = true,
 }) => {
-  const [metodo, setMetodo] = useState<string | number>('PIX');
+  const availableOptions = gatewayPaymentUnlocked
+    ? METODO_OPTIONS
+    : METODO_OPTIONS.filter((opt) => !GATEWAY_METODOS.includes(opt.value));
+  const [metodo, setMetodo] = useState<string | number>(
+    availableOptions[0]?.value ?? 'Dinheiro',
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -129,9 +139,16 @@ export const PayCobrancaDialog: React.FC<PayDialogProps> = ({
           )}
         </div>
 
+        {!gatewayPaymentUnlocked ? (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+            PIX e boleto via gateway estão bloqueados até a liberação do módulo de Pagamentos.
+            Métodos manuais (caixa, transferência, dinheiro) continuam disponíveis.
+          </p>
+        ) : null}
+
         <SearchSelect
           label="Método de pagamento"
-          options={METODO_OPTIONS}
+          options={availableOptions}
           value={metodo}
           onChange={setMetodo}
           placeholder="Selecione o método..."

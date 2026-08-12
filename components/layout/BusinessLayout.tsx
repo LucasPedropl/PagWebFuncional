@@ -16,6 +16,7 @@ import {
   Banknote,
   Tags,
   Package,
+  PlugZap,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
@@ -59,11 +60,11 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
   const unreadChatCount = useUnreadChatCount(true, 'business');
   const { user } = sessionService.getSession();
   const isEmpresa = user?.tipo === 'Empresa';
-  const activeView = localStorage.getItem('pagweb_active_view') || 'business';
+  const activeView = sessionService.getActiveView() || 'business';
 
   const handleSwitchView = async (view: ShellAudience) => {
      setShowSwitcherDropdown(false);
-     localStorage.setItem('pagweb_active_view', view);
+     sessionService.setActiveView(view);
      try {
         await sessionService.switchToMode(view === 'client' ? 'client' : 'admin');
         window.dispatchEvent(new CustomEvent('pagweb:session-switched', { detail: { view } }));
@@ -225,6 +226,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },
     { icon: DollarSign, label: 'Gestão de Cobranças', path: '/business/pagamentos' },
     { icon: Banknote, label: 'Pagamento Único', path: '/business/pagamento-unico' },
+    { icon: PlugZap, label: 'Integrações', path: '/business/integracoes' },
     { icon: MessageSquare, label: 'Chat com Clientes', path: '/business/chat', badge: unreadChatCount },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
     { icon: MessageCircle, label: 'WhatsApp', path: '/business/whatsapp' },

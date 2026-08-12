@@ -99,6 +99,37 @@ export const companyService = {
 		return data.map((item) => normalizePublicPlan(item as Record<string, unknown>));
 	},
 
+	/** Normaliza `{ message, empresa }` ou payload direto de POST /Empresa. */
+	parseCreateResponse(raw: unknown): CompanyResponse {
+		if (!raw || typeof raw !== 'object') {
+			throw new Error('Resposta inválida ao criar empresa');
+		}
+		const envelope = raw as Record<string, unknown>;
+		const empresaRaw = (envelope.empresa ?? envelope.Empresa ?? envelope) as Record<
+			string,
+			unknown
+		>;
+		const idEmpresa = Number(empresaRaw.idEmpresa ?? empresaRaw.IdEmpresa);
+		if (!Number.isFinite(idEmpresa) || idEmpresa <= 0) {
+			throw new Error('Empresa criada, mas o ID não foi retornado');
+		}
+		return {
+			idEmpresa,
+			nome: String(empresaRaw.nome ?? empresaRaw.Nome ?? ''),
+			cnpj: String(empresaRaw.cnpj ?? empresaRaw.Cnpj ?? ''),
+			telefone:
+				empresaRaw.telefone != null
+					? String(empresaRaw.telefone)
+					: empresaRaw.Telefone != null
+						? String(empresaRaw.Telefone)
+						: undefined,
+			logo: (empresaRaw.logoPath ??
+				empresaRaw.LogoPath ??
+				empresaRaw.logo ??
+				null) as string | null,
+		};
+	},
+
 	// Agora recebe o token do usuário logado para criar a empresa
 	async create(
 		token: string,
@@ -126,7 +157,29 @@ export const companyService = {
 			throw new Error(errorMessage || 'Falha ao criar empresa');
 		}
 
-		return await response.json();
+		return this.parseCreateResponse(await response.json());
+	},
+
+	/** Cria estabelecimento PF a partir do usuário logado (POST /Empresa/create-pf). */
+	async createPf(token: string): Promise<CompanyResponse> {
+		const formData = new FormData();
+		formData.append('confirmar', 'confirmar');
+
+		const response = await fetch(`${COMPANY_URL}/create-pf`, {
+			method: 'POST',
+			headers: {
+				accept: '*/*',
+				Authorization: `Bearer ${token}`,
+			},
+			body: formData,
+		});
+
+		if (!response.ok) {
+			const errorMessage = await parseApiError(response);
+			throw new Error(errorMessage || 'Falha ao criar estabelecimento pessoal');
+		}
+
+		return this.parseCreateResponse(await response.json());
 	},
 
 	async getMyCompany(): Promise<CompanyResponse> {

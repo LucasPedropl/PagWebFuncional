@@ -15,24 +15,28 @@ import {
   BarChart3,
   Banknote,
   Ban,
-  MessageSquareWarning,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 
 export const MenuMobile: React.FC = () => {
   const navigate = useNavigate();
 
+  const { user } = sessionService.getSession();
+  const showAdminUpgradeCta = user?.tipo !== 'Empresa' && !sessionService.isEmpresaOwner();
+
   const menuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
     { icon: Compass, label: 'Explorar', path: '/explorar' },
     { icon: Banknote, label: 'Pagamento Único', path: '/pagamento-unico' },
     { icon: Store, label: 'Estabelecimentos', path: '/empresas' },
+    ...(showAdminUpgradeCta
+      ? [{ icon: Store, label: 'Torne-se admin', path: '/tornar-estabelecimento' }]
+      : []),
     { icon: CreditCard, label: 'Minhas Assinaturas', path: '/assinaturas' },
     { icon: Receipt, label: 'Minhas Faturas', path: '/pagamentos' }, 
     { icon: BarChart3, label: 'Relatórios Financeiros', path: '/relatorios' },
     { icon: CreditCard, label: 'Métodos de Pagamento', path: '/metodos-pagamento' },
     { icon: Ban, label: 'Bloqueios', path: '/bloqueios' },
-    { icon: MessageSquareWarning, label: 'Feedback PagWeb', path: '/feedback' },
     { icon: Settings, label: 'Configurações da Conta', path: '/configuracoes' },
   ];
 

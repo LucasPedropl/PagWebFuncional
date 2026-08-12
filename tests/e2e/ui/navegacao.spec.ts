@@ -101,7 +101,7 @@ test.describe('Área do cliente', () => {
 
   test('rotas sem título fixo ainda renderizam conteúdo', async ({ page, tenant }) => {
     await entrarComoCliente(page, tenant.clientes[0]!);
-    for (const rota of ['/chat', '/explorar', '/pagamento-unico', '/feedback', '/menu']) {
+    for (const rota of ['/chat', '/explorar', '/pagamento-unico', '/menu']) {
       await irPara(page, rota);
       await expect(page.getByRole('main')).toBeVisible();
     }
@@ -115,5 +115,8 @@ test.describe('Área do cliente', () => {
 
     await irPara(page, '/historico-servicos');
     await expect(page).toHaveURL(/#\/pagamento-unico/);
+
+    await irPara(page, '/feedback');
+    await expect(page).toHaveURL(/#\/configuracoes\?tab=feedback/);
   });
 });

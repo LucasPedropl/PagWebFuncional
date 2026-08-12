@@ -13,7 +13,6 @@ import {
   MessageSquare,
   Banknote,
   Ban,
-  MessageSquareWarning,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
@@ -56,11 +55,20 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   const [showSwitcherDropdown, setShowSwitcherDropdown] = useState(false);
   const { user } = sessionService.getSession();
   const isEmpresa = user?.tipo === 'Empresa';
-  const activeView = localStorage.getItem('pagweb_active_view') || 'client';
+  const activeView = sessionService.getActiveView() || 'client';
+
+  const showAdminUpgradeCta = !isEmpresa && !sessionService.isEmpresaOwner();
+  const upgradeCompanyTeaser = showAdminUpgradeCta
+    ? { nome: 'Virar estabelecimento', logo: null as string | null }
+    : null;
 
   const handleSwitchView = async (view: ShellAudience) => {
      setShowSwitcherDropdown(false);
-     localStorage.setItem('pagweb_active_view', view);
+     if (view === 'business' && showAdminUpgradeCta) {
+        navigate('/tornar-estabelecimento');
+        return;
+     }
+     sessionService.setActiveView(view);
      try {
         await sessionService.switchToMode(view === 'client' ? 'client' : 'admin');
         window.dispatchEvent(new CustomEvent('pagweb:session-switched', { detail: { view } }));
@@ -297,7 +305,6 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
     { icon: CreditCard, label: 'Cartões', path: '/metodos-pagamento' },
     { icon: Ban, label: 'Bloqueios', path: '/bloqueios' },
-    { icon: MessageSquareWarning, label: 'Feedback PagWeb', path: '/feedback' },
   ];
 
   // Mobile Footer Items
@@ -313,7 +320,11 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
 
   const pageTitle =
     menuItems.find((i) => i.path === location.pathname)?.label ||
-    (location.pathname === '/configuracoes' ? 'Configurações' : 'PagWeb');
+    (location.pathname === '/configuracoes'
+      ? 'Configurações'
+      : location.pathname === '/tornar-estabelecimento'
+        ? 'Torne-se admin'
+        : 'PagWeb');
 
   return (
     <div className="flex h-screen bg-[#ECEEF1] font-sans text-slate-900 antialiased">
@@ -325,22 +336,21 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
         settingsPath="/configuracoes"
         currentPath={location.pathname}
         topSlot={
-          isEmpresa ? (
-            <ViewSwitcher
-              audience="client"
-              isCollapsed={isCollapsed}
-              activeView={(activeView === 'business' ? 'business' : 'client') as ShellAudience}
-              currentAudience="client"
-              userProfile={userProfile}
-              companyProfile={companyProfile}
-              sessionPhotoPath={user?.fotoPerfilPath}
-              sessionName={user?.nome}
-              isOpen={showSwitcherDropdown}
-              onToggle={() => setShowSwitcherDropdown((o) => !o)}
-              onClose={() => setShowSwitcherDropdown(false)}
-              onSwitch={handleSwitchView}
-            />
-          ) : undefined
+          <ViewSwitcher
+            audience="client"
+            isCollapsed={isCollapsed}
+            activeView={(activeView === 'business' ? 'business' : 'client') as ShellAudience}
+            currentAudience="client"
+            userProfile={userProfile}
+            companyProfile={companyProfile ?? upgradeCompanyTeaser}
+            sessionPhotoPath={user?.fotoPerfilPath}
+            sessionName={user?.nome}
+            isOpen={showSwitcherDropdown}
+            onToggle={() => setShowSwitcherDropdown((o) => !o)}
+            onClose={() => setShowSwitcherDropdown(false)}
+            onSwitch={handleSwitchView}
+            businessSubtitle={showAdminUpgradeCta ? 'Torne-se admin PagWeb' : undefined}
+          />
         }
       />
 
@@ -357,18 +367,15 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
           onLogout={handleLogout}
           isSidebarCollapsed={isCollapsed}
           onToggleSidebar={() => setIsCollapsed((c) => !c)}
-          viewSwitcher={
-            isEmpresa
-              ? {
-                  activeView: (activeView === 'business' ? 'business' : 'client') as ShellAudience,
-                  userProfile,
-                  companyProfile,
-                  sessionPhotoPath: user?.fotoPerfilPath,
-                  sessionName: user?.nome,
-                  onSwitch: handleSwitchView,
-                }
-              : undefined
-          }
+          viewSwitcher={{
+            activeView: (activeView === 'business' ? 'business' : 'client') as ShellAudience,
+            userProfile,
+            companyProfile: companyProfile ?? upgradeCompanyTeaser,
+            sessionPhotoPath: user?.fotoPerfilPath,
+            sessionName: user?.nome,
+            onSwitch: handleSwitchView,
+            businessSubtitle: showAdminUpgradeCta ? 'Torne-se admin PagWeb' : undefined,
+          }}
           notifications={{
             isOpen: showNotifications,
             onToggle: () => setShowNotifications((o) => !o),

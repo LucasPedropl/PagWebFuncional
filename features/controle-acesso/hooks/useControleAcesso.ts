@@ -4,11 +4,17 @@ import {
   ControleAcessoListItem,
   ControleAcessoRequestInput,
   ControleAcessoUpdateInput,
+  EstadoAcesso,
 } from '../schemas/controleAcessoSchemas';
 import { controleAcessoService } from '../services/controleAcessoService';
 
+export type ControleAcessoMasterItem = ControleAcessoListItem & {
+  payment: EstadoAcesso;
+  whatsapp: EstadoAcesso;
+};
+
 interface UseControleAcessoResult {
-  masterList: ControleAcessoListItem[];
+  masterList: ControleAcessoMasterItem[];
   myRequest: ControleAcessoDetail | null;
   isMaster: boolean;
   isLoading: boolean;
@@ -19,8 +25,24 @@ interface UseControleAcessoResult {
   removeRequest: (idControle: number) => Promise<void>;
 }
 
+const enrichMasterItem = async (
+  item: ControleAcessoListItem,
+): Promise<ControleAcessoMasterItem> => {
+  try {
+    const detail = await controleAcessoService.getById(item.idControle);
+    return {
+      ...item,
+      payment: detail?.payment ?? 'Inativo',
+      whatsapp: detail?.whatsapp ?? 'Inativo',
+      estado: detail?.estado ?? item.estado,
+    };
+  } catch {
+    return { ...item, payment: 'Inativo', whatsapp: 'Inativo' };
+  }
+};
+
 export const useControleAcesso = (): UseControleAcessoResult => {
-  const [masterList, setMasterList] = useState<ControleAcessoListItem[]>([]);
+  const [masterList, setMasterList] = useState<ControleAcessoMasterItem[]>([]);
   const [myRequest, setMyRequest] = useState<ControleAcessoDetail | null>(null);
   const [isMaster, setIsMaster] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,8 +53,14 @@ export const useControleAcesso = (): UseControleAcessoResult => {
     setError(null);
     try {
       const { items, isMaster: masterAccess } = await controleAcessoService.listMaster();
-      setMasterList(items);
       setIsMaster(masterAccess);
+
+      if (masterAccess && items.length > 0) {
+        const enriched = await Promise.all(items.map(enrichMasterItem));
+        setMasterList(enriched);
+      } else {
+        setMasterList([]);
+      }
 
       const storedId = controleAcessoService.getStoredId();
       if (storedId) {
@@ -54,14 +82,11 @@ export const useControleAcesso = (): UseControleAcessoResult => {
     void refresh();
   }, [refresh]);
 
-  const requestAccess = useCallback(
-    async (input: ControleAcessoRequestInput) => {
-      const id = await controleAcessoService.requestAccess(input);
-      const detail = await controleAcessoService.getById(id);
-      setMyRequest(detail);
-    },
-    [],
-  );
+  const requestAccess = useCallback(async (input: ControleAcessoRequestInput) => {
+    const id = await controleAcessoService.requestAccess(input);
+    const detail = await controleAcessoService.getById(id);
+    setMyRequest(detail);
+  }, []);
 
   const updateRequest = useCallback(
     async (input: ControleAcessoUpdateInput) => {

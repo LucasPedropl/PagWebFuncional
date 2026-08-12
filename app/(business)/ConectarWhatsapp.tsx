@@ -7,9 +7,20 @@ import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { formatPhone } from '../../utils/formatters';
+import { useModuleAccess } from '../../features/controle-acesso/hooks/useModuleAccess';
+import {
+  ModuleAccessBanner,
+  ModuleAccessLockOverlay,
+} from '../../features/controle-acesso/components/ModuleAccessBanner';
 
 export const ConectarWhatsapp: React.FC = () => {
   const { addToast } = useToast();
+  const {
+    whatsappUnlocked,
+    whatsappStatus,
+    isLoading: isLoadingAccess,
+  } = useModuleAccess();
+  const whatsappLocked = !isLoadingAccess && !whatsappUnlocked;
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -47,10 +58,18 @@ export const ConectarWhatsapp: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (whatsappLocked) {
+      setIsChecking(false);
+      return;
+    }
     checkConnection();
-  }, [checkConnection]);
+  }, [checkConnection, whatsappLocked]);
 
   const handleCreateInstance = useCallback(async () => {
+    if (whatsappLocked) {
+      addToast('error', 'WhatsApp bloqueado', 'Solicite e aguarde a liberação em Integrações.');
+      return;
+    }
     setLoading(true);
     setQrCode(null);
     try {
@@ -82,9 +101,10 @@ export const ConectarWhatsapp: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, whatsappLocked]);
 
   const handleRefreshQRCode = useCallback(async () => {
+    if (whatsappLocked) return;
     setLoading(true);
     try {
       const data = (await businessService.getWhatsAppQRCode()) as any;
@@ -162,7 +182,7 @@ export const ConectarWhatsapp: React.FC = () => {
           <p className="text-gray-500 mt-1">Conecte seu WhatsApp para automatizar o envio de cobranças e notificações.</p>
         </div>
         
-        {isInstanceCreated && (
+        {isInstanceCreated && !whatsappLocked && (
           <button
             onClick={handleDisconnect}
             disabled={loading}
@@ -174,6 +194,18 @@ export const ConectarWhatsapp: React.FC = () => {
         )}
       </div>
 
+      <ModuleAccessBanner
+        module="whatsapp"
+        status={whatsappStatus}
+        unlocked={whatsappUnlocked}
+        isLoading={isLoadingAccess}
+        className="mb-6"
+      />
+
+      <ModuleAccessLockOverlay
+        locked={whatsappLocked}
+        title="WhatsApp bloqueado até o time PagWeb liberar o módulo em Integrações."
+      >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* QR Code Section */}
         <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 p-8 flex flex-col items-center justify-center text-center">
@@ -292,7 +324,7 @@ export const ConectarWhatsapp: React.FC = () => {
         </div>
       </div>
 
-      {isConnected ? (
+      {isConnected && !whatsappLocked ? (
         <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-4">
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <Send className="w-5 h-5 text-green-600" />
@@ -356,6 +388,7 @@ export const ConectarWhatsapp: React.FC = () => {
           </Button>
         </div>
       ) : null}
+      </ModuleAccessLockOverlay>
     </BusinessLayout>
   );
 };

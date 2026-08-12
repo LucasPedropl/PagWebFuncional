@@ -29,6 +29,7 @@ interface ViewSwitcherProps {
   onToggle: () => void;
   onClose: () => void;
   onSwitch: (view: ShellAudience) => void;
+  businessSubtitle?: string;
 }
 
 export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
@@ -44,6 +45,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   onToggle,
   onClose,
   onSwitch,
+  businessSubtitle,
 }) => {
   const accent = getShellAccent(audience);
   const isBusinessPanel = currentAudience === 'business';
@@ -119,6 +121,7 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
               sessionPhotoPath={sessionPhotoPath}
               sessionName={sessionName}
               onSwitch={onSwitch}
+              businessSubtitle={businessSubtitle}
             />
           </div>
         </>

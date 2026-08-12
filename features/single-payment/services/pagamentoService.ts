@@ -16,8 +16,18 @@ import {
 
 const PAGAMENTO_BASE = 'https://lojas.vlks.com.br/api/v1/Pagamento';
 
+const isEmpresaDualAccount = (): boolean =>
+  sessionService.isEmpresaOwner() || sessionService.getSession().user?.tipo === 'Empresa';
+
+const resolvePayerToken = (): string | null => {
+  if (isEmpresaDualAccount()) {
+    return sessionService.getCachedToken('client') || sessionService.getSession().token;
+  }
+  return sessionService.getSession().token;
+};
+
 const buildHeaders = (): HeadersInit => {
-  const { token } = sessionService.getSession();
+  const token = resolvePayerToken();
   return {
     accept: '*/*',
     Authorization: `Bearer ${token ?? ''}`,

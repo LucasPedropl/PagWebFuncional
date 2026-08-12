@@ -37,16 +37,18 @@ export default defineConfig(async ({ mode }) => {
         host: '0.0.0.0',
         strictPort: true, // Evita prompts interativos de confirmação no terminal
         proxy: {
-          '/api': {
-            target: apiAssetsTarget,
-            changeOrigin: true,
-            secure: true,
-          },
+          // `/api-assets` DEVE vir antes de `/api` — senão `/api` engole o path
+          // e o Vite manda `.../api-assets/empresas/...` (404) em vez de `.../empresas/...`.
           '/api-assets': {
             target: apiAssetsTarget,
             changeOrigin: true,
             secure: true,
             rewrite: (p) => p.replace(/^\/api-assets/, ''),
+          },
+          '/api': {
+            target: apiAssetsTarget,
+            changeOrigin: true,
+            secure: true,
           },
         },
       },
@@ -54,16 +56,18 @@ export default defineConfig(async ({ mode }) => {
         port: previewPort,
         strictPort: true,
         proxy: {
-          '/api': {
-            target: apiAssetsTarget,
-            changeOrigin: true,
-            secure: true,
-          },
+          // `/api-assets` DEVE vir antes de `/api` — senão `/api` engole o path
+          // e o Vite manda `.../api-assets/empresas/...` (404) em vez de `.../empresas/...`.
           '/api-assets': {
             target: apiAssetsTarget,
             changeOrigin: true,
             secure: true,
             rewrite: (p) => p.replace(/^\/api-assets/, ''),
+          },
+          '/api': {
+            target: apiAssetsTarget,
+            changeOrigin: true,
+            secure: true,
           },
         },
       },

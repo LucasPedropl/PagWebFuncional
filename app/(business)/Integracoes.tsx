@@ -16,22 +16,16 @@ import {
 import { useToast } from '../../context/ToastContext';
 import { useChavesPix } from '../../features/pix-keys/hooks/useChavesPix';
 import { ChavePix, TIPO_CHAVE_PIX_VALUES } from '../../features/pix-keys/schemas/chavePixSchemas';
-import { useControleAcesso } from '../../features/controle-acesso/hooks/useControleAcesso';
-import {
-  ControleAcessoListItem,
-  EstadoAcesso,
-} from '../../features/controle-acesso/schemas/controleAcessoSchemas';
+import { useControleAcesso, ControleAcessoMasterItem } from '../../features/controle-acesso/hooks/useControleAcesso';
+import { EstadoAcesso } from '../../features/controle-acesso/schemas/controleAcessoSchemas';
+import { ESTADO_ACESSO_LABEL } from '../../features/controle-acesso/utils/moduleAccess';
 
 const TIPO_CHAVE_OPTIONS = TIPO_CHAVE_PIX_VALUES.map((value) => ({
   value,
   label: value === 'Aleatoria' ? 'Aleatória' : value,
 }));
 
-const ESTADO_LABEL: Record<EstadoAcesso, string> = {
-  Ativo: 'Ativo',
-  Inativo: 'Inativo',
-  Solicitado: 'Solicitado',
-};
+const ESTADO_LABEL = ESTADO_ACESSO_LABEL;
 
 const estadoBadgeClass = (estado: EstadoAcesso): string => {
   if (estado === 'Ativo') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -129,13 +123,13 @@ export const Integracoes: React.FC = () => {
     }
   };
 
-  const handleMasterApprove = async (item: ControleAcessoListItem) => {
+  const handleMasterApprove = async (item: ControleAcessoMasterItem) => {
     setIsUpdatingMaster(item.idControle);
     try {
       await updateRequest({
         idControle: item.idControle,
-        payment: 'Ativo',
-        whatsapp: 'Ativo',
+        payment: item.payment === 'Inativo' ? 'Inativo' : 'Ativo',
+        whatsapp: item.whatsapp === 'Inativo' ? 'Inativo' : 'Ativo',
         estado: 'Ativo',
       });
       addToast('success', 'Acesso liberado', `${item.nomeEmpresa} foi ativada.`);
@@ -147,7 +141,7 @@ export const Integracoes: React.FC = () => {
     }
   };
 
-  const handleMasterReject = async (item: ControleAcessoListItem) => {
+  const handleMasterReject = async (item: ControleAcessoMasterItem) => {
     setIsUpdatingMaster(item.idControle);
     try {
       await updateRequest({
@@ -172,7 +166,9 @@ export const Integracoes: React.FC = () => {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Integrações</h1>
         <p className="text-gray-500 mt-1">
-          Cadastre sua chave PIX para receber na caixa e solicite acesso aos serviços Bixs.
+          Cadastre sua chave PIX, solicite liberação de Pagamentos/WhatsApp e acompanhe a
+          aprovação do time PagWeb. Cadastro de cobranças funciona sem liberação; PIX, boleto e
+          WhatsApp só após o desbloqueio.
         </p>
       </div>
 
@@ -337,11 +333,17 @@ export const Integracoes: React.FC = () => {
                       <div>
                         <p className="font-medium text-gray-900">{item.nomeEmpresa}</p>
                         <p className="text-xs text-gray-500">{item.cpfCnpj}</p>
-                        <span
-                          className={`inline-block mt-2 px-2 py-0.5 rounded-full border text-xs ${estadoBadgeClass(item.estado)}`}
-                        >
-                          {ESTADO_LABEL[item.estado]}
-                        </span>
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                          <span className={`px-2 py-0.5 rounded-full border ${estadoBadgeClass(item.estado)}`}>
+                            Geral: {ESTADO_LABEL[item.estado]}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full border ${estadoBadgeClass(item.payment)}`}>
+                            Pagamentos: {ESTADO_LABEL[item.payment]}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full border ${estadoBadgeClass(item.whatsapp)}`}>
+                            WhatsApp: {ESTADO_LABEL[item.whatsapp]}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex gap-2">
                         <Button

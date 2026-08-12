@@ -7,10 +7,10 @@ import { TIPO_CONTRATO } from '../../../utils/api';
 import { PlanFormStepProps } from './planFormTypes';
 
 const TIPO_CONTRATO_OPTIONS = [
-  { value: TIPO_CONTRATO.Nenhum, label: 'Nenhum' },
-  { value: TIPO_CONTRATO.Termo, label: 'Termo de adesão', subLabel: 'Concordância simples' },
+  { value: String(TIPO_CONTRATO.Nenhum), label: 'Nenhum' },
+  { value: String(TIPO_CONTRATO.Termo), label: 'Termo de adesão', subLabel: 'Concordância simples' },
   {
-    value: TIPO_CONTRATO.Contrato,
+    value: String(TIPO_CONTRATO.Contrato),
     label: 'Contrato (requer assinatura)',
     subLabel: 'Exige assinatura e foto',
   },
