@@ -37,7 +37,6 @@ import { Chat as UserChat } from './app/(user)/Chat';
 import { Chat as BusinessChat } from './app/(business)/Chat';
 import { Feedback as UserFeedback } from './app/(user)/Feedback';
 import { Feedback as BusinessFeedback } from './app/(business)/Feedback';
-import { Integracoes } from './app/(business)/Integracoes';
 
 // --- Guards de Rota (Proteção por Tipo de Usuário) ---
 
@@ -49,7 +48,7 @@ const ClientRoute = ({ children }: { children?: React.ReactNode }) => {
 
   useEffect(() => {
     if (!needsClientToken) return;
-    localStorage.setItem('pagweb_active_view', 'client');
+    sessionService.setActiveView('client');
     sessionService
       .switchToMode('client')
       .then(() => setTokenReady(true))
@@ -61,7 +60,7 @@ const ClientRoute = ({ children }: { children?: React.ReactNode }) => {
   }
 
   if (session.user?.tipo === 'Empresa') {
-    const activeView = localStorage.getItem('pagweb_active_view');
+    const activeView = sessionService.getActiveView();
     if (activeView !== 'client') {
       return <Navigate to="/business/dashboard" replace />;
     }
@@ -82,7 +81,7 @@ const BusinessRoute = ({ children }: { children?: React.ReactNode }) => {
 
   useEffect(() => {
     if (!needsAdminToken) return;
-    localStorage.setItem('pagweb_active_view', 'business');
+    sessionService.setActiveView('business');
     sessionService
       .switchToMode('admin')
       .then(() => setTokenReady(true))
@@ -348,14 +347,6 @@ const App: React.FC = () => {
             element={
               <BusinessRoute>
                 <ConectarWhatsapp />
-              </BusinessRoute>
-            } 
-          />
-          <Route 
-            path="/business/integracoes" 
-            element={
-              <BusinessRoute>
-                <Integracoes />
               </BusinessRoute>
             } 
           />

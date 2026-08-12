@@ -5,7 +5,7 @@ import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle, UserPlus, ChevronsUpDown, Check, Send, Mail, Repeat, FileText, Download, MessageSquare } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Loader2, Edit2, Trash2, CheckCircle2, XCircle, AlertCircle, AlertTriangle, UserPlus, ChevronsUpDown, Check, Send, Mail, Repeat, FileText, Download, MessageSquare, FlaskConical } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { PlanResponse, SubscriptionResponse, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -22,6 +22,11 @@ import {
 } from '../../components/ui/formStyles';
 import { TIPO_CONTRATO, TIPO_DESCONTO, getContractUrl } from '../../utils/api';
 import { normalizePaymentDay } from '../../utils/formatters';
+import { isTestClientEmail } from '../../features/test-clients/utils/testClientGenerators';
+import {
+  autoAcceptPendingSubscriptionsForTestClient,
+  autoAcceptPendingSubscriptionsFromBusinessList,
+} from '../../features/test-clients/services/testClientAutoAcceptService';
 
 export const Assinaturas: React.FC = () => {
   const navigate = useNavigate();
@@ -51,6 +56,7 @@ export const Assinaturas: React.FC = () => {
   const [clients, setClients] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAutoAcceptingTestClients, setIsAutoAcceptingTestClients] = useState(false);
 
   // Edit/Delete State
   const [selectedSubscription, setSelectedSubscription] = useState<SubscriptionResponse | null>(null);
@@ -294,6 +300,50 @@ export const Assinaturas: React.FC = () => {
 
   // --- FIM LOGICA DE CLIENTE ---
 
+  const handleAutoAcceptTestClientPendings = async () => {
+    setIsAutoAcceptingTestClients(true);
+    try {
+      const batch = await autoAcceptPendingSubscriptionsFromBusinessList(
+        subscriptions,
+        clients,
+      );
+      const failures = batch.results.filter((result) => result.error);
+
+      if (batch.targetsFound === 0) {
+        addToast(
+          'success',
+          'Nada pendente',
+          'Nenhuma assinatura Pendente de cliente de teste na lista.',
+        );
+        return;
+      }
+
+      if (batch.acceptedTotal > 0) {
+        addToast(
+          'success',
+          'Aceite automático',
+          `${batch.acceptedTotal} assinatura(s) aceita(s) (${batch.clientsTouched} cliente(s) com pendência).`,
+        );
+      }
+
+      if (failures.length > 0) {
+        addToast(
+          'error',
+          'Falhas no aceite',
+          `${failures.length} cliente(s) falharam. Veja o console.`,
+        );
+        console.error('[PagWeb] Auto-aceite clientes de teste:', failures);
+      }
+
+      await fetchData();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Falha no aceite automático.';
+      addToast('error', 'Erro', message);
+    } finally {
+      setIsAutoAcceptingTestClients(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!formData.idUser || !formData.idPlano) {
         addToast('error', 'Campos Obrigatórios', 'Selecione um cliente e um plano.');
@@ -308,6 +358,10 @@ export const Assinaturas: React.FC = () => {
 
     try {
         setIsSaving(true);
+
+        const selectedClientForCreate = clients.find(
+          (client) => String(client.idUser) === String(formData.idUser),
+        );
         
         await businessService.createSubscription({
             idUser: parseInt(formData.idUser, 10),
@@ -319,7 +373,23 @@ export const Assinaturas: React.FC = () => {
             observacao: formData.observacao + (isRecurring ? ' [Recorrente]' : '')
         });
 
-        addToast('success', 'Sucesso!', 'Assinatura criada com sucesso.');
+        let autoAcceptNote = '';
+        if (isTestClientEmail(selectedClientForCreate?.email)) {
+          const acceptResult = await autoAcceptPendingSubscriptionsForTestClient(
+            selectedClientForCreate!.email,
+          );
+          if (acceptResult.error) {
+            addToast(
+              'error',
+              'Assinatura criada',
+              `Criada, mas o auto-aceite falhou: ${acceptResult.error}`,
+            );
+          } else if (acceptResult.accepted > 0) {
+            autoAcceptNote = ' (aceita automaticamente — cliente de teste)';
+          }
+        }
+
+        addToast('success', 'Sucesso!', `Assinatura criada com sucesso.${autoAcceptNote}`);
 
         setIsModalOpen(false);
 
@@ -450,25 +520,40 @@ export const Assinaturas: React.FC = () => {
 
   return (
     <BusinessLayout>
-      <div className="flex justify-between items-start mb-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Assinaturas</h1>
           <p className="text-gray-500 mt-1">Gerencie os planos ativos dos seus clientes.</p>
         </div>
-        <Button 
-          onClick={() => {
-              setIsRecurring(false);
-              setFormData((prev) => ({
-                ...prev,
-                diaPagamento: Math.min(new Date().getDate(), 30).toString(),
-              }));
-              setIsModalOpen(true);
-          }}
-          className="bg-slate-900 hover:bg-slate-800"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Nova Assinatura
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={handleAutoAcceptTestClientPendings}
+            disabled={isAutoAcceptingTestClients || isLoading}
+            title="Aceita assinaturas Pendente de clientes @pagweb-teste.local"
+          >
+            {isAutoAcceptingTestClients ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <FlaskConical className="w-4 h-4 mr-2" />
+            )}
+            Aceitar pendentes (teste)
+          </Button>
+          <Button 
+            onClick={() => {
+                setIsRecurring(false);
+                setFormData((prev) => ({
+                  ...prev,
+                  diaPagamento: Math.min(new Date().getDate(), 30).toString(),
+                }));
+                setIsModalOpen(true);
+            }}
+            className="bg-slate-900 hover:bg-slate-800"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nova Assinatura
+          </Button>
+        </div>
       </div>
 
       {/* Filters Bar */}

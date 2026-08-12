@@ -5,47 +5,100 @@ const EMPRESA_OWNER_KEY = "pagweb_empresa_owner";
 const TOKEN_CLIENT_KEY = "pagweb_token_client";
 const TOKEN_ADMIN_KEY = "pagweb_token_admin";
 const ACTIVE_MODE_KEY = "pagweb_active_token_mode";
+const ACTIVE_VIEW_KEY = "pagweb_active_view";
+const TAB_SESSION_FLAG = "pagweb_tab_session";
 const API_BASE = apiV1Url();
 
 export type TokenMode = "client" | "admin";
+export type ActiveView = "client" | "business";
 
 let switchInFlight: Promise<void> | null = null;
 
+const isTabScopedSession = (): boolean => {
+  try {
+    return sessionStorage.getItem(TAB_SESSION_FLAG) === "1";
+  } catch {
+    return false;
+  }
+};
+
+/** localStorage (padrão) ou sessionStorage (login rápido de teste em nova aba). */
+const getAuthStorage = (): Storage =>
+  isTabScopedSession() ? sessionStorage : localStorage;
+
+const clearAuthKeys = (storage: Storage) => {
+  storage.removeItem("pagweb_token");
+  storage.removeItem("pagweb_user");
+  storage.removeItem(TOKEN_CLIENT_KEY);
+  storage.removeItem(TOKEN_ADMIN_KEY);
+  storage.removeItem(ACTIVE_MODE_KEY);
+  storage.removeItem(EMPRESA_OWNER_KEY);
+  storage.removeItem(ACTIVE_VIEW_KEY);
+  storage.removeItem("pagweb_client_address_ok");
+  storage.removeItem("pagweb_empresa_address_ok");
+  storage.removeItem("pagweb_client_address_id");
+  storage.removeItem("pagweb_empresa_address_id");
+  storage.removeItem("pagweb_client_address_draft");
+  storage.removeItem("pagweb_empresa_address_draft");
+};
+
 export const sessionService = {
+  /** Isola sessão nesta aba (não sobrescreve o localStorage do painel admin). */
+  enableTabScopedSession() {
+    sessionStorage.setItem(TAB_SESSION_FLAG, "1");
+  },
+
+  isTabScopedSession() {
+    return isTabScopedSession();
+  },
+
+  setActiveView(view: ActiveView) {
+    getAuthStorage().setItem(ACTIVE_VIEW_KEY, view);
+  },
+
+  getActiveView(): ActiveView | null {
+    const value = getAuthStorage().getItem(ACTIVE_VIEW_KEY);
+    if (value === "client" || value === "business") return value;
+    return null;
+  },
+
   setSession(data: AuthResponse) {
-    localStorage.setItem("pagweb_token", data.token);
-    localStorage.setItem("pagweb_user", JSON.stringify(data.user));
+    const storage = getAuthStorage();
+    storage.setItem("pagweb_token", data.token);
+    storage.setItem("pagweb_user", JSON.stringify(data.user));
   },
 
   cacheToken(mode: TokenMode, token: string) {
     const key = mode === "client" ? TOKEN_CLIENT_KEY : TOKEN_ADMIN_KEY;
-    localStorage.setItem(key, token);
+    getAuthStorage().setItem(key, token);
   },
 
   getCachedToken(mode: TokenMode): string | null {
-    return localStorage.getItem(mode === "client" ? TOKEN_CLIENT_KEY : TOKEN_ADMIN_KEY);
+    return getAuthStorage().getItem(mode === "client" ? TOKEN_CLIENT_KEY : TOKEN_ADMIN_KEY);
   },
 
   getActiveMode(): TokenMode {
-    const mode = localStorage.getItem(ACTIVE_MODE_KEY);
+    const mode = getAuthStorage().getItem(ACTIVE_MODE_KEY);
     return mode === "client" ? "client" : "admin";
   },
 
   activateMode(mode: TokenMode): boolean {
     const cached = this.getCachedToken(mode);
     if (!cached) return false;
-    localStorage.setItem(ACTIVE_MODE_KEY, mode);
-    localStorage.setItem("pagweb_token", cached);
+    const storage = getAuthStorage();
+    storage.setItem(ACTIVE_MODE_KEY, mode);
+    storage.setItem("pagweb_token", cached);
     return true;
   },
 
   setEmpresaOwnerFlag(value: boolean) {
-    if (value) localStorage.setItem(EMPRESA_OWNER_KEY, "1");
-    else localStorage.removeItem(EMPRESA_OWNER_KEY);
+    const storage = getAuthStorage();
+    if (value) storage.setItem(EMPRESA_OWNER_KEY, "1");
+    else storage.removeItem(EMPRESA_OWNER_KEY);
   },
 
   isEmpresaOwner(): boolean {
-    return localStorage.getItem(EMPRESA_OWNER_KEY) === "1";
+    return getAuthStorage().getItem(EMPRESA_OWNER_KEY) === "1";
   },
 
   applyAuthResponse(data: AuthResponse, mode: TokenMode) {
@@ -68,8 +121,9 @@ export const sessionService = {
   },
 
   getSession() {
-    const token = localStorage.getItem("pagweb_token");
-    const userStr = localStorage.getItem("pagweb_user");
+    const storage = getAuthStorage();
+    const token = storage.getItem("pagweb_token");
+    const userStr = storage.getItem("pagweb_user");
     return {
       token,
       user: userStr ? JSON.parse(userStr) : null,
@@ -178,20 +232,14 @@ export const sessionService = {
   logout() {
     const currentHash = window.location.hash;
     const isBusinessRoute = currentHash.includes("/business");
+    const wasTabScoped = isTabScopedSession();
 
-    localStorage.removeItem("pagweb_token");
-    localStorage.removeItem("pagweb_user");
-    localStorage.removeItem(TOKEN_CLIENT_KEY);
-    localStorage.removeItem(TOKEN_ADMIN_KEY);
-    localStorage.removeItem(ACTIVE_MODE_KEY);
-    localStorage.removeItem(EMPRESA_OWNER_KEY);
-    localStorage.removeItem("pagweb_client_address_ok");
-    localStorage.removeItem("pagweb_empresa_address_ok");
-    localStorage.removeItem("pagweb_client_address_id");
-    localStorage.removeItem("pagweb_empresa_address_id");
-    localStorage.removeItem("pagweb_client_address_draft");
-    localStorage.removeItem("pagweb_empresa_address_draft");
+    clearAuthKeys(getAuthStorage());
     this.clearCredentials();
+
+    if (wasTabScoped) {
+      sessionStorage.removeItem(TAB_SESSION_FLAG);
+    }
 
     if (isBusinessRoute) {
       window.location.hash = "#/login?type=business";
@@ -201,7 +249,7 @@ export const sessionService = {
   },
 
   isAuthenticated() {
-    return !!localStorage.getItem("pagweb_token");
+    return !!getAuthStorage().getItem("pagweb_token");
   },
 
   getUserType() {

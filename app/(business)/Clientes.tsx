@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Loader2, Send, CheckCircle2, Mail, Unplug, AlertTriangle, User as UserIcon, Calendar, CreditCard, MessageSquare } from 'lucide-react';
+import { Plus, Search, Filter, Loader2, Send, CheckCircle2, Mail, Unplug, AlertTriangle, User as UserIcon, Calendar, CreditCard, MessageSquare, FlaskConical } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { User, SubscriptionResponse } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { formSearchInputClass } from '../../components/ui/formStyles';
+import { SeedTestClientsModal } from '../../features/test-clients/components/SeedTestClientsModal';
 
 export const Clientes: React.FC = () => {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export const Clientes: React.FC = () => {
   
   // Modal States
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSeedTestModalOpen, setIsSeedTestModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
@@ -158,18 +160,29 @@ export const Clientes: React.FC = () => {
 
   return (
     <BusinessLayout>
-      <div className="flex justify-between items-start mb-8">
+      <div className="flex justify-between items-start mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestão de Clientes</h1>
           <p className="text-gray-500 mt-1">Clientes vinculados ao seu estabelecimento.</p>
         </div>
-        <Button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-slate-900 hover:bg-slate-800"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Conectar Cliente
-        </Button>
+        <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsSeedTestModalOpen(true)}
+            className="border-slate-300"
+          >
+            <FlaskConical className="w-4 h-4 mr-2" />
+            Criar clientes de teste
+          </Button>
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            className="bg-slate-900 hover:bg-slate-800"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Conectar Cliente
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -493,6 +506,12 @@ export const Clientes: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      <SeedTestClientsModal
+        isOpen={isSeedTestModalOpen}
+        onClose={() => setIsSeedTestModalOpen(false)}
+        onCreated={fetchClients}
+      />
 
       {/* Modal Confirmar Exclusão */}
       <Modal

@@ -12,7 +12,6 @@ import {
   Menu as MenuIcon,
   MessageCircle,
   MessageSquare,
-  PlugZap,
   Scissors,
   Banknote,
   Tags,
@@ -229,7 +228,6 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: MessageSquare, label: 'Chat com Clientes', path: '/business/chat', badge: unreadChatCount },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
     { icon: MessageCircle, label: 'WhatsApp', path: '/business/whatsapp' },
-    { icon: PlugZap, label: 'Integrações', path: '/business/integracoes' },
   ];
 
   // Menu items for Mobile Footer (5 items max usually)

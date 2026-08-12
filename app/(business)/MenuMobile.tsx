@@ -13,7 +13,6 @@ import {
   ChevronRight,
   LogOut,
   MessageCircle,
-  PlugZap,
   Scissors,
   Banknote,
   Tags,
@@ -42,7 +41,6 @@ export const MenuMobile: React.FC = () => {
     { icon: Banknote, label: 'Pagamento Único', path: '/business/pagamento-unico' },
     { icon: FileText, label: 'Relatórios', path: '/business/relatorios' },
     { icon: MessageCircle, label: 'WhatsApp', path: '/business/whatsapp' },
-    { icon: PlugZap, label: 'Integrações', path: '/business/integracoes' },
     { icon: Settings, label: 'Configurações', path: '/business/configuracoes' },
   ];
 
