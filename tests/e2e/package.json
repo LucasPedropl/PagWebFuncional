@@ -1,0 +1,22 @@
+{
+  "name": "pagweb-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Suite E2E do PagWeb (API + UI) executada com Playwright Test.",
+  "scripts": {
+    "test": "playwright test",
+    "test:api": "playwright test --project=api",
+    "test:ui": "playwright test --project=ui",
+    "test:headed": "playwright test --project=ui --headed",
+    "report": "playwright show-report",
+    "serve": "node scripts/static-server.mjs",
+    "reset:db": "node scripts/reset-database.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.14.0",
+    "typescript": "~5.8.2"
+  }
+}

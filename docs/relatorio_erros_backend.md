@@ -1,6 +1,10 @@
 # Relatório de Erros - API PagWebV1
 
-> **Última auditoria:** 06/08/2026 (testes HTTP em `https://lojas.vlks.com.br` + análise estática do submodule `api`) — ver **`auditoria_api_2026-08-06.md`** para bugs novos (ChavesPix, PixCaixa, ControleAcessos).  
+> **Última auditoria:** 10/08/2026 (suíte E2E automatizada, 273 casos) — ver
+> **`auditoria_e2e_2026-08-10.md`** para os achados novos (BE-014 a BE-018,
+> FE-001) e para a divergência confirmada entre a cópia local `/api` e a API
+> publicada. Cada item de lá tem teste de regressão em `tests/e2e`.  
+> **Auditoria anterior:** 06/08/2026 (testes HTTP em `https://lojas.vlks.com.br` + análise estática do submodule `api`) — ver **`auditoria_api_2026-08-06.md`** para bugs novos (ChavesPix, PixCaixa, ControleAcessos).  
 > **Auditoria anterior:** 21/07/2026 (revisão pós-atualização do submodule
 > `apps/PagWebFuncional/api`)  
 > **API local:** `apps/PagWebFuncional/api/PagWebV1` — `dotnet build`: 0 erros,

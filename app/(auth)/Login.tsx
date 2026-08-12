@@ -9,6 +9,10 @@ import { AuthInput } from '../../components/features/auth/AuthInput';
 import { AuthAlert } from '../../components/features/auth/AuthAlert';
 import { toUserFacingLoginError } from '../../utils/formatters';
 import { getAuthTheme } from '../../utils/authTheme';
+import {
+  LoginAudience,
+  rememberedLoginCredentialsService,
+} from '../../features/auth/services/rememberedLoginCredentialsService';
 
 const CLIENT_LOGIN_DEFAULTS = {
   email: 'pedrolucasmota2005.pl@gmail.com',
@@ -23,6 +27,14 @@ const BUSINESS_LOGIN_DEFAULTS = {
 const getLoginDefaults = (business: boolean) =>
   business ? BUSINESS_LOGIN_DEFAULTS : CLIENT_LOGIN_DEFAULTS;
 
+const resolveInitialLoginForm = (audience: LoginAudience, business: boolean) => {
+  const remembered = rememberedLoginCredentialsService.load(audience);
+  if (remembered) {
+    return { credentials: remembered, remember: true };
+  }
+  return { credentials: getLoginDefaults(business), remember: false };
+};
+
 export const Login: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -32,14 +44,21 @@ export const Login: React.FC = () => {
   const rawType = searchParams.get('type');
   const type = rawType?.split('?')[0] as 'client' | 'business' | null;
   const isBusiness = type === 'business';
-  const audience = isBusiness ? 'business' : 'client';
+  const audience: LoginAudience = isBusiness ? 'business' : 'client';
   const theme = getAuthTheme(audience);
 
-  const [formData, setFormData] = useState(() => getLoginDefaults(isBusiness));
+  const [formData, setFormData] = useState(
+    () => resolveInitialLoginForm(audience, isBusiness).credentials,
+  );
+  const [rememberCredentials, setRememberCredentials] = useState(
+    () => resolveInitialLoginForm(audience, isBusiness).remember,
+  );
 
   useEffect(() => {
-    setFormData(getLoginDefaults(isBusiness));
-  }, [isBusiness]);
+    const initial = resolveInitialLoginForm(audience, isBusiness);
+    setFormData(initial.credentials);
+    setRememberCredentials(initial.remember);
+  }, [audience, isBusiness]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -54,12 +73,18 @@ export const Login: React.FC = () => {
       if (isBusiness) {
         await companyService.login(formData.email, formData.password);
         localStorage.setItem('pagweb_active_view', 'business');
-        navigate('/business/dashboard');
       } else {
         await userService.login(formData.email, formData.password);
         localStorage.setItem('pagweb_active_view', 'client');
-        navigate('/dashboard');
       }
+
+      if (rememberCredentials) {
+        rememberedLoginCredentialsService.save(audience, formData);
+      } else {
+        rememberedLoginCredentialsService.clear(audience);
+      }
+
+      navigate(isBusiness ? '/business/dashboard' : '/dashboard');
     } catch (err: unknown) {
       setError(toUserFacingLoginError(err));
     } finally {
@@ -130,7 +155,16 @@ export const Login: React.FC = () => {
           />
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-3">
+          <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={rememberCredentials}
+              onChange={(e) => setRememberCredentials(e.target.checked)}
+              className="rounded border-slate-300 text-slate-800 focus:ring-slate-400"
+            />
+            Lembrar e-mail e senha
+          </label>
           <button
             type="button"
             className="text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
