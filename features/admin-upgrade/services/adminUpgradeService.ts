@@ -19,10 +19,7 @@ export interface AdminUpgradeSubmitResult {
 
 /**
  * Cria empresa (PJ ou PF), troca sessão para admin e opcionalmente
- * solicita módulos via ControleAcessos.
- *
- * ControleAcessos depende da Bixs (`CriarAcesso`). Se a Bixs falhar, a empresa
- * já existe — não rollbackamos; só reportamos o erro dos módulos.
+ * solicita módulos via POST /api/v1/User/solicitar-acesso.
  */
 export async function submitAdminUpgrade(
   input: AdminUpgradeSubmitInput,
@@ -65,7 +62,7 @@ export async function submitAdminUpgrade(
       modulesError =
         err instanceof Error
           ? err.message
-          : 'Falha ao solicitar módulos (ControleAcessos / Bixs)';
+          : 'Falha ao solicitar módulos (User/solicitar-acesso)';
       console.warn('[admin-upgrade] módulos não solicitados:', modulesError);
     }
   }

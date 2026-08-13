@@ -1,6 +1,6 @@
 import { sessionService } from '../../../services/session';
 import { parseApiError } from '../../../utils/formatters';
-import { apiUrl } from '../../../utils/apiOrigin';
+import { apiUrl, apiV1Url } from '../../../utils/apiOrigin';
 import {
   ControleAcessoDetail,
   ControleAcessoDetailSchema,
@@ -13,6 +13,7 @@ import {
 } from '../schemas/controleAcessoSchemas';
 
 const BASE = `${apiUrl()}/ControleAcessos`;
+const SOLICITAR_ACESSO_URL = apiV1Url('/User/solicitar-acesso');
 
 const buildHeaders = (): HeadersInit => {
   const { token } = sessionService.getSession();
@@ -60,14 +61,15 @@ export const controleAcessoService = {
   },
 
   async requestAccess(input: ControleAcessoRequestInput): Promise<number> {
-    const response = await fetch(BASE, {
+    /** Novo endpoint Master/Admin: POST /api/v1/User/solicitar-acesso */
+    const response = await fetch(SOLICITAR_ACESSO_URL, {
       method: 'POST',
       headers: buildHeaders(),
       body: JSON.stringify({
-        Payment: ESTADO_ACESSO_TO_API[input.payment],
-        Whatsapp: ESTADO_ACESSO_TO_API[input.whatsapp],
-        IdEmpresa: input.idEmpresa ?? 0,
-        Password: input.password,
+        payment: ESTADO_ACESSO_TO_API[input.payment],
+        whatsapp: ESTADO_ACESSO_TO_API[input.whatsapp],
+        idEmpresa: input.idEmpresa ?? 0,
+        password: input.password,
       }),
     });
     if (!response.ok) {
@@ -80,12 +82,17 @@ export const controleAcessoService = {
           ? Number((raw as { idcontrole: unknown }).idcontrole)
           : 'idControle' in raw
             ? Number((raw as { idControle: unknown }).idControle)
-            : 0;
+            : 'IdControle' in raw
+              ? Number((raw as { IdControle: unknown }).IdControle)
+              : 0;
       if (id > 0) {
         controleAcessoStorage.setId(id);
         return id;
       }
     }
+    // Algumas respostas só confirmam OK — mantém id anterior se houver
+    const stored = controleAcessoStorage.getId();
+    if (stored) return stored;
     throw new Error('Solicitação enviada, mas o ID não foi retornado pela API');
   },
 
