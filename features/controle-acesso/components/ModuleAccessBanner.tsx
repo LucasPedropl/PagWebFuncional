@@ -77,7 +77,7 @@ export const ModuleAccessBanner: React.FC<ModuleAccessBannerProps> = ({
         </p>
       </div>
       <Link
-        to="/business/integracoes"
+        to="/business/configuracoes?tab=integracoes"
         className="shrink-0 self-start rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
       >
         Ir para Integrações

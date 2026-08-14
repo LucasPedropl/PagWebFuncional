@@ -11,6 +11,7 @@ import {
   User as UserIcon,
   MapPin,
   MessageSquareWarning,
+  PlugZap,
 } from 'lucide-react';
 import { PhoneInput } from '../../components/ui/PhoneInput';
 import { sessionService } from '../../services/session';
@@ -23,6 +24,7 @@ import { formatCNPJ, formatPhone, formatCPFOrCNPJ } from '../../utils/formatters
 import { getImageUrl } from '../../utils/api';
 import { AddressSettingsPanel } from '../../features/address/components/AddressSettingsPanel';
 import { PagWebFeedbackForm } from '../../features/feedback/components/PagWebFeedbackForm';
+import { IntegracoesPanel } from '../../features/integracoes/components/IntegracoesPanel';
 import { isValidName, isValidPhone, isValidCPFOrCNPJ } from '../../utils/validators';
 
 type ConfiguracoesTab =
@@ -31,7 +33,8 @@ type ConfiguracoesTab =
   | 'notificacoes'
   | 'seguranca'
   | 'endereco'
-  | 'feedback';
+  | 'feedback'
+  | 'integracoes';
 
 const CONFIG_TAB_VALUES: ConfiguracoesTab[] = [
   'perfil',
@@ -40,6 +43,7 @@ const CONFIG_TAB_VALUES: ConfiguracoesTab[] = [
   'seguranca',
   'endereco',
   'feedback',
+  'integracoes',
 ];
 
 const isConfiguracoesTab = (value: string | null): value is ConfiguracoesTab =>
@@ -363,78 +367,97 @@ export const Configuracoes: React.FC = () => {
         <div className="w-full lg:w-64 flex-shrink-0">
             <nav className="space-y-1">
                 <button
+                    type="button"
                     onClick={() => selectTab('perfil')}
-                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium rounded-lg transition-colors ${
                         activeTab === 'perfil' 
                         ? 'bg-slate-900 text-white' 
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                 >
-                    <UserIcon className="w-4 h-4 mr-3" />
+                    <UserIcon className="w-4 h-4 shrink-0" />
                     Meu Perfil
                 </button>
                 <button
+                    type="button"
                     onClick={() => selectTab('geral')}
-                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium rounded-lg transition-colors ${
                         activeTab === 'geral' 
                         ? 'bg-slate-900 text-white' 
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                 >
-                    <Store className="w-4 h-4 mr-3" />
-                    Dados da Empresa/Estabelecimento
+                    <Store className="w-4 h-4 shrink-0" />
+                    Dados da empresa
                 </button>
                 <button
+                    type="button"
+                    onClick={() => selectTab('integracoes')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium rounded-lg transition-colors ${
+                        activeTab === 'integracoes'
+                        ? 'bg-slate-900 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                >
+                    <PlugZap className="w-4 h-4 shrink-0" />
+                    Integrações
+                </button>
+                <button
+                    type="button"
                     onClick={() => selectTab('notificacoes')}
-                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium rounded-lg transition-colors ${
                         activeTab === 'notificacoes' 
                         ? 'bg-slate-900 text-white' 
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                 >
-                    <Bell className="w-4 h-4 mr-3" />
+                    <Bell className="w-4 h-4 shrink-0" />
                     Notificações
                 </button>
                 <button
+                    type="button"
                     onClick={() => selectTab('seguranca')}
-                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium rounded-lg transition-colors ${
                         activeTab === 'seguranca' 
                         ? 'bg-slate-900 text-white' 
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                 >
-                    <Lock className="w-4 h-4 mr-3" />
+                    <Lock className="w-4 h-4 shrink-0" />
                     Segurança
                 </button>
                 <button
+                    type="button"
                     onClick={() => selectTab('endereco')}
-                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium rounded-lg transition-colors ${
                         activeTab === 'endereco'
                         ? 'bg-slate-900 text-white'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                 >
-                    <MapPin className="w-4 h-4 mr-3" />
+                    <MapPin className="w-4 h-4 shrink-0" />
                     Endereço
                 </button>
                 <button
+                    type="button"
                     onClick={() => selectTab('feedback')}
-                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium rounded-lg transition-colors ${
                         activeTab === 'feedback'
                         ? 'bg-slate-900 text-white'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                 >
-                    <MessageSquareWarning className="w-4 h-4 mr-3" />
+                    <MessageSquareWarning className="w-4 h-4 shrink-0" />
                     Feedback PagWeb
                 </button>
                 
                 <div className="pt-4 mt-4 border-t border-gray-100">
                      <button
+                        type="button"
                         onClick={handleLogout}
-                        className="w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium rounded-lg text-red-600 hover:bg-red-50 transition-colors"
                     >
-                        <LogOut className="w-4 h-4 mr-3" />
+                        <LogOut className="w-4 h-4 shrink-0" />
                         Sair da Conta
                     </button>
                 </div>
@@ -447,6 +470,8 @@ export const Configuracoes: React.FC = () => {
               <div className="animate-fadeIn">
                 <PagWebFeedbackForm />
               </div>
+            ) : activeTab === 'integracoes' ? (
+              <IntegracoesPanel />
             ) : (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 md:p-8">
                 
@@ -538,7 +563,7 @@ export const Configuracoes: React.FC = () => {
                 {activeTab === 'geral' && (
                     <div className="space-y-6 animate-fadeIn">
                         <div className="mb-4">
-                            <h2 className="text-lg font-bold text-gray-900">Dados da Empresa/Estabelecimento</h2>
+                            <h2 className="text-lg font-bold text-gray-900">Dados da empresa</h2>
                             <p className="text-sm text-gray-500">Dados visíveis para seus clientes nas faturas.</p>
                         </div>
 

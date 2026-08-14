@@ -1,6 +1,6 @@
 import { sessionService } from '../../../services/session';
 import { parseApiError } from '../../../utils/formatters';
-import { apiUrl, apiV1Url } from '../../../utils/apiOrigin';
+import { apiUrl } from '../../../utils/apiOrigin';
 import {
   ControleAcessoDetail,
   ControleAcessoDetailSchema,
@@ -13,7 +13,6 @@ import {
 } from '../schemas/controleAcessoSchemas';
 
 const BASE = `${apiUrl()}/ControleAcessos`;
-const SOLICITAR_ACESSO_URL = apiV1Url('/User/solicitar-acesso');
 
 const buildHeaders = (): HeadersInit => {
   const { token } = sessionService.getSession();
@@ -33,6 +32,17 @@ const parseList = (raw: unknown): ControleAcessoListItem[] => {
   }, []);
 };
 
+const parseCreatedId = (raw: unknown): number => {
+  if (!raw || typeof raw !== 'object') return 0;
+  const record = raw as Record<string, unknown>;
+  const candidates = [record.idcontrole, record.idControle, record.IdControle];
+  for (const candidate of candidates) {
+    const id = Number(candidate);
+    if (Number.isFinite(id) && id > 0) return id;
+  }
+  return 0;
+};
+
 export const controleAcessoService = {
   async listMaster(): Promise<{ items: ControleAcessoListItem[]; isMaster: boolean }> {
     const response = await fetch(BASE, { headers: buildHeaders() });
@@ -48,7 +58,9 @@ export const controleAcessoService = {
 
   async getById(idControle: number): Promise<ControleAcessoDetail | null> {
     const response = await fetch(`${BASE}/${idControle}`, { headers: buildHeaders() });
-    if (response.status === 404) return null;
+    if (response.status === 404 || response.status === 401 || response.status === 403) {
+      return null;
+    }
     if (!response.ok) {
       throw new Error((await parseApiError(response)) || 'Erro ao carregar solicitação');
     }
@@ -60,37 +72,30 @@ export const controleAcessoService = {
     return parsed.data;
   },
 
+  /**
+   * Solicita módulos Payment/WhatsApp.
+   * Endpoint real: POST /api/ControleAcessos (Admin).
+   */
   async requestAccess(input: ControleAcessoRequestInput): Promise<number> {
-    /** Novo endpoint Master/Admin: POST /api/v1/User/solicitar-acesso */
-    const response = await fetch(SOLICITAR_ACESSO_URL, {
+    const response = await fetch(BASE, {
       method: 'POST',
       headers: buildHeaders(),
       body: JSON.stringify({
-        payment: ESTADO_ACESSO_TO_API[input.payment],
-        whatsapp: ESTADO_ACESSO_TO_API[input.whatsapp],
-        idEmpresa: input.idEmpresa ?? 0,
-        password: input.password,
+        Payment: ESTADO_ACESSO_TO_API[input.payment],
+        Whatsapp: ESTADO_ACESSO_TO_API[input.whatsapp],
+        IdEmpresa: input.idEmpresa ?? 0,
+        Password: input.password,
       }),
     });
     if (!response.ok) {
       throw new Error((await parseApiError(response)) || 'Erro ao solicitar acesso');
     }
     const raw: unknown = await response.json();
-    if (raw && typeof raw === 'object') {
-      const id =
-        'idcontrole' in raw
-          ? Number((raw as { idcontrole: unknown }).idcontrole)
-          : 'idControle' in raw
-            ? Number((raw as { idControle: unknown }).idControle)
-            : 'IdControle' in raw
-              ? Number((raw as { IdControle: unknown }).IdControle)
-              : 0;
-      if (id > 0) {
-        controleAcessoStorage.setId(id);
-        return id;
-      }
+    const id = parseCreatedId(raw);
+    if (id > 0) {
+      controleAcessoStorage.setId(id);
+      return id;
     }
-    // Algumas respostas só confirmam OK — mantém id anterior se houver
     const stored = controleAcessoStorage.getId();
     if (stored) return stored;
     throw new Error('Solicitação enviada, mas o ID não foi retornado pela API');
@@ -124,5 +129,9 @@ export const controleAcessoService = {
 
   getStoredId(): number | null {
     return controleAcessoStorage.getId();
+  },
+
+  clearStoredId(): void {
+    controleAcessoStorage.clear();
   },
 };

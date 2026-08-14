@@ -64,8 +64,20 @@ export const useControleAcesso = (): UseControleAcessoResult => {
 
       const storedId = controleAcessoService.getStoredId();
       if (storedId) {
-        const detail = await controleAcessoService.getById(storedId);
-        setMyRequest(detail);
+        try {
+          const detail = await controleAcessoService.getById(storedId);
+          if (detail) {
+            setMyRequest(detail);
+          } else {
+            // Id stale / sem permissão — limpa e deixa o formulário disponível
+            controleAcessoService.clearStoredId();
+            setMyRequest(null);
+          }
+        } catch (detailError) {
+          console.warn('[useControleAcesso] detalhe indisponível:', detailError);
+          controleAcessoService.clearStoredId();
+          setMyRequest(null);
+        }
       } else {
         setMyRequest(null);
       }
