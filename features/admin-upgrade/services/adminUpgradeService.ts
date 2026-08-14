@@ -19,7 +19,7 @@ export interface AdminUpgradeSubmitResult {
 
 /**
  * Cria empresa (PJ ou PF), troca sessão para admin e opcionalmente
- * solicita módulos via POST /api/ControleAcessos.
+ * solicita módulos via POST /api/v1/User/solicitar-acesso.
  */
 export async function submitAdminUpgrade(
   input: AdminUpgradeSubmitInput,
@@ -62,7 +62,7 @@ export async function submitAdminUpgrade(
       modulesError =
         err instanceof Error
           ? err.message
-          : 'Falha ao solicitar módulos (POST /api/ControleAcessos)';
+          : 'Falha ao solicitar módulos (User/solicitar-acesso / Bixs)';
       console.warn('[admin-upgrade] módulos não solicitados:', modulesError);
     }
   }

@@ -1,6 +1,6 @@
 import { sessionService } from '../../../services/session';
 import { parseApiError } from '../../../utils/formatters';
-import { apiUrl } from '../../../utils/apiOrigin';
+import { apiUrl, apiV1Url } from '../../../utils/apiOrigin';
 import {
   ControleAcessoDetail,
   ControleAcessoDetailSchema,
@@ -13,6 +13,8 @@ import {
 } from '../schemas/controleAcessoSchemas';
 
 const BASE = `${apiUrl()}/ControleAcessos`;
+/** Produção: POST em UserAdmin. POST /api/ControleAcessos retorna 405 (só GET liberado). */
+const SOLICITAR_ACESSO_URL = apiV1Url('/User/solicitar-acesso');
 
 const buildHeaders = (): HeadersInit => {
   const { token } = sessionService.getSession();
@@ -74,22 +76,36 @@ export const controleAcessoService = {
 
   /**
    * Solicita módulos Payment/WhatsApp.
-   * Endpoint real: POST /api/ControleAcessos (Admin).
+   * Produção: POST /api/v1/User/solicitar-acesso
+   * (POST /api/ControleAcessos está 405 Method Not Allowed no ambiente lojas.vlks).
    */
   async requestAccess(input: ControleAcessoRequestInput): Promise<number> {
-    const response = await fetch(BASE, {
+    const response = await fetch(SOLICITAR_ACESSO_URL, {
       method: 'POST',
       headers: buildHeaders(),
       body: JSON.stringify({
-        Payment: ESTADO_ACESSO_TO_API[input.payment],
-        Whatsapp: ESTADO_ACESSO_TO_API[input.whatsapp],
-        IdEmpresa: input.idEmpresa ?? 0,
-        Password: input.password,
+        payment: ESTADO_ACESSO_TO_API[input.payment],
+        whatsapp: ESTADO_ACESSO_TO_API[input.whatsapp],
+        idEmpresa: input.idEmpresa ?? 0,
+        password: input.password,
       }),
     });
+
     if (!response.ok) {
-      throw new Error((await parseApiError(response)) || 'Erro ao solicitar acesso');
+      const apiMessage = (await parseApiError(response)).trim();
+      if (/erro ao criar acesso/i.test(apiMessage)) {
+        throw new Error(
+          'A API não conseguiu criar o acesso na Bixs (Erro ao criar acesso). Isso é falha de integração no backend/Bixs, não do formulário. Contate o time PagWeb.',
+        );
+      }
+      if (response.status === 405) {
+        throw new Error(
+          'Endpoint de solicitação indisponível neste ambiente (405). Verifique se /api/v1/User/solicitar-acesso está publicado.',
+        );
+      }
+      throw new Error(apiMessage || 'Erro ao solicitar acesso');
     }
+
     const raw: unknown = await response.json();
     const id = parseCreatedId(raw);
     if (id > 0) {
