@@ -1,6 +1,5 @@
 import { companyService } from '../../../services/companyService';
 import { sessionService } from '../../../services/session';
-import { controleAcessoService } from '../../controle-acesso/services/controleAcessoService';
 import type { AdminUpgradeMode, AdminUpgradePjFormValues } from '../schemas/adminUpgradeSchemas';
 
 export interface AdminUpgradeSubmitInput {
@@ -13,13 +12,14 @@ export interface AdminUpgradeSubmitInput {
 }
 
 export interface AdminUpgradeSubmitResult {
-  modulesRequested: boolean;
-  modulesError: string | null;
+  wantsModules: boolean;
 }
 
 /**
- * Cria empresa (PJ ou PF), troca sessão para admin e opcionalmente
- * solicita módulos via POST /api/v1/User/solicitar-acesso.
+ * Cria empresa (PJ ou PF) e troca a sessão para admin.
+ * Não solicita módulos: o POST /api/v1/User/solicitar-acesso exige Role Admin e um
+ * código de verificação por e-mail, que só é obtível depois desta troca de sessão.
+ * A solicitação é concluída em Integrações.
  */
 export async function submitAdminUpgrade(
   input: AdminUpgradeSubmitInput,
@@ -48,25 +48,8 @@ export async function submitAdminUpgrade(
 
   await companyService.login(user.email, input.password);
 
-  let modulesError: string | null = null;
   const wantsModules = input.requestPayment || input.requestWhatsapp;
 
-  if (wantsModules) {
-    try {
-      await controleAcessoService.requestAccess({
-        payment: input.requestPayment ? 'Solicitado' : 'Inativo',
-        whatsapp: input.requestWhatsapp ? 'Solicitado' : 'Inativo',
-        password: input.password,
-      });
-    } catch (err) {
-      modulesError =
-        err instanceof Error
-          ? err.message
-          : 'Falha ao solicitar módulos (User/solicitar-acesso / Bixs)';
-      console.warn('[admin-upgrade] módulos não solicitados:', modulesError);
-    }
-  }
-
   sessionService.setActiveView('business');
-  return { modulesRequested: wantsModules && !modulesError, modulesError };
+  return { wantsModules };
 }

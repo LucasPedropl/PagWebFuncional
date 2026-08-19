@@ -9,7 +9,7 @@ export interface UseModuleAccessResult extends ModuleAccessSnapshot {
   refresh: () => Promise<void>;
 }
 
-/** Permissões Payment/WhatsApp a partir do GET /ControleAcessos/{id}. */
+/** Permissões Payment/WhatsApp a partir do GET /api/v1/User/status-acesso. */
 export function useModuleAccess(): UseModuleAccessResult {
   const { myRequest, isLoading, error, isMaster, refresh } = useControleAcesso();
   const snapshot = useMemo(() => buildModuleAccessSnapshot(myRequest), [myRequest]);

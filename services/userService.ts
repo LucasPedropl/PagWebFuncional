@@ -668,22 +668,6 @@ export const userService = {
     }
   },
 
-  async payInvoice(idMensalidade: number, metodo: number): Promise<void> {
-      // Endpoint correto: /Pagamento/confirmar
-      const response = await authRequest(`/Pagamento/confirmar`, {
-          method: 'POST',
-          body: JSON.stringify({ 
-              idMensalidade, 
-              metodo // 0: PIX, 1: Cartão, 2: Boleto (exemplo)
-          })
-      });
-
-      if (!response.ok) {
-          const msg = await parseApiError(response);
-          throw new Error(msg || "Falha ao processar pagamento.");
-      }
-  },
-
   async assinarPlano(payload: AssinarPlanoPayload): Promise<{ idAssinatura?: number; message?: string }> {
     if (payload.idEmpresa) {
       await this.ensureCompanyConnection(payload.idEmpresa);

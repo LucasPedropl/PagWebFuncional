@@ -29,6 +29,8 @@ export const ControleAcessoListItemSchema = z
     nomeEmpresa: z.string().optional().nullable(),
     NomeEmpresa: z.string().optional().nullable(),
     cpf_CNPJ: z.string().optional().nullable(),
+    // A política camelCase do ASP.NET emite cpF_CNPJ (para no F por causa do _)
+    cpF_CNPJ: z.string().optional().nullable(),
     CPF_CNPJ: z.string().optional().nullable(),
     estado: coerceEstadoAcesso.optional(),
     Estado: coerceEstadoAcesso.optional(),
@@ -36,7 +38,7 @@ export const ControleAcessoListItemSchema = z
   .transform((raw) => ({
     idControle: raw.idControle ?? raw.IdControle ?? 0,
     nomeEmpresa: raw.nomeEmpresa ?? raw.NomeEmpresa ?? '',
-    cpfCnpj: raw.cpf_CNPJ ?? raw.CPF_CNPJ ?? '',
+    cpfCnpj: raw.cpf_CNPJ ?? raw.cpF_CNPJ ?? raw.CPF_CNPJ ?? '',
     estado: raw.estado ?? raw.Estado ?? 'Solicitado',
   }));
 
@@ -49,6 +51,8 @@ export const ControleAcessoDetailSchema = z
     nomeEmpresa: z.string().optional().nullable(),
     NomeEmpresa: z.string().optional().nullable(),
     cpf_CNPJ: z.string().optional().nullable(),
+    // A política camelCase do ASP.NET emite cpF_CNPJ (para no F por causa do _)
+    cpF_CNPJ: z.string().optional().nullable(),
     CPF_CNPJ: z.string().optional().nullable(),
     estado: coerceEstadoAcesso.optional(),
     payment: coerceEstadoAcesso.optional(),
@@ -67,7 +71,7 @@ export const ControleAcessoDetailSchema = z
   .transform((raw) => ({
     idControle: raw.idControle ?? raw.IdControle ?? 0,
     nomeEmpresa: raw.nomeEmpresa ?? raw.NomeEmpresa ?? '',
-    cpfCnpj: raw.cpf_CNPJ ?? raw.CPF_CNPJ ?? '',
+    cpfCnpj: raw.cpf_CNPJ ?? raw.cpF_CNPJ ?? raw.CPF_CNPJ ?? '',
     estado: raw.estado ?? 'Solicitado',
     payment: raw.payment ?? raw.Payment ?? 'Inativo',
     whatsapp: raw.whatsapp ?? raw.Whatsapp ?? 'Inativo',
@@ -83,6 +87,10 @@ export const ControleAcessoRequestInputSchema = z.object({
   payment: EstadoAcessoEnum,
   whatsapp: EstadoAcessoEnum,
   password: z.string().min(1, 'Informe sua senha para confirmar'),
+  verificationCode: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Informe o código de 6 dígitos enviado por e-mail'),
   idEmpresa: z.number().optional(),
 });
 
@@ -97,19 +105,17 @@ export const ControleAcessoUpdateInputSchema = z.object({
 
 export type ControleAcessoUpdateInput = z.infer<typeof ControleAcessoUpdateInputSchema>;
 
-const CONTROLE_ID_STORAGE_KEY = 'pagweb_controle_acesso_id';
+/** Resposta do proxy de OTP — tolera snake_case e camelCase. */
+export const SendVerificationCodeResultSchema = z
+  .object({
+    sent_to: z.string().optional().nullable(),
+    sentTo: z.string().optional().nullable(),
+    expires_in_seconds: z.number().optional(),
+    expiresInSeconds: z.number().optional(),
+  })
+  .transform((raw) => ({
+    sentTo: raw.sent_to ?? raw.sentTo ?? '',
+    expiresInSeconds: raw.expires_in_seconds ?? raw.expiresInSeconds ?? 900,
+  }));
 
-export const controleAcessoStorage = {
-  getId(): number | null {
-    const raw = localStorage.getItem(CONTROLE_ID_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-  },
-  setId(id: number) {
-    localStorage.setItem(CONTROLE_ID_STORAGE_KEY, String(id));
-  },
-  clear() {
-    localStorage.removeItem(CONTROLE_ID_STORAGE_KEY);
-  },
-};
+export type SendVerificationCodeResult = z.infer<typeof SendVerificationCodeResultSchema>;

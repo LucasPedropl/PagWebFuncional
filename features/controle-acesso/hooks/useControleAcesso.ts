@@ -5,6 +5,7 @@ import {
   ControleAcessoRequestInput,
   ControleAcessoUpdateInput,
   EstadoAcesso,
+  SendVerificationCodeResult,
 } from '../schemas/controleAcessoSchemas';
 import { controleAcessoService } from '../services/controleAcessoService';
 
@@ -21,6 +22,7 @@ interface UseControleAcessoResult {
   error: string | null;
   refresh: () => Promise<void>;
   requestAccess: (input: ControleAcessoRequestInput) => Promise<void>;
+  sendVerificationCode: () => Promise<SendVerificationCodeResult>;
   updateRequest: (input: ControleAcessoUpdateInput) => Promise<void>;
   removeRequest: (idControle: number) => Promise<void>;
 }
@@ -62,24 +64,17 @@ export const useControleAcesso = (): UseControleAcessoResult => {
         setMasterList([]);
       }
 
-      const storedId = controleAcessoService.getStoredId();
-      if (storedId) {
+      if (masterAccess) {
+        // Conta Master não é Admin de empresa — não tem status próprio
+        setMyRequest(null);
+      } else {
         try {
-          const detail = await controleAcessoService.getById(storedId);
-          if (detail) {
-            setMyRequest(detail);
-          } else {
-            // Id stale / sem permissão — limpa e deixa o formulário disponível
-            controleAcessoService.clearStoredId();
-            setMyRequest(null);
-          }
-        } catch (detailError) {
-          console.warn('[useControleAcesso] detalhe indisponível:', detailError);
-          controleAcessoService.clearStoredId();
+          setMyRequest(await controleAcessoService.getMyStatus());
+        } catch (statusError) {
+          // Falha no status não pode derrubar a tela toda
+          console.warn('[useControleAcesso] status de integração indisponível:', statusError);
           setMyRequest(null);
         }
-      } else {
-        setMyRequest(null);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao carregar integrações';
@@ -95,10 +90,14 @@ export const useControleAcesso = (): UseControleAcessoResult => {
   }, [refresh]);
 
   const requestAccess = useCallback(async (input: ControleAcessoRequestInput) => {
-    const id = await controleAcessoService.requestAccess(input);
-    const detail = await controleAcessoService.getById(id);
-    setMyRequest(detail);
+    await controleAcessoService.requestAccess(input);
+    setMyRequest(await controleAcessoService.getMyStatus());
   }, []);
+
+  const sendVerificationCode = useCallback(
+    (): Promise<SendVerificationCodeResult> => controleAcessoService.sendVerificationCode(),
+    [],
+  );
 
   const updateRequest = useCallback(
     async (input: ControleAcessoUpdateInput) => {
@@ -124,6 +123,7 @@ export const useControleAcesso = (): UseControleAcessoResult => {
     error,
     refresh,
     requestAccess,
+    sendVerificationCode,
     updateRequest,
     removeRequest,
   };

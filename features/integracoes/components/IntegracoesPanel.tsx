@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '../../../components/ui/Button';
 import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
@@ -17,6 +18,7 @@ import { useChavesPix } from '../../pix-keys/hooks/useChavesPix';
 import { ChavePix, TIPO_CHAVE_PIX_VALUES } from '../../pix-keys/schemas/chavePixSchemas';
 import { useControleAcesso, ControleAcessoMasterItem } from '../../controle-acesso/hooks/useControleAcesso';
 import { EstadoAcesso } from '../../controle-acesso/schemas/controleAcessoSchemas';
+import { VerificationCodeEndpointMissingError } from '../../controle-acesso/services/controleAcessoService';
 import { ESTADO_ACESSO_LABEL } from '../../controle-acesso/utils/moduleAccess';
 
 const TIPO_CHAVE_OPTIONS = TIPO_CHAVE_PIX_VALUES.map((value) => ({
@@ -25,6 +27,9 @@ const TIPO_CHAVE_OPTIONS = TIPO_CHAVE_PIX_VALUES.map((value) => ({
 }));
 
 const ESTADO_LABEL = ESTADO_ACESSO_LABEL;
+
+/** Janela mínima entre dois envios de OTP. */
+const RESEND_COOLDOWN_SECONDS = 60;
 
 const estadoBadgeClass = (estado: EstadoAcesso): string => {
   if (estado === 'Ativo') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -42,19 +47,42 @@ export const IntegracoesPanel: React.FC = () => {
     isLoading: loadingControle,
     error: controleError,
     requestAccess,
+    sendVerificationCode,
     updateRequest,
   } = useControleAcesso();
+  const [searchParams] = useSearchParams();
 
   const [isPixModalOpen, setIsPixModalOpen] = useState(false);
   const [chave, setChave] = useState('');
   const [tipoChave, setTipoChave] = useState<string | number>('CPF');
   const [isSavingPix, setIsSavingPix] = useState(false);
 
-  const [requestPayment, setRequestPayment] = useState(true);
-  const [requestWhatsapp, setRequestWhatsapp] = useState(false);
+  // Pré-seleção vinda de /tornar-estabelecimento (?modulos=payment,whatsapp)
+  const [requestPayment, setRequestPayment] = useState(() => {
+    const modulos = searchParams.get('modulos');
+    return modulos === null ? true : modulos.includes('payment');
+  });
+  const [requestWhatsapp, setRequestWhatsapp] = useState(() => {
+    const modulos = searchParams.get('modulos');
+    return modulos === null ? false : modulos.includes('whatsapp');
+  });
   const [requestPassword, setRequestPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [codeNotice, setCodeNotice] = useState<string | null>(null);
   const [isRequesting, setIsRequesting] = useState(false);
   const [isUpdatingMaster, setIsUpdatingMaster] = useState<number | null>(null);
+
+  const isCoolingDown = resendCooldown > 0;
+
+  useEffect(() => {
+    if (!isCoolingDown) return;
+    const timer = window.setInterval(() => {
+      setResendCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isCoolingDown]);
 
   const activeChaves = useMemo(
     () => chaves.filter((item) => item.status !== false),
@@ -95,6 +123,35 @@ export const IntegracoesPanel: React.FC = () => {
     }
   };
 
+  const handleSendVerificationCode = async () => {
+    setIsSendingCode(true);
+    try {
+      const result = await sendVerificationCode();
+      const minutes = Math.round(result.expiresInSeconds / 60);
+      addToast(
+        'success',
+        'Código enviado',
+        result.sentTo
+          ? `Enviamos um código de 6 dígitos para ${result.sentTo}. Válido por ${minutes} minutos.`
+          : `Enviamos um código de 6 dígitos para o e-mail do administrador. Válido por ${minutes} minutos.`,
+      );
+      setCodeNotice(null);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    } catch (err) {
+      // Endpoint ainda não publicado: o campo continua utilizável com código do suporte
+      if (err instanceof VerificationCodeEndpointMissingError) {
+        setCodeNotice(err.message);
+        addToast('error', 'Envio automático indisponível', err.message);
+        return;
+      }
+      const msg = err instanceof Error ? err.message : 'Erro ao enviar código de verificação';
+      setCodeNotice(null);
+      addToast('error', 'Erro', msg);
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
   const handleRequestAccess = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!requestPassword.trim()) {
@@ -105,15 +162,25 @@ export const IntegracoesPanel: React.FC = () => {
       addToast('error', 'Seleção obrigatória', 'Marque ao menos Pagamentos ou WhatsApp.');
       return;
     }
+    if (!/^\d{6}$/.test(verificationCode)) {
+      addToast(
+        'error',
+        'Código obrigatório',
+        'Informe o código de 6 dígitos enviado por e-mail.',
+      );
+      return;
+    }
     setIsRequesting(true);
     try {
       await requestAccess({
         payment: requestPayment ? 'Solicitado' : 'Inativo',
         whatsapp: requestWhatsapp ? 'Solicitado' : 'Inativo',
         password: requestPassword,
+        verificationCode,
       });
       addToast('success', 'Solicitação enviada', 'Aguarde aprovação do time PagWeb.');
       setRequestPassword('');
+      setVerificationCode('');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao solicitar acesso';
       addToast('error', 'Erro', msg);
@@ -236,7 +303,9 @@ export const IntegracoesPanel: React.FC = () => {
               <div>
                 <h3 className="text-base font-semibold text-gray-900">Solicitar integração Bixs</h3>
                 <p className="text-sm text-gray-500">
-                  Peça ativação de pagamentos e WhatsApp para sua empresa.
+                  Peça ativação de pagamentos e WhatsApp para sua empresa. A ativação exige um
+                  código de verificação enviado por e-mail para o administrador — ele vale 15
+                  minutos e só pode ser usado uma vez.
                 </p>
               </div>
             </div>
@@ -251,8 +320,14 @@ export const IntegracoesPanel: React.FC = () => {
             {myRequest ? (
               <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  Solicitação registrada
+                  {myRequest.estado === 'Inativo' ? (
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  )}
+                  {myRequest.estado === 'Inativo'
+                    ? 'Solicitação recusada ou desativada'
+                    : 'Solicitação registrada'}
                 </div>
                 <p className="text-sm text-gray-600">
                   Empresa: {myRequest.nomeEmpresa || '—'}
@@ -271,7 +346,21 @@ export const IntegracoesPanel: React.FC = () => {
                 {myRequest.dataSolicitado ? (
                   <p className="text-xs text-gray-500">Solicitado em {myRequest.dataSolicitado}</p>
                 ) : null}
+                {myRequest.estado === 'Inativo' ? (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>
+                      Esta solicitação não está ativa. Não é possível reenviar por este painel: a
+                      API responde que já existe um controle de acesso para esta empresa. Fale com
+                      o suporte PagWeb para reabrir a liberação.
+                    </span>
+                  </div>
+                ) : null}
               </div>
+            ) : isMaster ? (
+              <p className="text-sm text-gray-500">
+                Conta Master não solicita integração — use o painel de aprovações abaixo.
+              </p>
             ) : (
               <form onSubmit={handleRequestAccess} className="space-y-4 max-w-lg">
                 <label className="flex items-center gap-3 text-sm text-gray-700">
@@ -299,6 +388,35 @@ export const IntegracoesPanel: React.FC = () => {
                   onChange={(e) => setRequestPassword(e.target.value)}
                   placeholder="Sua senha de administrador"
                 />
+                <div className="space-y-2">
+                  <Input
+                    label="Código de verificação (6 dígitos)"
+                    value={verificationCode}
+                    onChange={(e) =>
+                      setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                    }
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    placeholder="000000"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    isLoading={isSendingCode}
+                    disabled={isCoolingDown}
+                    onClick={() => void handleSendVerificationCode()}
+                  >
+                    {isCoolingDown ? `Reenviar em ${resendCooldown}s` : 'Enviar código'}
+                  </Button>
+                  {codeNotice ? (
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{codeNotice}</span>
+                    </div>
+                  ) : null}
+                </div>
                 <Button type="submit" isLoading={isRequesting}>
                   Enviar solicitação
                 </Button>

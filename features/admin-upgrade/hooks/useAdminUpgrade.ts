@@ -60,26 +60,25 @@ export function useAdminUpgrade() {
         logoFile,
       });
 
-      if (result.modulesError) {
+      if (result.wantsModules) {
+        const modulos = [
+          ...(requestPayment ? ['payment'] : []),
+          ...(requestWhatsapp ? ['whatsapp'] : []),
+        ].join(',');
         addToast(
           'success',
           'Estabelecimento criado',
-          `Painel admin liberado. Módulos extras falharam: ${result.modulesError}. Você pode solicitar de novo em Integrações.`,
+          'Painel admin liberado. Falta concluir a solicitação dos módulos em Integrações com o código de verificação enviado por e-mail.',
         );
-      } else if (result.modulesRequested) {
-        addToast(
-          'success',
-          'Estabelecimento criado',
-          'Painel admin liberado. Módulos extras enviados para aprovação.',
-        );
+        navigate(`/business/configuracoes?tab=integracoes&modulos=${modulos}`);
       } else {
         addToast(
           'success',
           'Estabelecimento criado',
           'Você já pode usar o painel administrativo.',
         );
+        navigate('/business/dashboard');
       }
-      navigate('/business/dashboard');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Falha ao criar estabelecimento';
       console.error('[admin-upgrade]', err);
