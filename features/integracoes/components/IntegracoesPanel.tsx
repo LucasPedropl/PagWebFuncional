@@ -18,7 +18,10 @@ import { useChavesPix } from '../../pix-keys/hooks/useChavesPix';
 import { ChavePix, TIPO_CHAVE_PIX_VALUES } from '../../pix-keys/schemas/chavePixSchemas';
 import { useControleAcesso, ControleAcessoMasterItem } from '../../controle-acesso/hooks/useControleAcesso';
 import { EstadoAcesso } from '../../controle-acesso/schemas/controleAcessoSchemas';
-import { VerificationCodeEndpointMissingError } from '../../controle-acesso/services/controleAcessoService';
+import {
+  controleAcessoService,
+  VerificationCodeEndpointMissingError,
+} from '../../controle-acesso/services/controleAcessoService';
 import { ESTADO_ACESSO_LABEL } from '../../controle-acesso/utils/moduleAccess';
 
 const TIPO_CHAVE_OPTIONS = TIPO_CHAVE_PIX_VALUES.map((value) => ({
@@ -152,6 +155,8 @@ export const IntegracoesPanel: React.FC = () => {
     }
   };
 
+  const isReopeningInactive = myRequest?.estado === 'Inativo';
+
   const handleRequestAccess = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!requestPassword.trim()) {
@@ -178,7 +183,11 @@ export const IntegracoesPanel: React.FC = () => {
         password: requestPassword,
         verificationCode,
       });
-      addToast('success', 'Solicitação enviada', 'Aguarde aprovação do time PagWeb.');
+      addToast(
+        'success',
+        isReopeningInactive ? 'Solicitação reaberta' : 'Solicitação enviada',
+        'Aguarde aprovação do time PagWeb.',
+      );
       setRequestPassword('');
       setVerificationCode('');
     } catch (err) {
@@ -191,14 +200,31 @@ export const IntegracoesPanel: React.FC = () => {
 
   const handleMasterApprove = async (item: ControleAcessoMasterItem) => {
     setIsUpdatingMaster(item.idControle);
+    const wantedPaymentAtivo = item.payment !== 'Inativo';
+    const wantedWhatsappAtivo = item.whatsapp !== 'Inativo';
     try {
       await updateRequest({
         idControle: item.idControle,
-        payment: item.payment === 'Inativo' ? 'Inativo' : 'Ativo',
-        whatsapp: item.whatsapp === 'Inativo' ? 'Inativo' : 'Ativo',
+        payment: wantedPaymentAtivo ? 'Ativo' : 'Inativo',
+        whatsapp: wantedWhatsappAtivo ? 'Ativo' : 'Inativo',
         estado: 'Ativo',
       });
-      addToast('success', 'Acesso liberado', `${item.nomeEmpresa} foi ativada.`);
+      const detail = await controleAcessoService.getById(item.idControle);
+      const paymentFailed = wantedPaymentAtivo && detail?.payment === 'Inativo';
+      const whatsappFailed = wantedWhatsappAtivo && detail?.whatsapp === 'Inativo';
+      if (paymentFailed || whatsappFailed) {
+        const failed = [
+          paymentFailed ? 'Pagamentos' : null,
+          whatsappFailed ? 'WhatsApp' : null,
+        ].filter(Boolean);
+        addToast(
+          'error',
+          'Liberação parcial',
+          `${item.nomeEmpresa} ficou Ativa, mas ${failed.join(' e ')} não ativaram na Bixs. Retente no pagweb-admin.`,
+        );
+      } else {
+        addToast('success', 'Acesso liberado', `${item.nomeEmpresa} foi ativada.`);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao aprovar solicitação';
       addToast('error', 'Erro', msg);
@@ -318,42 +344,106 @@ export const IntegracoesPanel: React.FC = () => {
             ) : null}
 
             {myRequest ? (
-              <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
-                  {myRequest.estado === 'Inativo' ? (
-                    <AlertCircle className="w-4 h-4 text-amber-600" />
-                  ) : (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  )}
-                  {myRequest.estado === 'Inativo'
-                    ? 'Solicitação recusada ou desativada'
-                    : 'Solicitação registrada'}
-                </div>
-                <p className="text-sm text-gray-600">
-                  Empresa: {myRequest.nomeEmpresa || '—'}
-                </p>
-                <div className="flex flex-wrap gap-2 text-xs">
-                  <span className={`px-2 py-1 rounded-full border ${estadoBadgeClass(myRequest.estado)}`}>
-                    Geral: {ESTADO_LABEL[myRequest.estado]}
-                  </span>
-                  <span className={`px-2 py-1 rounded-full border ${estadoBadgeClass(myRequest.payment)}`}>
-                    Pagamentos: {ESTADO_LABEL[myRequest.payment]}
-                  </span>
-                  <span className={`px-2 py-1 rounded-full border ${estadoBadgeClass(myRequest.whatsapp)}`}>
-                    WhatsApp: {ESTADO_LABEL[myRequest.whatsapp]}
-                  </span>
-                </div>
-                {myRequest.dataSolicitado ? (
-                  <p className="text-xs text-gray-500">Solicitado em {myRequest.dataSolicitado}</p>
-                ) : null}
-                {myRequest.estado === 'Inativo' ? (
-                  <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>
-                      Esta solicitação não está ativa. Não é possível reenviar por este painel: a
-                      API responde que já existe um controle de acesso para esta empresa. Fale com
-                      o suporte PagWeb para reabrir a liberação.
+              <div className="space-y-4">
+                <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                    {myRequest.estado === 'Inativo' ? (
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    )}
+                    {myRequest.estado === 'Inativo'
+                      ? 'Solicitação recusada ou desativada'
+                      : 'Solicitação registrada'}
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Empresa: {myRequest.nomeEmpresa || '—'}
+                  </p>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className={`px-2 py-1 rounded-full border ${estadoBadgeClass(myRequest.estado)}`}>
+                      Geral: {ESTADO_LABEL[myRequest.estado]}
                     </span>
+                    <span className={`px-2 py-1 rounded-full border ${estadoBadgeClass(myRequest.payment)}`}>
+                      Pagamentos: {ESTADO_LABEL[myRequest.payment]}
+                    </span>
+                    <span className={`px-2 py-1 rounded-full border ${estadoBadgeClass(myRequest.whatsapp)}`}>
+                      WhatsApp: {ESTADO_LABEL[myRequest.whatsapp]}
+                    </span>
+                  </div>
+                  {myRequest.dataSolicitado ? (
+                    <p className="text-xs text-gray-500">Solicitado em {myRequest.dataSolicitado}</p>
+                  ) : null}
+                </div>
+
+                {myRequest.estado === 'Inativo' ? (
+                  <div className="space-y-4 max-w-lg">
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>
+                        Você pode solicitar novamente. A API reabre a solicitação para o time
+                        PagWeb aprovar. Informe senha e código de verificação (exigidos pelo
+                        contrato do endpoint).
+                      </span>
+                    </div>
+                    <form onSubmit={handleRequestAccess} className="space-y-4">
+                      <label className="flex items-center gap-3 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={requestPayment}
+                          onChange={(e) => setRequestPayment(e.target.checked)}
+                          className="rounded border-gray-300"
+                        />
+                        Solicitar módulo de Pagamentos (Bixs)
+                      </label>
+                      <label className="flex items-center gap-3 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={requestWhatsapp}
+                          onChange={(e) => setRequestWhatsapp(e.target.checked)}
+                          className="rounded border-gray-300"
+                        />
+                        Solicitar módulo de WhatsApp (Bixs)
+                      </label>
+                      <Input
+                        label="Senha da conta (confirmação)"
+                        type="password"
+                        value={requestPassword}
+                        onChange={(e) => setRequestPassword(e.target.value)}
+                        placeholder="Sua senha de administrador"
+                      />
+                      <div className="space-y-2">
+                        <Input
+                          label="Código de verificação (6 dígitos)"
+                          value={verificationCode}
+                          onChange={(e) =>
+                            setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))
+                          }
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          maxLength={6}
+                          placeholder="000000"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full sm:w-auto"
+                          isLoading={isSendingCode}
+                          disabled={isCoolingDown}
+                          onClick={() => void handleSendVerificationCode()}
+                        >
+                          {isCoolingDown ? `Reenviar em ${resendCooldown}s` : 'Enviar código'}
+                        </Button>
+                        {codeNotice ? (
+                          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <span>{codeNotice}</span>
+                          </div>
+                        ) : null}
+                      </div>
+                      <Button type="submit" isLoading={isRequesting}>
+                        Solicitar novamente
+                      </Button>
+                    </form>
                   </div>
                 ) : null}
               </div>

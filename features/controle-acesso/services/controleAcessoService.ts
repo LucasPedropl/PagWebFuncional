@@ -159,7 +159,7 @@ export const controleAcessoService = {
       }
       if (/já existe um controle de acesso/i.test(apiMessage)) {
         throw new Error(
-          'Já existe uma solicitação de integração para esta empresa. Atualize a página para ver o status atual; se ela foi recusada, fale com o suporte PagWeb.',
+          'Já existe uma solicitação ativa ou pendente para esta empresa. Atualize a página para ver o status. Se estiver Inativa, use “Solicitar novamente” neste painel.',
         );
       }
       if (/verificationcode/i.test(apiMessage) || /código de verificação/i.test(apiMessage)) {
