@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastProvider } from './context/ToastContext';
 import { Login } from './app/(auth)/Login';
 import { Register } from './app/(auth)/Register';
@@ -34,6 +34,7 @@ import { MenuMobile } from './app/(business)/MenuMobile';
 import { Landing } from './app/Landing';
 import { CompanyDetails } from './app/CompanyDetails';
 import { sessionService } from './services/session';
+import { useAccessApproval } from './features/controle-acesso/hooks/useAccessApproval';
 import { Chat as UserChat } from './app/(user)/Chat';
 import { Chat as BusinessChat } from './app/(business)/Chat';
 import { Feedback as UserFeedback } from './app/(user)/Feedback';
@@ -75,9 +76,14 @@ const ClientRoute = ({ children }: { children?: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+/** Única tela do estabelecimento aberta antes da liberação: a que pede o código. */
+const APPROVAL_STEP_PATH = '/business/configuracoes';
+const APPROVAL_STEP_URL = `${APPROVAL_STEP_PATH}?tab=integracoes`;
+
 // Protege rotas de EMPRESA (ADMIN)
 const BusinessRoute = ({ children }: { children?: React.ReactNode }) => {
   const session = sessionService.getSession();
+  const location = useLocation();
   const needsAdminToken = session.user?.tipo === 'Empresa';
   const [tokenReady, setTokenReady] = useState(!needsAdminToken);
 
@@ -90,6 +96,9 @@ const BusinessRoute = ({ children }: { children?: React.ReactNode }) => {
       .catch(() => setTokenReady(true));
   }, [needsAdminToken]);
 
+  // Só pergunta o status depois do token admin — a rota é Role=Admin.
+  const approval = useAccessApproval(tokenReady && session.user?.tipo === 'Empresa');
+
   if (!session.token) {
     return <Navigate to="/login?type=business" replace />;
   }
@@ -98,8 +107,24 @@ const BusinessRoute = ({ children }: { children?: React.ReactNode }) => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (!tokenReady) {
+  if (!tokenReady || approval === 'loading') {
     return null;
+  }
+
+  // Enquanto a solicitação não é aprovada, o estabelecimento existe mas não anda:
+  // a única tela é a do código de verificação. Sair para a área de cliente pelo
+  // seletor de ambiente continua livre — o preso é o /business, não o usuário.
+  if (approval === 'pending' && location.pathname !== APPROVAL_STEP_PATH) {
+    return <Navigate to={APPROVAL_STEP_URL} replace />;
+  }
+
+  // Já dentro de Configurações, força a aba do código: outras abas são navegação
+  // pelo estabelecimento, que é exatamente o que não pode acontecer ainda.
+  if (
+    approval === 'pending' &&
+    new URLSearchParams(location.search).get('tab') !== 'integracoes'
+  ) {
+    return <Navigate to={APPROVAL_STEP_URL} replace />;
   }
 
   return <>{children}</>;

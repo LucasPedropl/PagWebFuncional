@@ -66,10 +66,20 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
 
   const handleSwitchView = async (view: ShellAudience) => {
      setShowSwitcherDropdown(false);
-     if (view === 'business' && showAdminUpgradeCta) {
-        navigate('/tornar-estabelecimento');
+
+     // Quem decide se esta conta administra empresa é o servidor, não a marca em
+     // localStorage: ela é apagada no logout, então depois de sair e voltar um
+     // estabelecimento de verdade era mandado de novo para o cadastro. Tenta o
+     // login administrativo primeiro; a recusa é que manda para /tornar-estabelecimento.
+     if (view === 'business' && !sessionService.getCredentials()) {
+        addToast(
+           'error',
+           'Sessão incompleta',
+           'Entre novamente para poder alternar entre cliente e estabelecimento.',
+        );
         return;
      }
+
      sessionService.setActiveView(view);
      try {
         await sessionService.switchToMode(view === 'client' ? 'client' : 'admin');
