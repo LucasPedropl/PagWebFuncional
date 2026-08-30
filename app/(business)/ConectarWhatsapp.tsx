@@ -20,7 +20,9 @@ export const ConectarWhatsapp: React.FC = () => {
     whatsappStatus,
     isLoading: isLoadingAccess,
   } = useModuleAccess();
-  const whatsappLocked = !isLoadingAccess && !whatsappUnlocked;
+  // Sem o `!isLoadingAccess`: status desconhecido não é status liberado. Quem vela
+  // durante a carga é o `isLoading` do overlay, sem a cópia de bloqueio.
+  const whatsappLocked = !whatsappUnlocked;
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -204,6 +206,7 @@ export const ConectarWhatsapp: React.FC = () => {
 
       <ModuleAccessLockOverlay
         locked={whatsappLocked}
+        isLoading={isLoadingAccess}
         title="WhatsApp bloqueado até o time PagWeb liberar o módulo em Integrações."
       >
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

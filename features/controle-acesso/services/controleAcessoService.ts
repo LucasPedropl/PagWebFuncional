@@ -17,9 +17,10 @@ const BASE = `${apiUrl()}/ControleAcessos`;
 /** Produção: POST em UserAdmin. POST /api/ControleAcessos retorna 405 (só GET liberado). */
 const SOLICITAR_ACESSO_URL = apiV1Url('/User/solicitar-acesso');
 const STATUS_ACESSO_URL = apiV1Url('/User/status-acesso');
-const ENVIAR_CODIGO_URL = apiV1Url('/User/enviar-codigo-acesso');
+/** GET proxy Bixs send-code — contrato publicado em e1e5a10 (Aug/2026). */
+const VERIFICATION_CODE_URL = apiV1Url('/User/verificationCode/');
 
-/** API PagWeb ainda não publicou o proxy de envio de OTP. */
+/** Rota de OTP ausente ou método errado neste build da API. */
 export class VerificationCodeEndpointMissingError extends Error {
   constructor() {
     super(
@@ -29,6 +30,25 @@ export class VerificationCodeEndpointMissingError extends Error {
     this.name = 'VerificationCodeEndpointMissingError';
   }
 }
+
+const DEFAULT_OTP_TTL_SECONDS = 900;
+
+/** API atual retorna string JSON ("Email enviado…"); legado aceita { sent_to, expires_in_seconds }. */
+const parseVerificationCodePayload = (raw: unknown): SendVerificationCodeResult | null => {
+  const fromSchema = SendVerificationCodeResultSchema.safeParse(raw);
+  if (fromSchema.success) return fromSchema.data;
+
+  if (typeof raw === 'string') {
+    const message = raw.trim();
+    if (!message) return null;
+    if (/erro/i.test(message)) {
+      throw new Error(message);
+    }
+    return { sentTo: '', expiresInSeconds: DEFAULT_OTP_TTL_SECONDS };
+  }
+
+  return null;
+};
 
 const buildHeaders = (): HeadersInit => {
   const { token } = sessionService.getSession();
@@ -107,27 +127,28 @@ export const controleAcessoService = {
     return parsed.data;
   },
 
-  /** Dispara o OTP de 6 dígitos por e-mail (proxy da Bixs na API PagWeb). */
+  /** Dispara o OTP de 6 dígitos por e-mail (proxy Bixs via GET /User/verificationCode/). */
   async sendVerificationCode(): Promise<SendVerificationCodeResult> {
-    const response = await fetch(ENVIAR_CODIGO_URL, {
-      method: 'POST',
+    const response = await fetch(VERIFICATION_CODE_URL, {
+      method: 'GET',
       headers: buildHeaders(),
-      body: JSON.stringify({}),
     });
 
     if (response.status === 404 || response.status === 405) {
       throw new VerificationCodeEndpointMissingError();
     }
-    if (!response.ok) {
-      throw new Error(
-        (await parseApiError(response)) || 'Não foi possível enviar o código de verificação',
-      );
-    }
 
     const raw = await parseOptionalJson(response);
-    const parsed = SendVerificationCodeResultSchema.safeParse(raw);
-    // Shape inesperado não pode derrubar a UI: o código foi enviado de qualquer forma
-    return parsed.success ? parsed.data : { sentTo: '', expiresInSeconds: 900 };
+    const parsed = parseVerificationCodePayload(raw);
+    if (parsed) return parsed;
+
+    if (!response.ok) {
+      const apiMessage = typeof raw === 'string' ? raw.trim() : '';
+      throw new Error(apiMessage || 'Não foi possível enviar o código de verificação');
+    }
+
+    // 200 com corpo vazio ou Task serializado (bug conhecido: await faltando na API)
+    return { sentTo: '', expiresInSeconds: DEFAULT_OTP_TTL_SECONDS };
   },
 
   /**

@@ -101,6 +101,31 @@ export const sessionService = {
     return getAuthStorage().getItem(EMPRESA_OWNER_KEY) === "1";
   },
 
+  /**
+   * O servidor recusou o login administrativo: esta conta não administra empresa
+   * nenhuma. Desfaz a marca local que dizia o contrário — inclusive o `tipo` que
+   * `fetchClientToken` reescreve para "Empresa" enquanto a marca existir, e que
+   * sozinho manteria os guardas de rota mandando o usuário para o painel admin.
+   */
+  demoteToClient() {
+    const storage = getAuthStorage();
+    storage.removeItem(EMPRESA_OWNER_KEY);
+    storage.removeItem(TOKEN_ADMIN_KEY);
+    storage.setItem(ACTIVE_VIEW_KEY, "client");
+
+    const userStr = storage.getItem("pagweb_user");
+    if (!userStr) return;
+    try {
+      const user = JSON.parse(userStr);
+      if (user?.tipo === "Empresa") {
+        user.tipo = "Cliente";
+        storage.setItem("pagweb_user", JSON.stringify(user));
+      }
+    } catch {
+      /* usuário ilegível: a marca já saiu, que é o que trava a navegação */
+    }
+  },
+
   applyAuthResponse(data: AuthResponse, mode: TokenMode) {
     this.cacheToken(mode, data.token);
     this.setSession(data);

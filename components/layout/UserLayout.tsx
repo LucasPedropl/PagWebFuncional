@@ -15,6 +15,7 @@ import {
   Ban,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
+import { useToast } from '../../context/ToastContext';
 import { userService } from '../../services/userService';
 import { companyService } from '../../services/companyService';
 import { AppNotification } from '../../types';
@@ -53,6 +54,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   });
 
   const [showSwitcherDropdown, setShowSwitcherDropdown] = useState(false);
+  const { addToast } = useToast();
   const { user } = sessionService.getSession();
   const isEmpresa = user?.tipo === 'Empresa';
   const activeView = sessionService.getActiveView() || 'client';
@@ -74,7 +76,23 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
         window.dispatchEvent(new CustomEvent('pagweb:session-switched', { detail: { view } }));
         navigate(view === 'client' ? '/dashboard' : '/business/dashboard');
      } catch (error) {
+        // Sem isto a falha é muda: o botão parece morto e a razão só existe no console.
         console.error('Erro ao alternar ambiente', error);
+
+        if (view === 'business') {
+           // `login-admin` recusa (401) quem não tem vínculo de Admin em UserEmpresas.
+           // Chegar aqui é a prova de que a marca local mentia: corrige a sessão e leva
+           // ao cadastro, que é o destino certo para quem ainda não é estabelecimento.
+           sessionService.demoteToClient();
+           navigate('/tornar-estabelecimento');
+           return;
+        }
+
+        addToast(
+           'error',
+           'Não foi possível abrir o ambiente de estabelecimento',
+           error instanceof Error ? error.message : undefined,
+        );
      }
   };
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Lock, Clock3 } from 'lucide-react';
+import { AlertTriangle, Lock, Clock3, Loader2 } from 'lucide-react';
 import type { EstadoAcesso } from '../schemas/controleAcessoSchemas';
 import { ESTADO_ACESSO_LABEL } from '../utils/moduleAccess';
 
@@ -43,7 +43,26 @@ export const ModuleAccessBanner: React.FC<ModuleAccessBannerProps> = ({
   isLoading,
   className = '',
 }) => {
-  if (isLoading || unlocked) return null;
+  // Enquanto o status é desconhecido, ocupa o mesmo espaço que o aviso vai ocupar.
+  // Devolver null aqui era metade do salto: a tela nascia sem aviso e ganhava um
+  // bloco de 100px quando o `status-acesso` respondia.
+  if (isLoading) {
+    return (
+      <div
+        className={`flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3.5 ${className}`}
+        role="status"
+        aria-busy="true"
+      >
+        <div className="h-9 w-9 shrink-0 animate-pulse rounded-xl bg-slate-200" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="h-4 w-48 animate-pulse rounded bg-slate-200" />
+          <div className="h-3 w-full max-w-md animate-pulse rounded bg-slate-200/80" />
+        </div>
+      </div>
+    );
+  }
+
+  if (unlocked) return null;
 
   const copy = COPY[module];
   const isPending = status === 'Solicitado';
@@ -89,16 +108,26 @@ export const ModuleAccessBanner: React.FC<ModuleAccessBannerProps> = ({
 interface ModuleAccessLockOverlayProps {
   children: React.ReactNode;
   locked: boolean;
+  /** Status ainda desconhecido. Vela o conteúdo em vez de liberá-lo por engano. */
+  isLoading?: boolean;
   title?: string;
 }
 
-/** Escurece/desabilita interações do bloco quando o módulo está trancado. */
+/**
+ * Escurece/desabilita interações do bloco quando o módulo está trancado.
+ *
+ * **Enquanto o status carrega, o conteúdo já nasce velado.** Liberar por padrão
+ * e trancar depois é o que fazia a tela aparecer clicável e virar bloqueada um
+ * instante depois — e, pior, dava uma janela real de cliques em algo proibido.
+ * Desconhecido não é liberado.
+ */
 export const ModuleAccessLockOverlay: React.FC<ModuleAccessLockOverlayProps> = ({
   children,
   locked,
+  isLoading = false,
   title = 'Módulo bloqueado até liberação',
 }) => {
-  if (!locked) return <>{children}</>;
+  if (!locked && !isLoading) return <>{children}</>;
 
   return (
     <div className="relative">
@@ -107,8 +136,14 @@ export const ModuleAccessLockOverlay: React.FC<ModuleAccessLockOverlayProps> = (
       </div>
       <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/55 backdrop-blur-[1px]">
         <div className="mx-4 flex max-w-sm items-start gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-          <p className="text-sm text-slate-700">{title}</p>
+          {isLoading ? (
+            <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-slate-400" />
+          ) : (
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          )}
+          <p className="text-sm text-slate-700">
+            {isLoading ? 'Verificando a liberação do módulo…' : title}
+          </p>
         </div>
       </div>
     </div>
