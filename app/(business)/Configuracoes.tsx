@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { PasswordRequirements } from '../../components/ui/PasswordRequirements';
 import {
   Save,
   Lock,
@@ -25,7 +26,7 @@ import { getImageUrl } from '../../utils/api';
 import { AddressSettingsPanel } from '../../features/address/components/AddressSettingsPanel';
 import { PagWebFeedbackForm } from '../../features/feedback/components/PagWebFeedbackForm';
 import { IntegracoesPanel } from '../../features/integracoes/components/IntegracoesPanel';
-import { isValidName, isValidPhone, isValidCPFOrCNPJ } from '../../utils/validators';
+import { isValidName, isValidPhone, isValidCPFOrCNPJ, isValidPassword } from '../../utils/validators';
 
 type ConfiguracoesTab =
   | 'perfil'
@@ -280,6 +281,10 @@ export const Configuracoes: React.FC = () => {
   const handleSavePassword = async () => {
       if (!passwordData.newPassword) {
           addToast('error', 'Erro', "A nova senha não pode estar vazia.");
+          return;
+      }
+      if (!isValidPassword(passwordData.newPassword)) {
+          addToast('error', 'Erro', 'A senha deve conter pelo menos 8 caracteres, incluindo uma letra maiúscula, uma letra minúscula e um número ou símbolo especial.');
           return;
       }
       if (passwordData.newPassword !== passwordData.confirmPassword) {
@@ -726,19 +731,24 @@ export const Configuracoes: React.FC = () => {
                         </div>
 
                         <div className="space-y-4 max-w-md">
-                            <Input 
-                                label="Nova Senha" 
-                                type="password" 
-                                placeholder="••••••" 
-                                name="newPassword"
-                                value={passwordData.newPassword}
-                                onChange={handlePasswordChange}
-                            />
-                            <Input 
-                                label="Confirmar Nova Senha" 
-                                type="password" 
-                                placeholder="••••••" 
+                            <div>
+                                <Input
+                                    label="Nova Senha"
+                                    type="password"
+                                    placeholder="••••••••"
+                                    name="newPassword"
+                                    minLength={8}
+                                    value={passwordData.newPassword}
+                                    onChange={handlePasswordChange}
+                                />
+                                <PasswordRequirements password={passwordData.newPassword} />
+                            </div>
+                            <Input
+                                label="Confirmar Nova Senha"
+                                type="password"
+                                placeholder="••••••••"
                                 name="confirmPassword"
+                                minLength={8}
                                 value={passwordData.confirmPassword}
                                 onChange={handlePasswordChange}
                             />

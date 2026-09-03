@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { PasswordRequirements } from '../../components/ui/PasswordRequirements';
 import { Modal } from '../../components/ui/Modal';
 import { Save, User as UserIcon, Lock, LogOut, Bell, MapPin, Trash2, MessageSquareWarning } from 'lucide-react';
 import { PhoneInput } from '../../components/ui/PhoneInput';
@@ -13,7 +14,7 @@ import { useToast } from '../../context/ToastContext';
 import { NotificationSettings } from '../../types';
 import { getImageUrl } from '../../utils/api';
 import { AddressSettingsPanel } from '../../features/address/components/AddressSettingsPanel';
-import { isValidName, isValidPhone } from '../../utils/validators';
+import { isValidName, isValidPhone, isValidPassword } from '../../utils/validators';
 import { PagWebFeedbackForm } from '../../features/feedback/components/PagWebFeedbackForm';
 
 type ConfiguracoesTab = 'perfil' | 'seguranca' | 'notificacoes' | 'endereco' | 'feedback';
@@ -204,6 +205,10 @@ export const Configuracoes: React.FC = () => {
   const handleSavePassword = async () => {
       if (!passwordData.newPassword) {
           addToast('error', 'Erro', "A nova senha não pode estar vazia.");
+          return;
+      }
+      if (!isValidPassword(passwordData.newPassword)) {
+          addToast('error', 'Erro', 'A senha deve conter pelo menos 8 caracteres, incluindo uma letra maiúscula, uma letra minúscula e um número ou símbolo especial.');
           return;
       }
       if (passwordData.newPassword !== passwordData.confirmPassword) {
@@ -419,17 +424,22 @@ export const Configuracoes: React.FC = () => {
                                 value={passwordData.currentPassword}
                                 onChange={handlePasswordChange}
                             />
-                            <Input 
-                                label="Nova Senha" 
-                                type="password" 
-                                name="newPassword"
-                                value={passwordData.newPassword}
-                                onChange={handlePasswordChange}
-                            />
-                            <Input 
-                                label="Confirmar Nova Senha" 
-                                type="password" 
+                            <div>
+                                <Input
+                                    label="Nova Senha"
+                                    type="password"
+                                    name="newPassword"
+                                    minLength={8}
+                                    value={passwordData.newPassword}
+                                    onChange={handlePasswordChange}
+                                />
+                                <PasswordRequirements password={passwordData.newPassword} />
+                            </div>
+                            <Input
+                                label="Confirmar Nova Senha"
+                                type="password"
                                 name="confirmPassword"
+                                minLength={8}
                                 value={passwordData.confirmPassword}
                                 onChange={handlePasswordChange}
                             />

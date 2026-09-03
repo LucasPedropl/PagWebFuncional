@@ -131,3 +131,33 @@ export const isValidName = (name: string): boolean => {
   const regex = /^[a-zA-ZÀ-ÿ]+(?:['\s][a-zA-ZÀ-ÿ]+)*$/;
   return regex.test(trimmed);
 };
+
+/**
+ * Regras da senha, na ordem em que aparecem para o usuário.
+ *
+ * Ficam em lista, e não dentro de um único regex, porque a tela precisa dizer *qual* regra
+ * ainda falta — um "senha inválida" genérico obriga o usuário a adivinhar.
+ *
+ * "Número ou símbolo" é uma regra só, e não duas, porque a exigência é a disjunção: qualquer
+ * um dos dois satisfaz.
+ */
+export const passwordRules: { id: string; label: string; test: (value: string) => boolean }[] = [
+  { id: 'length', label: 'Pelo menos 8 caracteres', test: (v) => v.length >= 8 },
+  // \p{Lu} e \p{Ll} em vez de [A-Z]/[a-z]: "Ática" começa com maiúscula, e um cadastro em
+  // português que não reconhecesse isso recusaria senha válida.
+  { id: 'upper', label: 'Uma letra maiúscula', test: (v) => /\p{Lu}/u.test(v) },
+  { id: 'lower', label: 'Uma letra minúscula', test: (v) => /\p{Ll}/u.test(v) },
+  { id: 'number', label: 'Um número ou símbolo', test: (v) => /[\p{N}\p{P}\p{S}]/u.test(v) },
+];
+
+/**
+ * Estado de cada regra para a senha digitada — é o que a lista da tela renderiza.
+ */
+export const checkPasswordRules = (password: string) =>
+  passwordRules.map((rule) => ({ id: rule.id, label: rule.label, met: rule.test(password) }));
+
+/**
+ * Validação da senha: todas as regras acima.
+ */
+export const isValidPassword = (password: string): boolean =>
+  passwordRules.every((rule) => rule.test(password));

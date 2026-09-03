@@ -10,11 +10,15 @@ import {
   PagamentoUnicoResponse,
   PagamentoUnicoResponseSchema,
   PagamentoUnicoSolicitarInput,
-  PendenteRepasse,
-  PendenteRepasseSchema,
 } from '../schemas/cobrancaSchemas';
 
 const PAGAMENTO_BASE = 'https://lojas.vlks.com.br/api/v1/Pagamento';
+
+/**
+ * Path published in swagger.json (2026-09-02). Backend typo: Pagemento, not Pagamento.
+ * Do not "correct" until the API renames the action.
+ */
+const BUSCA_PAGAMENTO_UNICO_PATH = `${PAGAMENTO_BASE}/Busca/PagementoUnico`;
 
 const isEmpresaDualAccount = (): boolean =>
   sessionService.isEmpresaOwner() || sessionService.getSession().user?.tipo === 'Empresa';
@@ -93,49 +97,27 @@ const parsePaymentResponse = async (
   return result.data;
 };
 
-/** Geolocation + IP público para Location no body Bixs. */
-export const resolvePaymentLocation = async (): Promise<{
-  city: string;
-  ip: string;
-  latitude: number;
-  longitude: number;
-}> => {
-  let city = 'Sao Paulo';
-  let latitude = 0;
-  let longitude = 0;
-  let ip = '0.0.0.0';
+const buildBuscaQuery = (busca?: string, status?: string): string => {
+  const params = new URLSearchParams();
+  if (busca) params.append('busca', busca);
+  if (status && status !== 'Todos') params.append('status', status);
+  const query = params.toString();
+  return query ? `?${query}` : '';
+};
 
-  try {
-    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
-    });
-    latitude = position.coords.latitude;
-    longitude = position.coords.longitude;
-  } catch {
-    // fallback city/coords — city permanece obrigatória no DTO
-  }
-
-  try {
-    const ipResponse = await fetch('https://api.ipify.org?format=json', {
-      signal: AbortSignal.timeout(4000),
-    });
-    if (ipResponse.ok) {
-      const payload: unknown = await ipResponse.json();
-      if (
-        typeof payload === 'object' &&
-        payload !== null &&
-        'ip' in payload &&
-        typeof (payload as { ip: unknown }).ip === 'string' &&
-        (payload as { ip: string }).ip.length > 0
-      ) {
-        ip = (payload as { ip: string }).ip;
-      }
-    }
-  } catch (err) {
-    console.warn('[pagamentoService] Falha ao obter IP público, usando fallback:', err);
-  }
-
-  return { city, ip, latitude, longitude };
+const parseBuscaList = async (
+  response: Response,
+  fallbackMsg: string,
+): Promise<BuscaPagamento[]> => {
+  if (!response.ok) throw new Error((await parseApiError(response)) || fallbackMsg);
+  const raw: unknown = await response.json();
+  const list = Array.isArray(raw) ? raw : [];
+  return list.reduce<BuscaPagamento[]>((acc, item) => {
+    const parsed = BuscaPagamentoSchema.safeParse(item);
+    if (parsed.success) acc.push(parsed.data);
+    else console.warn('[pagamentoService] busca item inválido:', parsed.error.issues, item);
+    return acc;
+  }, []);
 };
 
 /** Service de Pagamento — https://lojas.vlks.com.br/api/v1/Pagamento */
@@ -146,10 +128,6 @@ export const pagamentoService = {
     const body = {
       idCobranca: input.idCobranca,
       metodo: METODO_PAGAMENTO_TO_API[input.metodo],
-      city: input.city,
-      ip: input.ip || '0.0.0.0',
-      latitude: input.latitude ?? 0,
-      longitude: input.longitude ?? 0,
     };
 
     const response = await fetch(`${PAGAMENTO_BASE}/unico-solicitar`, {
@@ -168,10 +146,6 @@ export const pagamentoService = {
     const body = {
       idMensalidade: input.idMensalidade,
       metodo: METODO_PAGAMENTO_TO_API[input.metodo],
-      city: input.city,
-      ip: input.ip || '0.0.0.0',
-      latitude: input.latitude ?? 0,
-      longitude: input.longitude ?? 0,
     };
 
     const response = await fetch(`${PAGAMENTO_BASE}/solicitar`, {
@@ -202,44 +176,15 @@ export const pagamentoService = {
     }, []);
   },
 
-  async buscaPagamentos(busca?: string, status?: string): Promise<BuscaPagamento[]> {
-    const params = new URLSearchParams();
-    if (busca) params.append('busca', busca);
-    if (status && status !== 'Todos') params.append('status', status);
-    const query = params.toString();
-    const url = `${PAGAMENTO_BASE}/Busca${query ? `?${query}` : ''}`;
-
+  async buscaMensalidades(busca?: string, status?: string): Promise<BuscaPagamento[]> {
+    const url = `${PAGAMENTO_BASE}/Busca/Mensalidades${buildBuscaQuery(busca, status)}`;
     const response = await fetch(url, { headers: buildHeaders() });
-    if (!response.ok) throw new Error((await parseApiError(response)) || 'Erro ao buscar pagamentos');
-    const raw: unknown = await response.json();
-    const list = Array.isArray(raw) ? raw : [];
-    return list.reduce<BuscaPagamento[]>((acc, item) => {
-      const parsed = BuscaPagamentoSchema.safeParse(item);
-      if (parsed.success) acc.push(parsed.data);
-      else console.warn('[pagamentoService] busca item inválido:', parsed.error.issues, item);
-      return acc;
-    }, []);
+    return parseBuscaList(response, 'Erro ao buscar mensalidades');
   },
 
-  async getPendentesRepasse(): Promise<PendenteRepasse[]> {
-    const response = await fetch(`${PAGAMENTO_BASE}/pendentes-repasse`, { headers: buildHeaders() });
-    if (!response.ok) throw new Error((await parseApiError(response)) || 'Erro ao buscar repasses pendentes');
-    const raw: unknown = await response.json();
-    const list = Array.isArray(raw) ? raw : [];
-    return list.reduce<PendenteRepasse[]>((acc, item) => {
-      const parsed = PendenteRepasseSchema.safeParse(item);
-      if (parsed.success) acc.push(parsed.data);
-      else console.warn('[pagamentoService] repasse item inválido:', parsed.error.issues, item);
-      return acc;
-    }, []);
-  },
-
-  async confirmarRepasse(idPagamento: number, comprovantePath: string): Promise<void> {
-    const response = await fetch(`${PAGAMENTO_BASE}/${idPagamento}/confirmar-repasse`, {
-      method: 'POST',
-      headers: buildHeaders(),
-      body: JSON.stringify(comprovantePath),
-    });
-    if (!response.ok) throw new Error(await parseApiError(response) || 'Erro ao confirmar repasse');
+  async buscaPagamentoUnico(busca?: string, status?: string): Promise<BuscaPagamento[]> {
+    const url = `${BUSCA_PAGAMENTO_UNICO_PATH}${buildBuscaQuery(busca, status)}`;
+    const response = await fetch(url, { headers: buildHeaders() });
+    return parseBuscaList(response, 'Erro ao buscar pagamentos únicos');
   },
 };

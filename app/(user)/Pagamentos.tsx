@@ -10,10 +10,7 @@ import { useToast } from '../../context/ToastContext';
 import { jsPDF } from 'jspdf';
 import { SearchSelect } from '../../components/ui/SearchSelect';
 import { formFilterInputClass, formSearchInputClass } from '../../components/ui/formStyles';
-import {
-  pagamentoService,
-  resolvePaymentLocation,
-} from '../../features/single-payment/services/pagamentoService';
+import { pagamentoService } from '../../features/single-payment/services/pagamentoService';
 import { MetodoPagamento, PagamentoUnicoResponse } from '../../features/single-payment/schemas/cobrancaSchemas';
 import { PaymentResultModal } from '../../features/single-payment/components/CobrancaPayDialogs';
 import { RequireAddressDialog } from '../../features/address/components/RequireAddressDialog';
@@ -92,7 +89,7 @@ export const Pagamentos: React.FC = () => {
     try {
       let data: any[] = [];
       if (searchTerm || (filters.status && filters.status !== 'Todos')) {
-          data = await pagamentoService.buscaPagamentos(searchTerm, filters.status);
+          data = await pagamentoService.buscaMensalidades(searchTerm, filters.status);
       } else {
           const today = new Date();
           data = await pagamentoService.getExtrato(today.getMonth() + 1, today.getFullYear());
@@ -248,11 +245,9 @@ export const Pagamentos: React.FC = () => {
 
   const runMensalidadePayment = async (): Promise<PagamentoUnicoResponse> => {
     if (!selectedInvoice) throw new Error('Fatura não selecionada');
-    const location = await resolvePaymentLocation();
     return pagamentoService.solicitarMensalidade({
       idMensalidade: selectedInvoice.idMensalidade,
       metodo: mapUiMethodToApi(paymentMethod),
-      ...location,
     });
   };
 

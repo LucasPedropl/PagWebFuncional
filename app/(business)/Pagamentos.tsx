@@ -61,7 +61,7 @@ export const Pagamentos: React.FC = () => {
     try {
         let data: any[] = [];
         if (searchTerm || (statusFilter && statusFilter !== 'Todos')) {
-            data = await pagamentoService.buscaPagamentos(searchTerm, statusFilter);
+            data = await pagamentoService.buscaMensalidades(searchTerm, statusFilter);
         } else {
             // Default to extrato
             const today = new Date();

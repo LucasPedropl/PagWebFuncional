@@ -22,6 +22,7 @@ import {
   isValidPhone,
   isValidEmail,
   isValidName,
+  isValidPassword,
 } from '../../utils/validators';
 
 const emptyForm = (): RegisterFormData => ({
@@ -169,8 +170,10 @@ export const Register: React.FC = () => {
         setError('E-mail inválido.');
         return false;
       }
-      if (formData.password.length < 6) {
-        setError('A senha deve ter pelo menos 6 caracteres.');
+      if (!isValidPassword(formData.password)) {
+        setError(
+          'A senha deve conter pelo menos 8 caracteres, incluindo uma letra maiúscula, uma letra minúscula e um número ou símbolo especial.',
+        );
         return false;
       }
       if (formData.password !== formData.confirmPassword) {
@@ -302,8 +305,9 @@ export const Register: React.FC = () => {
       sobreNome: `User ${random}`,
       cpf: randomCPF,
       email: isEmailLocked ? prev.email : `teste${random}@example.com`,
-      password: '123123',
-      confirmPassword: '123123',
+      // Precisa satisfazer a regra da senha, senão o próprio atalho de teste reprova no passo 2.
+      password: 'Teste@123',
+      confirmPassword: 'Teste@123',
       telefone: `(11) 9${Math.floor(Math.random() * 8999 + 1000)}-${Math.floor(Math.random() * 8999 + 1000)}`,
       companyNome: `Empresa ${random}`,
       companyCnpj: '12.345.678/0001-96', // CNPJ de teste com dígitos verificadores corretos

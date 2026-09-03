@@ -5,7 +5,7 @@ import {
   PagamentoUnicoResponse,
 } from '../schemas/cobrancaSchemas';
 import { cobrancaService } from '../services/cobrancaService';
-import { pagamentoService, resolvePaymentLocation } from '../services/pagamentoService';
+import { pagamentoService } from '../services/pagamentoService';
 
 interface UseUserCobrancasResult {
   cobrancas: Cobranca[];
@@ -48,11 +48,9 @@ export const useUserCobrancas = (): UseUserCobrancasResult => {
 
   const pagarCobranca = useCallback(
     async (idCobranca: number, metodo: MetodoPagamento): Promise<PagamentoUnicoResponse> => {
-      const location = await resolvePaymentLocation();
       const result = await pagamentoService.solicitarPagamentoUnico({
         idCobranca,
         metodo,
-        ...location,
       });
 
       await refresh();
