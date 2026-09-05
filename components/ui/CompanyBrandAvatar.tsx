@@ -24,7 +24,7 @@ export const CompanyBrandAvatar: React.FC<CompanyBrandAvatarProps> = ({
   if (showImage) {
     return (
       <div
-        className={`${className} overflow-hidden shrink-0 bg-white flex items-center justify-center`}
+        className={`${className} overflow-hidden shrink-0 bg-transparent flex items-center justify-center`}
         aria-label={name}
         title={name}
       >

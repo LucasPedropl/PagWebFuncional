@@ -49,7 +49,7 @@ export const ViewSwitcherPanel: React.FC<ViewSwitcherPanelProps> = ({
           <img
             src={getImageUrl(companyProfile.logo)}
             alt=""
-            className="w-full h-full object-contain p-0.5 bg-white"
+            className="w-full h-full object-contain bg-transparent"
           />
         ) : (
           <span className="text-[11px] font-semibold">{getProfileInitials(companyProfile?.nome)}</span>
