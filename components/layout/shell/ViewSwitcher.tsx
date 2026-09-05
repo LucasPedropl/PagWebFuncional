@@ -56,7 +56,11 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
 
   const avatarContent = isBusinessPanel ? (
     companyProfile?.logo ? (
-      <img src={getImageUrl(companyProfile.logo)} alt="" className="w-full h-full object-cover" />
+      <img
+        src={getImageUrl(companyProfile.logo)}
+        alt=""
+        className="w-full h-full object-contain p-0.5 bg-white"
+      />
     ) : (
       <span className="text-[11px] font-semibold text-slate-300">
         {getProfileInitials(companyProfile?.nome || userProfile?.nome || sessionName)}

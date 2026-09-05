@@ -16,12 +16,16 @@ export const ExploreEstablishmentCardItem: React.FC<ExploreEstablishmentCardItem
     className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all cursor-pointer group flex flex-col"
     onClick={onClick}
   >
-    <div className="relative h-40 md:h-48 overflow-hidden bg-slate-100 flex items-center justify-center">
+    <div className="relative h-40 md:h-48 overflow-hidden bg-slate-50 flex items-center justify-center p-5 md:p-6">
       <CompanyBrandAvatar
         name={establishment.name}
         logoUrl={establishment.logoUrl}
         seed={establishment.idEmpresa}
-        className="w-24 h-24 md:w-28 md:h-28 rounded-2xl"
+        className={
+          establishment.logoUrl
+            ? 'h-full w-full max-w-[14rem] rounded-2xl'
+            : 'w-24 h-24 md:w-28 md:h-28 rounded-2xl'
+        }
         textClassName="text-2xl md:text-3xl font-bold"
       />
       {establishment.isConnected && (
