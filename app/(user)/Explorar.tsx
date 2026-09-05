@@ -16,11 +16,14 @@ import {
   Package,
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
-import { SearchSelect } from '../../components/ui/SearchSelect';
 import { CompanyBrandAvatar } from '../../components/ui/CompanyBrandAvatar';
 import { ExploreEstablishmentCardItem } from '../../components/features/explore/ExploreEstablishmentCardItem';
 import { ExplorePlanCardItem } from '../../components/features/explore/ExplorePlanCardItem';
 import { ExploreCatalogCardItem } from '../../components/features/explore/ExploreCatalogCardItem';
+import {
+  ExploreCatalogTab,
+  ExploreHeroFilters,
+} from '../../components/features/explore/ExploreHeroFilters';
 import { PlanSubscribeModal } from '../../components/features/subscribe/PlanSubscribeModal';
 import { PlanChatRequestModal } from '../../components/features/plans/PlanChatRequestModal';
 import { usePublicCompanies } from '../../hooks/usePublicCompanies';
@@ -28,6 +31,7 @@ import { usePlanSubscribe } from '../../hooks/usePlanSubscribe';
 import { usePlanChatRequestModal } from '../../hooks/usePlanChatRequestModal';
 import { useExploreCatalog } from '../../features/catalog/hooks/usePublicCatalog';
 import { mapPublicCompanyToCard } from '../../utils/publicCompany';
+import { BRAZIL_UF_VALUES } from '../../features/address/schemas/enderecoSchemas';
 import { userService } from '../../services/userService';
 import {
   allowsClientSelfSubscribe,
@@ -42,7 +46,10 @@ import {
   PlanResponse,
 } from '../../types';
 
-type ExploreTab = 'estabelecimentos' | 'planos' | 'servicos' | 'produtos';
+type ExploreTab = ExploreCatalogTab;
+
+const ALL_LOCATION_UF = 'todos';
+const ALL_LOCATION_CITY = 'todas';
 
 export const Explorar: React.FC = () => {
   const navigate = useNavigate();
@@ -63,6 +70,8 @@ export const Explorar: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState('Todos');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+  const [locationUf, setLocationUf] = useState(ALL_LOCATION_UF);
+  const [locationCity, setLocationCity] = useState(ALL_LOCATION_CITY);
 
   const [connectedIds, setConnectedIds] = useState<Set<number>>(new Set());
   const [planCountByCompany, setPlanCountByCompany] = useState<Record<number, number>>({});
@@ -213,6 +222,55 @@ export const Explorar: React.FC = () => {
     [companies, connectedIds, planCountByCompany],
   );
 
+  const locationByEmpresaId = useMemo(() => {
+    const map = new Map<number, { cidade?: string; estado?: string }>();
+    establishments.forEach((est) => {
+      map.set(est.idEmpresa, { cidade: est.cidade, estado: est.estado });
+    });
+    return map;
+  }, [establishments]);
+
+  const matchesLocation = (idEmpresa: number): boolean => {
+    if (locationUf === ALL_LOCATION_UF && locationCity === ALL_LOCATION_CITY) return true;
+    const loc = locationByEmpresaId.get(idEmpresa);
+    if (!loc) return false;
+    if (locationUf !== ALL_LOCATION_UF && loc.estado !== locationUf) return false;
+    if (locationCity !== ALL_LOCATION_CITY) {
+      return (loc.cidade ?? '').toLowerCase() === locationCity.toLowerCase();
+    }
+    return true;
+  };
+
+  const ufOptions = useMemo(
+    () => [
+      { value: ALL_LOCATION_UF, label: 'Todos os estados' },
+      ...BRAZIL_UF_VALUES.map((uf) => ({ value: uf, label: uf })),
+    ],
+    [],
+  );
+
+  const cityOptions = useMemo(() => {
+    const cities = new Set<string>();
+    establishments.forEach((est) => {
+      if (!est.cidade) return;
+      if (locationUf !== ALL_LOCATION_UF && est.estado !== locationUf) return;
+      cities.add(est.cidade);
+    });
+    return [
+      { value: ALL_LOCATION_CITY, label: 'Todas as cidades' },
+      ...[...cities].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((cidade) => ({
+        value: cidade,
+        label: cidade,
+      })),
+    ];
+  }, [establishments, locationUf]);
+
+  useEffect(() => {
+    if (locationCity === ALL_LOCATION_CITY) return;
+    const stillExists = cityOptions.some((opt) => opt.value === locationCity);
+    if (!stillExists) setLocationCity(ALL_LOCATION_CITY);
+  }, [cityOptions, locationCity]);
+
   const filteredEstablishments = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     return establishments.filter((est) => {
@@ -224,9 +282,9 @@ export const Explorar: React.FC = () => {
         connectionStatus === 'Todos' ||
         (connectionStatus === 'Conectados' && est.isConnected) ||
         (connectionStatus === 'NaoConectados' && !est.isConnected);
-      return matchesSearch && matchesConnection;
+      return matchesSearch && matchesConnection && matchesLocation(est.idEmpresa);
     });
-  }, [establishments, searchTerm, connectionStatus]);
+  }, [establishments, searchTerm, connectionStatus, locationUf, locationCity, locationByEmpresaId]);
 
   const filteredPlans = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -238,9 +296,9 @@ export const Explorar: React.FC = () => {
         plan.features.some((f) => f.toLowerCase().includes(query));
       const matchesMin = !minPrice || plan.price >= Number(minPrice);
       const matchesMax = !maxPrice || plan.price <= Number(maxPrice);
-      return matchesSearch && matchesMin && matchesMax;
+      return matchesSearch && matchesMin && matchesMax && matchesLocation(plan.idEmpresa);
     });
-  }, [allPlans, searchTerm, minPrice, maxPrice]);
+  }, [allPlans, searchTerm, minPrice, maxPrice, locationUf, locationCity, locationByEmpresaId]);
 
   const companyNameById = useMemo(() => {
     const map = new Map<number, string>();
@@ -261,9 +319,9 @@ export const Explorar: React.FC = () => {
         item.descricao.toLowerCase().includes(query);
       const matchesMin = !minPrice || item.preco >= Number(minPrice);
       const matchesMax = !maxPrice || item.preco <= Number(maxPrice);
-      return matchesSearch && matchesMin && matchesMax;
+      return matchesSearch && matchesMin && matchesMax && matchesLocation(item.idEmpresa);
     });
-  }, [catalogItems, searchTerm, minPrice, maxPrice, companyNameById]);
+  }, [catalogItems, searchTerm, minPrice, maxPrice, companyNameById, locationUf, locationCity, locationByEmpresaId]);
 
   const filteredProducts = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -278,9 +336,9 @@ export const Explorar: React.FC = () => {
         item.descricao.toLowerCase().includes(query);
       const matchesMin = !minPrice || item.preco >= Number(minPrice);
       const matchesMax = !maxPrice || item.preco <= Number(maxPrice);
-      return matchesSearch && matchesMin && matchesMax;
+      return matchesSearch && matchesMin && matchesMax && matchesLocation(item.idEmpresa);
     });
-  }, [catalogItems, searchTerm, minPrice, maxPrice, companyNameById]);
+  }, [catalogItems, searchTerm, minPrice, maxPrice, companyNameById, locationUf, locationCity, locationByEmpresaId]);
 
   const openEstablishment = async (est: ExploreEstablishmentCard) => {
     setSelectedEstablishment(est);
@@ -349,7 +407,11 @@ export const Explorar: React.FC = () => {
               />
             </div>
             <Button
-              className="py-3 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+              className={`py-3 px-6 rounded-xl border shadow-none ${
+                showFilters
+                  ? 'bg-white text-slate-900 border-white hover:bg-slate-100'
+                  : 'bg-white/10 text-white border-white/20 hover:bg-white/15'
+              }`}
               onClick={() => setShowFilters(!showFilters)}
             >
               <Filter className="w-5 h-5 mr-2" />
@@ -357,36 +419,24 @@ export const Explorar: React.FC = () => {
             </Button>
           </div>
           {showFilters && (
-            <div className="mt-4 p-4 bg-slate-800/50 rounded-xl border border-slate-700 max-w-3xl">
-              {activeTab === 'estabelecimentos' ? (
-                <SearchSelect
-                  options={[
-                    { value: 'Todos', label: 'Todos' },
-                    { value: 'Conectados', label: 'Já Conectados' },
-                    { value: 'NaoConectados', label: 'Não Conectados' },
-                  ]}
-                  value={connectionStatus}
-                  onChange={(val) => setConnectionStatus(val.toString())}
-                />
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    placeholder="Min R$"
-                    value={minPrice}
-                    onChange={(e) => setMinPrice(e.target.value)}
-                    className={`w-full px-3.5 py-2.5 border border-slate-600 ${FORM_RADIUS} bg-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/20`}
-                  />
-                  <input
-                    type="number"
-                    placeholder="Max R$"
-                    value={maxPrice}
-                    onChange={(e) => setMaxPrice(e.target.value)}
-                    className={`w-full px-3.5 py-2.5 border border-slate-600 ${FORM_RADIUS} bg-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/20`}
-                  />
-                </div>
-              )}
-            </div>
+            <ExploreHeroFilters
+              activeTab={activeTab}
+              connectionStatus={connectionStatus}
+              onConnectionStatusChange={setConnectionStatus}
+              locationUf={locationUf}
+              onLocationUfChange={(uf) => {
+                setLocationUf(uf);
+                setLocationCity(ALL_LOCATION_CITY);
+              }}
+              locationCity={locationCity}
+              onLocationCityChange={setLocationCity}
+              ufOptions={ufOptions}
+              cityOptions={cityOptions}
+              minPrice={minPrice}
+              maxPrice={maxPrice}
+              onMinPriceChange={setMinPrice}
+              onMaxPriceChange={setMaxPrice}
+            />
           )}
         </div>
       </div>

@@ -12,10 +12,11 @@ import {
   Menu as MenuIcon,
   MessageCircle,
   MessageSquare,
-  Scissors,
+  Briefcase,
   Banknote,
   Tags,
   Package,
+  LayoutList,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { userService } from '../../services/userService';
@@ -214,12 +215,12 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
     { icon: Users, label: 'Clientes', path: '/business/clientes' },
     { icon: Layers, label: 'Planos', path: '/business/planos' },
     {
-      icon: Scissors,
-      label: 'Serviços',
+      icon: LayoutList,
+      label: 'Catálogo',
       children: [
         { label: 'Categorias', path: '/business/categorias', icon: Tags },
         { label: 'Produtos', path: '/business/produtos', icon: Package },
-        { label: 'Catálogo', path: '/business/servicos', icon: Scissors },
+        { label: 'Serviços', path: '/business/servicos', icon: Briefcase },
       ],
     },
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },

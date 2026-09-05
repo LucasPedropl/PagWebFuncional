@@ -73,6 +73,8 @@ export interface ExploreEstablishmentCard {
   telefone?: string;
   isConnected: boolean;
   planCount: number;
+  cidade?: string;
+  estado?: string;
 }
 
 /** Card de plano agregado na aba Planos do Explorar. */

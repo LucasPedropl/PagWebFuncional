@@ -13,7 +13,7 @@ import {
   ChevronRight,
   LogOut,
   MessageCircle,
-  Scissors,
+  Briefcase,
   Banknote,
   Tags,
   Package,
@@ -27,14 +27,14 @@ export const MenuMobile: React.FC = () => {
   const quickActions = [
     { label: 'Novo Cliente', path: '/business/clientes', icon: Users },
     { label: 'Novo Plano', path: '/business/planos', icon: Layers },
-    { label: 'Novo Serviço', path: '/business/servicos', icon: Scissors },
+    { label: 'Novo Serviço', path: '/business/servicos', icon: Briefcase },
   ];
 
   const allPages = [
     { icon: LayoutGrid, label: 'Overview / Dashboard', path: '/business/dashboard' },
     { icon: Users, label: 'Clientes', path: '/business/clientes' },
     { icon: Layers, label: 'Planos', path: '/business/planos' },
-    { icon: Scissors, label: 'Catálogo de Serviços', path: '/business/servicos' },
+    { icon: Briefcase, label: 'Serviços', path: '/business/servicos' },
     { icon: Package, label: 'Produtos', path: '/business/produtos' },
     { icon: Tags, label: 'Categorias', path: '/business/categorias' },
     { icon: CreditCard, label: 'Assinaturas', path: '/business/assinaturas' },

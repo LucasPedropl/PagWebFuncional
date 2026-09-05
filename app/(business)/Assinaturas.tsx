@@ -14,6 +14,7 @@ import { SearchSelect } from '../../components/ui/SearchSelect';
 import {
   formFilterInputClass,
   formFilterInputWithIconClass,
+  formInputClass,
   formLabelClass,
   formSearchInputClass,
   formSelectClass,
@@ -959,45 +960,45 @@ export const Assinaturas: React.FC = () => {
             </div>
           </div>
 
-          {/* Dia de Pagamento e Desconto */}
-          <div className="grid grid-cols-2 gap-4">
-             <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-gray-700 flex items-center">
-                    Dia do Fechamento
-                    <InfoTooltip text="É o dia em que a fatura fecha. O vencimento dela ocorre 7 dias após a data de fechamento." />
-                </label>
-                <div className="relative">
-                    <SearchSelect
-                        options={Array.from({ length: 30 }, (_, i) => ({ value: (i + 1).toString(), label: (i + 1).toString() }))}
-                        value={formData.diaPagamento}
-                        onChange={(val) => setFormData(prev => ({ ...prev, diaPagamento: val.toString() }))}
-                    />
-                </div>
-                {parseInt(formData.diaPagamento) > 28 && (
-                    <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-amber-600 bg-amber-50 p-2 rounded-md animate-in fade-in slide-in-from-top-1">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>Como você selecionou o dia <strong>{formData.diaPagamento}</strong>, em meses que não possuem esse dia (ex: Fevereiro), o fechamento será ajustado automaticamente para o último dia disponível do mês.</span>
-                    </div>
-                )}
-             </div>
-
-             <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-gray-700">Desconto</label>
-                <div className="relative">
-                    <input
-                        type="number"
-                        name="desconto"
-                        value={formData.desconto}
-                        onChange={handleInputChange}
-                        className={formFilterInputWithIconClass}
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
-                      {Number(formData.tipoDesconto) === TIPO_DESCONTO.ValorFixo ? 'R$' : '%'}
-                    </span>
-                </div>
+          {/* Dia de Pagamento */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-gray-700 flex items-center">
+              Dia do Fechamento
+              <InfoTooltip text="É o dia em que a fatura fecha. O vencimento dela ocorre 7 dias após a data de fechamento." />
+            </label>
+            <div className="relative max-w-[12rem]">
+              <SearchSelect
+                options={Array.from({ length: 30 }, (_, i) => ({ value: (i + 1).toString(), label: (i + 1).toString() }))}
+                value={formData.diaPagamento}
+                onChange={(val) => setFormData(prev => ({ ...prev, diaPagamento: val.toString() }))}
+              />
             </div>
-            <div className="flex flex-col gap-1.5">
+            {parseInt(formData.diaPagamento) > 28 && (
+              <div className="mt-1.5 flex items-start gap-1.5 text-[11px] text-amber-600 bg-amber-50 p-2 rounded-md animate-in fade-in slide-in-from-top-1">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>Como você selecionou o dia <strong>{formData.diaPagamento}</strong>, em meses que não possuem esse dia (ex: Fevereiro), o fechamento será ajustado automaticamente para o último dia disponível do mês.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Desconto e tipo — linha própria; o grid aninhado na metade do modal esmagava os dois campos. */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <label className="text-sm font-medium text-gray-700">Desconto</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  name="desconto"
+                  value={formData.desconto}
+                  onChange={handleInputChange}
+                  className={`${formInputClass} pr-8`}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+                  {Number(formData.tipoDesconto) === TIPO_DESCONTO.ValorFixo ? 'R$' : '%'}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5 min-w-0">
               <label className={formLabelClass}>Tipo de desconto</label>
               <select
                 name="tipoDesconto"
@@ -1009,7 +1010,6 @@ export const Assinaturas: React.FC = () => {
                 <option value={TIPO_DESCONTO.ValorFixo}>Valor fixo (R$)</option>
               </select>
             </div>
-          </div>
           </div>
 
           {/* Observação */}

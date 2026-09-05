@@ -43,9 +43,9 @@ export const PlanServiceBenefitsEditor: React.FC<PlanServiceBenefitsEditorProps>
 
   if (services.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50 p-4 text-sm text-amber-800">
-        Cadastre serviços em <strong>Serviços</strong> antes de vinculá-los ao plano.
-        Esta configuração fica salva localmente até o backend estar disponível.
+      <div className="space-y-3">
+        <label className={formLabelClass}>Serviços inclusos no plano</label>
+        <p className="text-sm text-gray-400 italic">Nenhum serviço cadastrado no catálogo.</p>
       </div>
     );
   }

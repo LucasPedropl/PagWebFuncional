@@ -18,6 +18,9 @@ export const mapPublicCompanyToCard = (
 		? `Contato: ${formatPhone(telefone)}`
 		: 'Estabelecimento parceiro disponível no PagWeb.';
 
+	const cidade = company.enderecoEmpresa?.cidade?.trim() || undefined;
+	const estado = company.enderecoEmpresa?.estado?.trim().toUpperCase() || undefined;
+
 	return {
 		idEmpresa: company.idEmpresa,
 		name: company.nome,
@@ -26,6 +29,8 @@ export const mapPublicCompanyToCard = (
 		telefone,
 		isConnected: options?.isConnected ?? false,
 		planCount: options?.planCount ?? 0,
+		cidade,
+		estado,
 	};
 };
 

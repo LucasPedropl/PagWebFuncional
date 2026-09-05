@@ -35,7 +35,7 @@ const rotasBusiness: Array<[string, string | RegExp]> = [
   ['/business/planos', 'Catálogo de Planos'],
   ['/business/categorias', 'Categorias'],
   ['/business/produtos', 'Produtos'],
-  ['/business/servicos', 'Catálogo de Serviços'],
+  ['/business/servicos', 'Serviços'],
   ['/business/assinaturas', 'Assinaturas'],
   ['/business/pagamentos', 'Gestão de Cobranças'],
   ['/business/relatorios', 'Relatórios de Performance'],

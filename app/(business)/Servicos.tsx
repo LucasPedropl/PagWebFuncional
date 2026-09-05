@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
 import { Modal } from '../../components/ui/Modal';
-import { Plus, Scissors, Loader2, Edit2, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Briefcase, Loader2, Edit2, Trash2, AlertCircle } from 'lucide-react';
 import { companyService } from '../../services/companyService';
 import { useToast } from '../../context/ToastContext';
 import { useServicos } from '../../features/catalog/hooks/useServicos';
@@ -116,7 +116,7 @@ export const Servicos: React.FC = () => {
     <BusinessLayout>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Catálogo de Serviços</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Serviços</h1>
           <p className="text-gray-500 mt-1">Serviços sincronizados com a API PagWeb.</p>
         </div>
         <Button onClick={openCreate}>
@@ -136,7 +136,7 @@ export const Servicos: React.FC = () => {
         </div>
       ) : servicos.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <Scissors className="w-10 h-10 text-gray-300 mx-auto" />
+          <Briefcase className="w-10 h-10 text-gray-300 mx-auto" />
           <p className="mt-3 text-gray-600">Nenhum serviço cadastrado.</p>
         </div>
       ) : (
