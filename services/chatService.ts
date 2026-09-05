@@ -11,13 +11,16 @@ import {
   touchCachedChatMessage,
   upsertCachedChat,
 } from '../utils/chatCache';
+import { formatPersonFullName } from '../utils/personDisplayName';
 import {
   ApiChatResponse,
+  applyDirectoryClientNames,
   dedupeChatsByThread,
   mapApiChatsForBusiness,
   mapApiChatsForClient,
   mergeChatLists,
 } from './chatListMapper';
+import { businessService } from './businessService';
 import { mapApiChatMessage } from '../utils/mapApiChatMessage';
 import {
   applyMessageTipoOverrides,
@@ -28,6 +31,37 @@ import {
 const API_BASE = 'https://lojas.vlks.com.br/api';
 
 const chatCreateInFlight = new Map<string, Promise<Chat>>();
+
+let businessClientNamesCache: { at: number; byId: Map<number, string> } | null = null;
+const BUSINESS_CLIENT_NAMES_TTL_MS = 60_000;
+
+interface ClientDirectoryRow {
+  idUser?: number;
+  IdUser?: number;
+  nome?: string;
+  Nome?: string;
+  sobreNome?: string;
+  SobreNome?: string;
+}
+
+const loadBusinessClientNamesById = async (): Promise<Map<number, string>> => {
+  if (
+    businessClientNamesCache &&
+    Date.now() - businessClientNamesCache.at < BUSINESS_CLIENT_NAMES_TTL_MS
+  ) {
+    return businessClientNamesCache.byId;
+  }
+
+  const clients = await businessService.listClients();
+  const byId = new Map<number, string>();
+  for (const row of clients as ClientDirectoryRow[]) {
+    const id = Number(row.idUser ?? row.IdUser);
+    const name = formatPersonFullName(row.nome ?? row.Nome, row.sobreNome ?? row.SobreNome);
+    if (id > 0 && name) byId.set(id, name);
+  }
+  businessClientNamesCache = { at: Date.now(), byId };
+  return byId;
+};
 
 const buildThreadKey = (idEmpresa: number, idCliente: number): string =>
   `${idEmpresa}:${idCliente}`;
@@ -155,8 +189,12 @@ export const chatService = {
         : mapApiChatsForClient(data, currentUserId, user.nome || 'Cliente');
 
     const merged = applyReadPendingSync(mergeChatLists(mapped, cachedFallback));
-    merged.forEach((chat) => upsertCachedChat(chat));
-    return merged;
+    const withDirectoryNames =
+      audience === 'business'
+        ? applyDirectoryClientNames(merged, await loadBusinessClientNamesById())
+        : merged;
+    withDirectoryNames.forEach((chat) => upsertCachedChat(chat));
+    return withDirectoryNames;
   },
 
   async getChatMessages(idChat: number): Promise<ChatMessage[]> {

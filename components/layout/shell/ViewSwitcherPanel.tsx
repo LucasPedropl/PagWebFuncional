@@ -40,6 +40,7 @@ export const ViewSwitcherPanel: React.FC<ViewSwitcherPanelProps> = ({
       Ambientes
     </p>
     <SwitcherOption
+      tone="business"
       active={activeView === 'business'}
       title="Estabelecimento"
       subtitle={businessSubtitle ?? 'Planos, clientes e cobranças'}
@@ -57,6 +58,7 @@ export const ViewSwitcherPanel: React.FC<ViewSwitcherPanelProps> = ({
       }
     />
     <SwitcherOption
+      tone="client"
       active={activeView === 'client'}
       title="Cliente"
       subtitle="Assinaturas e faturas"
@@ -80,33 +82,48 @@ export const ViewSwitcherPanel: React.FC<ViewSwitcherPanelProps> = ({
 );
 
 const SwitcherOption: React.FC<{
+  tone: ShellAudience;
   active: boolean;
   title: string;
   subtitle: string;
   onClick: () => void;
   avatar: React.ReactNode;
   borderedTop?: boolean;
-}> = ({ active, title, subtitle, onClick, avatar, borderedTop }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors hover:bg-slate-50 ${
-      borderedTop ? 'border-t border-slate-100' : ''
-    } ${active ? 'bg-slate-50' : ''}`}
-  >
-    <div className="flex items-center gap-2.5 min-w-0">
-      <div
-        className={`w-8 h-8 ${SHELL_R} flex items-center justify-center border overflow-hidden shrink-0 ${
-          active ? 'border-slate-900 ring-1 ring-slate-900/10 bg-white' : 'border-slate-200 bg-slate-50 text-slate-600'
-        }`}
-      >
-        {avatar}
+}> = ({ tone, active, title, subtitle, onClick, avatar, borderedTop }) => {
+  const isClient = tone === 'client';
+  const surface = isClient
+    ? active
+      ? 'bg-blue-100 hover:bg-blue-100 border-l-[3px] border-l-blue-600'
+      : 'bg-blue-50 hover:bg-blue-100/80 border-l-[3px] border-l-blue-400'
+    : active
+      ? 'bg-slate-200 hover:bg-slate-200 border-l-[3px] border-l-slate-800'
+      : 'bg-slate-100 hover:bg-slate-200/80 border-l-[3px] border-l-slate-500';
+  const avatarRing = isClient
+    ? 'border-blue-200 bg-white text-blue-700'
+    : 'border-slate-300 bg-white text-slate-700';
+  const checkClass = isClient ? 'text-blue-700' : 'text-slate-800';
+  const subtitleClass = isClient ? 'text-blue-700/80' : 'text-slate-600';
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left transition-colors ${
+        borderedTop ? 'border-t border-slate-200/80' : ''
+      } ${surface}`}
+    >
+      <div className="flex items-center gap-2.5 min-w-0">
+        <div
+          className={`w-8 h-8 ${SHELL_R} flex items-center justify-center border overflow-hidden shrink-0 ${avatarRing}`}
+        >
+          {avatar}
+        </div>
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-slate-900 truncate">{title}</p>
+          <p className={`text-[11px] truncate ${subtitleClass}`}>{subtitle}</p>
+        </div>
       </div>
-      <div className="min-w-0">
-        <p className="text-[13px] font-semibold text-slate-900 truncate">{title}</p>
-        <p className="text-[11px] text-slate-500 truncate">{subtitle}</p>
-      </div>
-    </div>
-    {active ? <Check size={15} className="text-slate-900 shrink-0" strokeWidth={2.5} /> : null}
-  </button>
-);
+      {active ? <Check size={15} className={`${checkClass} shrink-0`} strokeWidth={2.5} /> : null}
+    </button>
+  );
+};

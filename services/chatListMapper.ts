@@ -1,8 +1,13 @@
 import { Chat } from '../types';
+import { formatPersonFullName, isGenericChatClientLabel } from '../utils/personDisplayName';
 
 export interface ApiChatResponse {
   idChat: number;
   nomeUsario?: string;
+  nomeUsuario?: string;
+  nome?: string;
+  sobreNome?: string;
+  sobreNomeUsuario?: string;
   idUsuario?: number;
   fotoUsuario?: string | null;
   idEMpresa?: number;
@@ -13,6 +18,12 @@ export interface ApiChatResponse {
   dataHora?: string | null;
   naoLidas?: number;
 }
+
+const clientNameFromApiChat = (rc: ApiChatResponse): string =>
+  formatPersonFullName(
+    rc.nomeUsuario || rc.nomeUsario || rc.nome,
+    rc.sobreNomeUsuario || rc.sobreNome,
+  );
 
 export const mapApiChatsForBusiness = (
   data: ApiChatResponse[],
@@ -25,7 +36,7 @@ export const mapApiChatsForBusiness = (
     nomeEmpresa,
     logoEmpresa: null,
     idCliente: Number(rc.idUsuario ?? 0),
-    nomeCliente: String(rc.nomeUsario || 'Cliente'),
+    nomeCliente: clientNameFromApiChat(rc) || 'Cliente',
     fotoCliente: rc.fotoUsuario || null,
     ultimaMensagem: rc.ultimaMensagem || '',
     ultimaMensagemData: rc.dataHora || new Date().toISOString(),
@@ -88,3 +99,17 @@ export const dedupeChatsByThread = (chats: Chat[]): Chat[] => {
 
 export const mergeChatLists = (primary: Chat[], fallback: Chat[]): Chat[] =>
   dedupeChatsByThread([...fallback, ...primary]);
+
+/** Completa o nome do cliente com o cadastro (Nome+SobreNome). O GET /Chats só manda o primeiro nome. */
+export const applyDirectoryClientNames = (
+  chats: Chat[],
+  namesByClientId: Map<number, string>,
+): Chat[] =>
+  chats.map((chat) => {
+    const directoryName = namesByClientId.get(chat.idCliente)?.trim();
+    if (!directoryName) return chat;
+    if (!isGenericChatClientLabel(chat.nomeCliente) && chat.nomeCliente.trim().length >= directoryName.length) {
+      return chat;
+    }
+    return { ...chat, nomeCliente: directoryName };
+  });

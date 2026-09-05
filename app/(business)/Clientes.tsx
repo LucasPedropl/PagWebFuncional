@@ -14,6 +14,7 @@ import { formSearchInputClass } from '../../components/ui/formStyles';
 import { SeedTestClientsModal } from '../../features/test-clients/components/SeedTestClientsModal';
 import { isTestClientEmail } from '../../features/test-clients/utils/testClientGenerators';
 import { openTestClientDashboardInNewTab } from '../../features/test-clients/utils/openTestClientDashboard';
+import { formatPersonFullName } from '../../utils/personDisplayName';
 
 export const Clientes: React.FC = () => {
   const navigate = useNavigate();
@@ -58,7 +59,7 @@ export const Clientes: React.FC = () => {
 
   const handleOpenChat = (client: User, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    navigate(`/business/chat?clientId=${client.idUser}&clientName=${encodeURIComponent(client.nome)}`);
+    navigate(`/business/chat?clientId=${client.idUser}&clientName=${encodeURIComponent(formatPersonFullName(client.nome, client.sobreNome))}`);
   };
 
   const handleQuickTestLogin = (client: User, e?: React.MouseEvent) => {
