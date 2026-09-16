@@ -1,7 +1,7 @@
 import React from 'react';
 import { ChevronsUpDown } from 'lucide-react';
 import { getImageUrl } from '../../../utils/api';
-import { getProfileInitials } from './shellUtils';
+import { getProfileInitials, isEmpresaDualAccount } from './shellUtils';
 import type { ShellAudience } from './shellTypes';
 import { getShellAccent, SHELL_POPOVER_GAP, SHELL_R } from './shellTheme';
 import { ViewSwitcherPanel } from './ViewSwitcherPanel';
@@ -48,7 +48,8 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
   businessSubtitle,
 }) => {
   const accent = getShellAccent(audience);
-  const isBusinessPanel = currentAudience === 'business';
+  const isDual = isEmpresaDualAccount();
+  const isBusinessPanel = isDual && currentAudience === 'business';
   const displayName = isBusinessPanel
     ? companyProfile?.nome || 'Estabelecimento'
     : userProfile?.nome || sessionName || 'Conta';
@@ -78,37 +79,55 @@ export const ViewSwitcher: React.FC<ViewSwitcherProps> = ({
     </span>
   );
 
+  const triggerClassName = isCollapsed
+    ? `w-10 h-10 mx-auto ${SHELL_R} border border-white/10 bg-white/5 flex items-center justify-center overflow-hidden ${
+        isDual ? 'hover:bg-white/10' : 'cursor-default'
+      } transition-colors`
+    : `w-full flex items-center gap-2.5 p-2 ${SHELL_R} border border-white/10 bg-white/5 ${
+        isDual ? 'hover:bg-white/10 cursor-pointer' : 'cursor-default'
+      } transition-all group text-left`;
+
+  const triggerContent = (
+    <>
+      <div
+        className={`w-8 h-8 ${SHELL_R} bg-slate-800 border border-white/10 flex items-center justify-center overflow-hidden shrink-0`}
+      >
+        {avatarContent}
+      </div>
+      {!isCollapsed && (
+        <>
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-semibold text-white truncate leading-tight">{displayName}</p>
+            <p className={`text-[10px] font-medium truncate leading-tight mt-0.5 ${accent.switcherAccent}`}>
+              {displaySubtitle}
+            </p>
+          </div>
+          {isDual && (
+            <ChevronsUpDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 shrink-0" />
+          )}
+        </>
+      )}
+    </>
+  );
+
   return (
     <div className="relative select-none">
-      <button
-        type="button"
-        onClick={onToggle}
-        title="Alternar ambiente"
-        className={
-          isCollapsed
-            ? `w-10 h-10 mx-auto ${SHELL_R} border border-white/10 bg-white/5 flex items-center justify-center overflow-hidden hover:bg-white/10 transition-colors`
-            : `w-full flex items-center gap-2.5 p-2 ${SHELL_R} border border-white/10 bg-white/5 hover:bg-white/10 transition-all group text-left`
-        }
-      >
-        <div
-          className={`w-8 h-8 ${SHELL_R} bg-slate-800 border border-white/10 flex items-center justify-center overflow-hidden shrink-0`}
-        >
-          {avatarContent}
+      {/*
+        Cliente estrito não alterna de ambiente, então o bloco vira identidade
+        estática. Um <button> sem onClick continuaria focável pelo teclado
+        anunciando uma ação inexistente — por isso a troca por <div>.
+      */}
+      {isDual ? (
+        <button type="button" onClick={onToggle} title="Alternar ambiente" className={triggerClassName}>
+          {triggerContent}
+        </button>
+      ) : (
+        <div title={displayName} className={triggerClassName}>
+          {triggerContent}
         </div>
-        {!isCollapsed && (
-          <>
-            <div className="min-w-0 flex-1">
-              <p className="text-[12px] font-semibold text-white truncate leading-tight">{displayName}</p>
-              <p className={`text-[10px] font-medium truncate leading-tight mt-0.5 ${accent.switcherAccent}`}>
-                {displaySubtitle}
-              </p>
-            </div>
-            <ChevronsUpDown className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 shrink-0" />
-          </>
-        )}
-      </button>
+      )}
 
-      {isOpen && (
+      {isOpen && isDual && (
         <>
           <div className="fixed inset-0 z-[60]" onClick={onClose} aria-hidden />
           <div

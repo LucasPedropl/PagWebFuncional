@@ -1,7 +1,7 @@
 import React from 'react';
 import { Check } from 'lucide-react';
 import { getImageUrl } from '../../../utils/api';
-import { getProfileInitials } from './shellUtils';
+import { getProfileInitials, isEmpresaDualAccount } from './shellUtils';
 import type { ShellAudience } from './shellTypes';
 import { SHELL_R } from './shellTheme';
 
@@ -34,52 +34,57 @@ export const ViewSwitcherPanel: React.FC<ViewSwitcherPanelProps> = ({
   sessionName,
   onSwitch,
   businessSubtitle,
-}) => (
-  <div>
-    <p className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 border-b border-slate-100">
-      Ambientes
-    </p>
-    <SwitcherOption
-      tone="business"
-      active={activeView === 'business'}
-      title="Estabelecimento"
-      subtitle={businessSubtitle ?? 'Planos, clientes e cobranças'}
-      onClick={() => onSwitch('business')}
-      avatar={
-        companyProfile?.logo ? (
-          <img
-            src={getImageUrl(companyProfile.logo)}
-            alt=""
-            className="w-full h-full object-contain bg-transparent"
-          />
-        ) : (
-          <span className="text-[11px] font-semibold">{getProfileInitials(companyProfile?.nome)}</span>
-        )
-      }
-    />
-    <SwitcherOption
-      tone="client"
-      active={activeView === 'client'}
-      title="Cliente"
-      subtitle="Assinaturas e faturas"
-      onClick={() => onSwitch('client')}
-      borderedTop
-      avatar={
-        userProfile?.fotoPerfilPath || sessionPhotoPath ? (
-          <img
-            src={getImageUrl(userProfile?.fotoPerfilPath || sessionPhotoPath)}
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <span className="text-[11px] font-semibold">
-            {getProfileInitials(userProfile?.nome || sessionName)}
-          </span>
-        )
-      }
-    />
-  </div>
-);
+}) => {
+  const isDual = isEmpresaDualAccount();
+  return (
+    <div>
+      <p className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 border-b border-slate-100">
+        Ambientes
+      </p>
+      {isDual && (
+        <SwitcherOption
+          tone="business"
+          active={activeView === 'business'}
+          title="Estabelecimento"
+          subtitle={businessSubtitle ?? 'Planos, clientes e cobranças'}
+          onClick={() => onSwitch('business')}
+          avatar={
+            companyProfile?.logo ? (
+              <img
+                src={getImageUrl(companyProfile.logo)}
+                alt=""
+                className="w-full h-full object-contain bg-transparent"
+              />
+            ) : (
+              <span className="text-[11px] font-semibold">{getProfileInitials(companyProfile?.nome)}</span>
+            )
+          }
+        />
+      )}
+      <SwitcherOption
+        tone="client"
+        active={activeView === 'client'}
+        title="Cliente"
+        subtitle="Assinaturas e faturas"
+        onClick={() => onSwitch('client')}
+        borderedTop={isDual}
+        avatar={
+          userProfile?.fotoPerfilPath || sessionPhotoPath ? (
+            <img
+              src={getImageUrl(userProfile?.fotoPerfilPath || sessionPhotoPath)}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className="text-[11px] font-semibold">
+              {getProfileInitials(userProfile?.nome || sessionName)}
+            </span>
+          )
+        }
+      />
+    </div>
+  );
+};
 
 const SwitcherOption: React.FC<{
   tone: ShellAudience;

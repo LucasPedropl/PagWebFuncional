@@ -149,16 +149,31 @@ export const EnderecoFormFields: React.FC<EnderecoFormFieldsProps> = ({
           placeholder="123"
           disabled={disabled || cepLoading}
         />
-        <AuthInput
-          label="Bairro"
-          name="bairro"
-          value={value.bairro}
-          onChange={(e) => setField('bairro', e.target.value)}
-          required
-          placeholder="Centro"
-          disabled={disabled || cepLoading}
-        />
+        <div>
+          <AuthInput
+            label="Complemento"
+            name="complemento"
+            value={value.complemento ?? ''}
+            onChange={(e) => setField('complemento', e.target.value)}
+            placeholder="Apto, casa, bloco…"
+            disabled={disabled || cepLoading}
+            autoComplete="address-line2"
+          />
+          <p className="text-[10px] text-slate-500 mt-1 pl-1">
+            Ainda não gravado no servidor — fica só neste dispositivo.
+          </p>
+        </div>
       </div>
+
+      <AuthInput
+        label="Bairro"
+        name="bairro"
+        value={value.bairro}
+        onChange={(e) => setField('bairro', e.target.value)}
+        required
+        placeholder="Centro"
+        disabled={disabled || cepLoading}
+      />
 
       <div className="grid grid-cols-3 gap-3">
         <div className="col-span-2">

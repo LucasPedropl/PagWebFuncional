@@ -9,6 +9,7 @@ import {
   MetodoPagamentoEnum,
   PagamentoUnicoResponse,
 } from '../schemas/cobrancaSchemas';
+import { presentCobranca, formatCobrancaCurrency } from '../utils/cobrancaPresentation';
 
 const METODO_OPTIONS: Array<{ value: MetodoPagamento; label: string }> = [
   { value: 'PIX', label: 'PIX' },
@@ -118,6 +119,9 @@ export const PayCobrancaDialog: React.FC<PayDialogProps> = ({
   const [metodo, setMetodo] = useState<string | number>(
     availableOptions[0]?.value ?? 'Dinheiro',
   );
+  const presented = presentCobranca(cobranca, 'client');
+  const { lateCharges, displayStatus } = presented;
+  const isOverdue = displayStatus.key === 'atraso';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -131,9 +135,28 @@ export const PayCobrancaDialog: React.FC<PayDialogProps> = ({
 
         <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm">
           <p className="font-medium text-gray-800">{cobranca.descricao}</p>
-          <p className="text-violet-700 font-bold mt-1">
-            R$ {cobranca.valorTotal.toFixed(2).replace('.', ',')}
-          </p>
+          {isOverdue && lateCharges.isAtrasado ? (
+            <div className="mt-2 space-y-1">
+              <p className="text-xs text-gray-500">
+                Valor original {formatCobrancaCurrency(lateCharges.valorOriginal)}
+              </p>
+              <p className="text-xs text-rose-700">
+                Multa {formatCobrancaCurrency(lateCharges.multa)} · juros{' '}
+                {formatCobrancaCurrency(lateCharges.juros)} · {lateCharges.diasAtraso}{' '}
+                {lateCharges.diasAtraso === 1 ? 'dia' : 'dias'} de atraso
+              </p>
+              <p className="text-violet-700 font-bold">
+                Total atualizado {formatCobrancaCurrency(presented.displayAmount)}
+              </p>
+              <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
+                O PIX/boleto ainda é gerado com o valor original da API até o backend aplicar multa e juros.
+              </p>
+            </div>
+          ) : (
+            <p className="text-violet-700 font-bold mt-1">
+              {formatCobrancaCurrency(presented.displayAmount)}
+            </p>
+          )}
           {cobranca.observacao && (
             <p className="text-xs text-gray-500 mt-1">{cobranca.observacao}</p>
           )}

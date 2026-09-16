@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, MapPin } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { useToast } from '../../../context/ToastContext';
 import {
   EnderecoInput,
   EnderecoInputSchema,
@@ -20,6 +21,7 @@ export const RequireAddressDialog: React.FC<RequireAddressDialogProps> = ({
   onResolved,
   onCancel,
 }) => {
+  const { addToast } = useToast();
   const [form, setForm] = useState<EnderecoInput>(() =>
     enderecoService.getDraft('client'),
   );
@@ -30,17 +32,26 @@ export const RequireAddressDialog: React.FC<RequireAddressDialogProps> = ({
     setError(null);
     const parsed = EnderecoInputSchema.safeParse(form);
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Preencha todos os campos.');
+      const msg = parsed.error.issues[0]?.message ?? 'Preencha todos os campos.';
+      setError(msg);
+      addToast('error', 'Endereço incompleto', msg);
       return;
     }
     setIsSaving(true);
     try {
-      await enderecoService.createForUser(parsed.data);
+      const result = await enderecoService.createForUser(parsed.data);
+      if (!result.persistedOnServer) {
+        const msg = 'O endereço não foi gravado no servidor. Tente novamente.';
+        setError(msg);
+        addToast('error', 'Endereço não gravado', msg);
+        return;
+      }
       onResolved();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao salvar endereço';
       console.error('[RequireAddressDialog]', err);
       setError(msg);
+      addToast('error', 'Endereço não gravado', msg);
     } finally {
       setIsSaving(false);
     }

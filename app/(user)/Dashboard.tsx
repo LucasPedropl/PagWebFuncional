@@ -151,9 +151,13 @@ export const Dashboard: React.FC = () => {
             </p>
          </div>
 
-         <div 
-            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer group"
-            onClick={() => navigate('/pagamentos')}
+         <button
+            type="button"
+            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer group text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-orange-500"
+            // O valor deste card vem de listClientInvoices() (/Mensalidade/cliente),
+            // que é a tela de Faturas — não a de cobranças avulsas.
+            onClick={() => navigate({ pathname: '/pagamentos', search: '?status=Pendente' })}
+            aria-label="Ver faturas pendentes"
          >
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-gray-500 text-sm font-medium">Total Pendente</h3>
@@ -173,7 +177,7 @@ export const Dashboard: React.FC = () => {
                     <span className="flex items-center">Histórico financeiro <ArrowRight className="w-3 h-3 ml-1" /></span>
                 )}
             </p>
-         </div>
+         </button>
 
          <div 
             className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow cursor-pointer group"

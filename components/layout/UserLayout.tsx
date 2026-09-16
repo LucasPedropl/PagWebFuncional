@@ -27,6 +27,7 @@ import { AppMobileBottomNav } from './shell/AppMobileBottomNav';
 import { ViewSwitcher } from './shell/ViewSwitcher';
 import type { ShellAudience } from './shell/shellTypes';
 import { SHELL_MAIN_OFFSET_COLLAPSED, SHELL_MAIN_OFFSET_EXPANDED, shellPageBackdrop } from './shell/shellTheme';
+import { isEmpresaDualAccount } from './shell/shellUtils';
 
 interface UserLayoutProps {
   children: React.ReactNode;
@@ -60,9 +61,6 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
   const activeView = sessionService.getActiveView() || 'client';
 
   const showAdminUpgradeCta = !isEmpresa && !sessionService.isEmpresaOwner();
-  const upgradeCompanyTeaser = showAdminUpgradeCta
-    ? { nome: 'Virar estabelecimento', logo: null as string | null }
-    : null;
 
   const handleSwitchView = async (view: ShellAudience) => {
      setShowSwitcherDropdown(false);
@@ -333,6 +331,12 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     { icon: BarChart3, label: 'Relatórios', path: '/relatorios' },
     { icon: CreditCard, label: 'Cartões', path: '/metodos-pagamento' },
     { icon: Ban, label: 'Bloqueios', path: '/bloqueios' },
+    // Cliente estrito não vê mais o seletor de Estabelecimento (relatório 1.1),
+    // que era a única porta para /tornar-estabelecimento no desktop. Mantém o
+    // funil aberto como item de menu, igual ao que MenuMobile já faz no mobile.
+    ...(showAdminUpgradeCta
+      ? [{ icon: Store, label: 'Torne-se admin', path: '/tornar-estabelecimento' }]
+      : []),
   ];
 
   // Mobile Footer Items
@@ -354,6 +358,11 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
         ? 'Torne-se admin'
         : 'PagWeb');
 
+  // showAdminUpgradeCta é a negação exata de isDualAccount: quem é dual nunca
+  // recebe o teaser de upgrade, então o perfil de empresa só aparece de verdade.
+  const isDualAccount = isEmpresaDualAccount();
+  const effectiveCompanyProfile = isDualAccount ? companyProfile : null;
+
   return (
     <div className="flex h-screen bg-[#ECEEF1] font-sans text-slate-900 antialiased">
       <AppSidebar
@@ -370,14 +379,13 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
             activeView={(activeView === 'business' ? 'business' : 'client') as ShellAudience}
             currentAudience="client"
             userProfile={userProfile}
-            companyProfile={companyProfile ?? upgradeCompanyTeaser}
+            companyProfile={effectiveCompanyProfile}
             sessionPhotoPath={user?.fotoPerfilPath}
             sessionName={user?.nome}
             isOpen={showSwitcherDropdown}
             onToggle={() => setShowSwitcherDropdown((o) => !o)}
             onClose={() => setShowSwitcherDropdown(false)}
             onSwitch={handleSwitchView}
-            businessSubtitle={showAdminUpgradeCta ? 'Torne-se admin PagWeb' : undefined}
           />
         }
       />
@@ -395,15 +403,18 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
           onLogout={handleLogout}
           isSidebarCollapsed={isCollapsed}
           onToggleSidebar={() => setIsCollapsed((c) => !c)}
-          viewSwitcher={{
-            activeView: (activeView === 'business' ? 'business' : 'client') as ShellAudience,
-            userProfile,
-            companyProfile: companyProfile ?? upgradeCompanyTeaser,
-            sessionPhotoPath: user?.fotoPerfilPath,
-            sessionName: user?.nome,
-            onSwitch: handleSwitchView,
-            businessSubtitle: showAdminUpgradeCta ? 'Torne-se admin PagWeb' : undefined,
-          }}
+          viewSwitcher={
+            isDualAccount
+              ? {
+                  activeView: (activeView === 'business' ? 'business' : 'client') as ShellAudience,
+                  userProfile,
+                  companyProfile: effectiveCompanyProfile,
+                  sessionPhotoPath: user?.fotoPerfilPath,
+                  sessionName: user?.nome,
+                  onSwitch: handleSwitchView,
+                }
+              : undefined
+          }
           notifications={{
             isOpen: showNotifications,
             onToggle: () => setShowNotifications((o) => !o),

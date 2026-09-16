@@ -83,6 +83,8 @@ export const cobrancaService = {
       observacao: input.observacao ?? undefined,
       idUser: input.idUser,
       valorTotal: input.valorTotal,
+      dataVencimento: input.dataVencimento,
+      vencimento: input.dataVencimento,
       servicos: input.servicos?.length ? input.servicos : undefined,
       produtos: input.produtos?.length ? input.produtos : undefined,
     };

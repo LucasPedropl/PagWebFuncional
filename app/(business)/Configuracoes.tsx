@@ -13,6 +13,7 @@ import {
   MapPin,
   MessageSquareWarning,
   PlugZap,
+  Percent,
 } from 'lucide-react';
 import { PhoneInput } from '../../components/ui/PhoneInput';
 import { sessionService } from '../../services/session';
@@ -26,11 +27,13 @@ import { getImageUrl } from '../../utils/api';
 import { AddressSettingsPanel } from '../../features/address/components/AddressSettingsPanel';
 import { PagWebFeedbackForm } from '../../features/feedback/components/PagWebFeedbackForm';
 import { IntegracoesPanel } from '../../features/integracoes/components/IntegracoesPanel';
+import { BillingRulesPanel } from '../../features/billing-rules/components/BillingRulesPanel';
 import { isValidName, isValidPhone, isValidCPFOrCNPJ, isValidPassword } from '../../utils/validators';
 
 type ConfiguracoesTab =
   | 'perfil'
   | 'geral'
+  | 'regras-cobranca'
   | 'notificacoes'
   | 'seguranca'
   | 'endereco'
@@ -40,6 +43,7 @@ type ConfiguracoesTab =
 const CONFIG_TAB_VALUES: ConfiguracoesTab[] = [
   'perfil',
   'geral',
+  'regras-cobranca',
   'notificacoes',
   'seguranca',
   'endereco',
@@ -397,6 +401,18 @@ export const Configuracoes: React.FC = () => {
                 </button>
                 <button
                     type="button"
+                    onClick={() => selectTab('regras-cobranca')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium rounded-lg transition-colors ${
+                        activeTab === 'regras-cobranca'
+                        ? 'bg-slate-900 text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                >
+                    <Percent className="w-4 h-4 shrink-0" />
+                    Regras de Cobrança
+                </button>
+                <button
+                    type="button"
                     onClick={() => selectTab('integracoes')}
                     className={`w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium rounded-lg transition-colors ${
                         activeTab === 'integracoes'
@@ -471,7 +487,9 @@ export const Configuracoes: React.FC = () => {
 
         {/* Content Area */}
         <div className="flex-1">
-            {activeTab === 'feedback' ? (
+            {activeTab === 'regras-cobranca' ? (
+              <BillingRulesPanel idEmpresa={companyData.idEmpresa || null} />
+            ) : activeTab === 'feedback' ? (
               <div className="animate-fadeIn">
                 <PagWebFeedbackForm />
               </div>

@@ -24,6 +24,7 @@ import {
   PaymentResultModal,
 } from '../../features/single-payment/components/CobrancaPayDialogs';
 import { CobrancaListaScope } from '../../features/single-payment/types/cobrancaListaScope';
+import { useCobrancaListingFilter } from '../../features/single-payment/hooks/useCobrancaListingFilter';
 import { useModuleAccess } from '../../features/controle-acesso/hooks/useModuleAccess';
 import { ModuleAccessBanner } from '../../features/controle-acesso/components/ModuleAccessBanner';
 
@@ -42,6 +43,7 @@ export const PagamentoUnico: React.FC = () => {
   const [payingCobranca, setPayingCobranca] = useState<Cobranca | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [paymentResult, setPaymentResult] = useState<PagamentoUnicoResponse | null>(null);
+  const { activeFilter, commitFilter, listingRef } = useCobrancaListingFilter();
 
   const { cobrancas: criadas, isLoading: isLoadingCriadas, error: errorCriadas, createCobranca, cancelCobranca } =
     useCobrancas();
@@ -78,6 +80,7 @@ export const PagamentoUnico: React.FC = () => {
     observacao?: string;
     clientId: number;
     valor: number;
+    dataVencimento: string;
     produtoIds?: number[];
     servicoIds?: number[];
   }): Promise<boolean> => {
@@ -88,6 +91,7 @@ export const PagamentoUnico: React.FC = () => {
         observacao: data.observacao,
         idUser: data.clientId,
         valorTotal: data.valor,
+        dataVencimento: data.dataVencimento,
         produtos: data.produtoIds,
         servicos: data.servicoIds,
       });
@@ -161,15 +165,21 @@ export const PagamentoUnico: React.FC = () => {
         className="mb-6"
       />
 
-      <CobrancaStats cobrancas={statsCobrancas} />
+      <CobrancaStats
+        cobrancas={statsCobrancas}
+        activeFilter={activeFilter}
+        onFilterChange={(filter) => commitFilter(filter, { toggleIfSame: true, scrollToListing: true })}
+      />
 
-      <div className="w-full">
+      <div className="w-full" ref={listingRef}>
         <CobrancaTable
           listaScope={listaScope}
           onListaScopeChange={setListaScope}
           cobrancas={cobrancasAtivas}
           isLoading={isLoading}
           error={error}
+          statusFilter={activeFilter}
+          onStatusFilterChange={(filter) => commitFilter(filter)}
           onCancel={listaScope === 'criadas' ? handleCancel : undefined}
           onPay={listaScope === 'a_pagar' ? (c) => setPayingCobranca(c) : undefined}
         />

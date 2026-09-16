@@ -5,6 +5,8 @@ import { Textarea } from '../../../components/ui/Textarea';
 import { SearchSelect } from '../../../components/ui/SearchSelect';
 import { MultiSearchSelect } from '../../../components/ui/MultiSearchSelect';
 import { User as UserType } from '../../../types';
+import { useToast } from '../../../context/ToastContext';
+import { CreateCobrancaInputSchema } from '../schemas/cobrancaSchemas';
 
 interface CatalogItemLike {
   id?: number;
@@ -28,6 +30,7 @@ interface CobrancaFormProps {
     observacao?: string;
     clientId: number;
     valor: number;
+    dataVencimento: string;
     produtoIds?: number[];
     servicoIds?: number[];
   }) => Promise<boolean>;
@@ -44,12 +47,21 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
   showCatalogFields = true,
   onSubmit,
 }) => {
+  const { addToast } = useToast();
   const [clientId, setClientId] = useState<string | number>('');
   const [descricao, setDescricao] = useState('');
   const [valor, setValor] = useState('');
   const [observacao, setObservacao] = useState('');
+  const [dataVencimento, setDataVencimento] = useState('');
   const [produtoIds, setProdutoIds] = useState<Array<string | number>>([]);
   const [servicoIds, setServicoIds] = useState<Array<string | number>>([]);
+
+  const todayIso = useMemo(() => {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${now.getFullYear()}-${month}-${day}`;
+  }, []);
 
   const clientOptions = useMemo(
     () =>
@@ -116,16 +128,22 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
     setDescricao('');
     setValor('');
     setObservacao('');
+    setDataVencimento('');
     setProdutoIds([]);
     setServicoIds([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientId) return;
+    if (!clientId) {
+      addToast('error', 'Cliente obrigatório', 'Selecione o cliente da cobrança.');
+      return;
+    }
     const parsedValor = Number(valor.replace(',', '.'));
-    if (parsedValor < 5) return;
-
+    if (parsedValor < 5) {
+      addToast('error', 'Valor inválido', 'O valor mínimo para cobrança é R$ 5,00.');
+      return;
+    }
     const parsedProdutoIds = produtoIds
       .map((id) => Number(id))
       .filter((id) => Number.isFinite(id) && id > 0);
@@ -133,11 +151,27 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
       .map((id) => Number(id))
       .filter((id) => Number.isFinite(id) && id > 0);
 
-    const success = await onSubmit({
+    const parsed = CreateCobrancaInputSchema.safeParse({
       descricao: descricao.trim(),
       observacao: observacao.trim() || undefined,
-      clientId: Number(clientId),
-      valor: parsedValor,
+      idUser: Number(clientId),
+      valorTotal: parsedValor,
+      dataVencimento,
+      produtoIds: parsedProdutoIds.length > 0 ? parsedProdutoIds : undefined,
+      servicoIds: parsedServicoIds.length > 0 ? parsedServicoIds : undefined,
+    });
+
+    if (!parsed.success) {
+      addToast('error', 'Dados inválidos', parsed.error.issues[0]?.message ?? 'Preencha os campos obrigatórios.');
+      return;
+    }
+
+    const success = await onSubmit({
+      descricao: parsed.data.descricao,
+      observacao: parsed.data.observacao,
+      clientId: parsed.data.idUser,
+      valor: parsed.data.valorTotal,
+      dataVencimento: parsed.data.dataVencimento,
       produtoIds: parsedProdutoIds.length > 0 ? parsedProdutoIds : undefined,
       servicoIds: parsedServicoIds.length > 0 ? parsedServicoIds : undefined,
     });
@@ -212,6 +246,15 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
         required
       />
 
+      <Input
+        label="Data de vencimento"
+        type="date"
+        value={dataVencimento}
+        onChange={(e) => setDataVencimento(e.target.value)}
+        min={todayIso}
+        required
+      />
+
       <Textarea
         label="Observação interna (opcional)"
         value={observacao}
@@ -233,7 +276,7 @@ export const CobrancaForm: React.FC<CobrancaFormProps> = ({
         <Button
           type="submit"
           isLoading={isSaving}
-          disabled={!clientId || !descricao.trim() || !valor || Number(valor.replace(',', '.')) < 5}
+          disabled={!clientId || !descricao.trim() || !valor || !dataVencimento || Number(valor.replace(',', '.')) < 5}
           className="bg-slate-900 hover:bg-slate-800 text-sm font-medium"
         >
           Cadastrar cobrança

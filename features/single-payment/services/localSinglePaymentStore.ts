@@ -1,3 +1,4 @@
+import { Cobranca } from '../schemas/cobrancaSchemas';
 import {
   CreateSinglePaymentInput,
   SinglePayment,
@@ -6,6 +7,20 @@ import {
 } from '../schemas/singlePaymentTypes';
 
 const STORAGE_KEY = 'pagweb_local_single_payments';
+const DUE_DATES_KEY = 'pagweb_local_cobranca_due_dates';
+
+interface CobrancaDueDateRecord {
+  idCobranca: number | null;
+  idUser: number;
+  valorTotal: number;
+  descricao: string;
+  vencimento: string;
+  createdAt: string;
+}
+
+interface CobrancaDueDateStore {
+  records: CobrancaDueDateRecord[];
+}
 
 const generateId = (): string =>
   `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -54,6 +69,50 @@ const readStore = (): SinglePaymentStore => {
 
 const writeStore = (store: SinglePaymentStore): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+};
+
+const readDueDates = (): CobrancaDueDateStore => {
+  try {
+    const raw = localStorage.getItem(DUE_DATES_KEY);
+    if (!raw) return { records: [] };
+    const parsed = JSON.parse(raw) as CobrancaDueDateStore;
+    return Array.isArray(parsed.records) ? parsed : { records: [] };
+  } catch {
+    return { records: [] };
+  }
+};
+
+const writeDueDates = (store: CobrancaDueDateStore): void => {
+  localStorage.setItem(DUE_DATES_KEY, JSON.stringify(store));
+};
+
+const amountsMatch = (a: number, b: number): boolean => Math.abs(a - b) < 0.009;
+
+const extractCobrancaIdFromCreateResponse = (responseText: string): number | null => {
+  const trimmed = responseText.trim();
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    if (typeof parsed === 'number' && parsed > 0) return parsed;
+    if (parsed && typeof parsed === 'object') {
+      const record = parsed as Record<string, unknown>;
+      const candidate = record.id ?? record.Id ?? record.idCobranca ?? record.IdCobranca;
+      const asNumber = Number(candidate);
+      if (Number.isFinite(asNumber) && asNumber > 0) return asNumber;
+    }
+  } catch {
+    // POST atual devolve texto ("Cobrança criada com sucesso."), não JSON.
+  }
+  return null;
+};
+
+const fingerprintMatches = (
+  record: CobrancaDueDateRecord,
+  cobranca: Cobranca,
+): boolean => {
+  const idUser = cobranca.usuario?.idUser;
+  if (idUser == null || record.idUser !== idUser) return false;
+  if (!amountsMatch(record.valorTotal, cobranca.valorTotal)) return false;
+  return record.descricao.trim() === cobranca.descricao.trim();
 };
 
 export const localSinglePaymentStore = {
@@ -150,5 +209,67 @@ export const localSinglePaymentStore = {
     store.payments[index] = { ...store.payments[index], status: 'Cancelado' };
     writeStore(store);
     return store.payments[index];
+  },
+
+  /**
+   * Persiste o vencimento da cobrança avulsa. O POST atual devolve só texto,
+   * então o registro pode ficar sem id até o próximo GET (reconciliação por
+   * idUser + valorTotal + descricao).
+   */
+  rememberDueDate(params: {
+    responseText: string;
+    idUser: number;
+    valorTotal: number;
+    descricao: string;
+    vencimento: string;
+  }): void {
+    const store = readDueDates();
+    store.records.push({
+      idCobranca: extractCobrancaIdFromCreateResponse(params.responseText),
+      idUser: params.idUser,
+      valorTotal: params.valorTotal,
+      descricao: params.descricao.trim(),
+      vencimento: params.vencimento,
+      createdAt: new Date().toISOString(),
+    });
+    writeDueDates(store);
+  },
+
+  reconcileDueDates(cobrancas: Cobranca[]): void {
+    const store = readDueDates();
+    let changed = false;
+    const claimedIds = new Set(
+      store.records
+        .map((record) => record.idCobranca)
+        .filter((id): id is number => id != null && id > 0),
+    );
+
+    for (const pending of store.records) {
+      if (pending.idCobranca != null && pending.idCobranca > 0) continue;
+      const matches = cobrancas
+        .filter((cobranca) => !claimedIds.has(cobranca.id) && fingerprintMatches(pending, cobranca))
+        .sort((a, b) => b.id - a.id);
+      const match = matches[0];
+      if (!match) continue;
+      pending.idCobranca = match.id;
+      claimedIds.add(match.id);
+      changed = true;
+    }
+
+    if (changed) writeDueDates(store);
+  },
+
+  getCobrancaDueDate(cobranca: Cobranca): string | null {
+    const fromApi = cobranca.dataVencimento ?? cobranca.vencimento;
+    if (fromApi && fromApi.trim() !== '') return fromApi;
+
+    const store = readDueDates();
+    const byId = store.records.find((record) => record.idCobranca === cobranca.id);
+    if (byId) return byId.vencimento;
+
+    const byFingerprint = store.records
+      .filter((record) => fingerprintMatches(record, cobranca))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    return byFingerprint?.vencimento ?? null;
   },
 };

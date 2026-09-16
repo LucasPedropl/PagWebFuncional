@@ -5,6 +5,7 @@ import {
   PagamentoUnicoResponse,
 } from '../schemas/cobrancaSchemas';
 import { cobrancaService } from '../services/cobrancaService';
+import { localSinglePaymentStore } from '../services/localSinglePaymentStore';
 import { pagamentoService } from '../services/pagamentoService';
 
 interface UseUserCobrancasResult {
@@ -32,6 +33,7 @@ export const useUserCobrancas = (): UseUserCobrancasResult => {
     setError(null);
     try {
       const data = await cobrancaService.listByUsuario();
+      localSinglePaymentStore.reconcileDueDates(data);
       setCobrancas(data);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao carregar cobranças';

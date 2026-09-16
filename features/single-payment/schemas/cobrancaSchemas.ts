@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseDueDate } from '../../billing-rules/utils/lateCharges';
 
 /** Ordem do enum C# MensalidadeStatus (sem JsonStringEnumConverter → número). */
 export const MENSALIDADE_STATUS_VALUES = [
@@ -73,6 +74,8 @@ export const CobrancaSchema = z.object({
   observacao: z.string().optional().nullable(),
   descricao: z.string(),
   status: MensalidadeStatusCoerced,
+  dataVencimento: z.string().optional().nullable(),
+  vencimento: z.string().optional().nullable(),
   usuario: CobrancaUsuarioSchema.optional(),
   empresa: CobrancaEmpresaSchema.optional(),
   produtos: z
@@ -87,11 +90,24 @@ export const CobrancaSchema = z.object({
 
 export type Cobranca = z.infer<typeof CobrancaSchema>;
 
+const isDueDateNotInThePast = (value: string): boolean => {
+  const due = parseDueDate(value);
+  if (!due) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return due.getTime() >= today.getTime();
+};
+
 export const CreateCobrancaInputSchema = z.object({
   descricao: z.string().min(1, 'Descrição obrigatória'),
   observacao: z.string().optional(),
   idUser: z.number().positive('Selecione um cliente'),
   valorTotal: z.number().positive('Valor deve ser maior que zero'),
+  dataVencimento: z
+    .string()
+    .min(1, 'Data de vencimento obrigatória')
+    .refine((value) => parseDueDate(value) !== null, 'Data de vencimento inválida')
+    .refine(isDueDateNotInThePast, 'A data de vencimento não pode ser no passado'),
   servicos: z.array(z.number()).optional(),
   produtos: z.array(z.number()).optional(),
 });

@@ -9,6 +9,7 @@ import { useToast } from '../../context/ToastContext';
 import { useUserCobrancas } from '../../features/single-payment/hooks/useUserCobrancas';
 import { CobrancaStats } from '../../features/single-payment/components/CobrancaStats';
 import { CobrancaTable } from '../../features/single-payment/components/CobrancaTable';
+import { useCobrancaListingFilter } from '../../features/single-payment/hooks/useCobrancaListingFilter';
 import {
   PayCobrancaDialog,
   PaymentResultModal,
@@ -25,6 +26,7 @@ export const PagamentoUnicoCliente: React.FC = () => {
   const [payingCobranca, setPayingCobranca] = useState<Cobranca | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [paymentResult, setPaymentResult] = useState<PagamentoUnicoResponse | null>(null);
+  const { activeFilter, commitFilter, listingRef } = useCobrancaListingFilter();
 
   const handlePay = async (metodo: MetodoPagamento) => {
     if (!payingCobranca) return;
@@ -56,15 +58,24 @@ export const PagamentoUnicoCliente: React.FC = () => {
         </div>
       </div>
 
-      <CobrancaStats cobrancas={statsCobrancas} variant="client" />
+      <CobrancaStats
+        cobrancas={statsCobrancas}
+        variant="client"
+        activeFilter={activeFilter}
+        onFilterChange={(filter) =>
+          commitFilter(filter, { toggleIfSame: true, scrollToListing: true })
+        }
+      />
 
-      <div className="w-full">
+      <div className="w-full" ref={listingRef}>
         <CobrancaTable
           variant="client"
           listaScope="a_pagar"
           cobrancas={cobrancas}
           isLoading={isLoading}
           error={error}
+          statusFilter={activeFilter}
+          onStatusFilterChange={(filter) => commitFilter(filter)}
           onPay={(c) => setPayingCobranca(c)}
         />
       </div>

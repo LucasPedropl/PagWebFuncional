@@ -1,16 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { MapPin, Save } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
-import { useToast } from '../../../context/ToastContext';
-import {
-  EnderecoInput,
-  EnderecoInputSchema,
-} from '../schemas/enderecoSchemas';
-import { enderecoService } from '../services/enderecoService';
+import { AddressScope } from '../services/enderecoService';
+import { useAddressForm } from '../hooks/useAddressForm';
 import { EnderecoFormFields } from './EnderecoFormFields';
 
 interface AddressSettingsPanelProps {
-  scope: 'client' | 'empresa';
+  scope: AddressScope;
   title?: string;
   subtitle?: string;
 }
@@ -21,35 +17,8 @@ export const AddressSettingsPanel: React.FC<AddressSettingsPanelProps> = ({
   title = 'Endereço',
   subtitle,
 }) => {
-  const { addToast } = useToast();
-  const [form, setForm] = useState<EnderecoInput>(() => enderecoService.getDraft(scope));
-  const [isSaving, setIsSaving] = useState(false);
-  const hasId = Boolean(enderecoService.getStoredAddressId(scope));
-
-  const handleSave = async () => {
-    const parsed = EnderecoInputSchema.safeParse(form);
-    if (!parsed.success) {
-      addToast('error', 'Erro', parsed.error.issues[0]?.message ?? 'Preencha o endereço.');
-      return;
-    }
-    setIsSaving(true);
-    try {
-      await enderecoService.saveForScope(scope, parsed.data);
-      addToast(
-        'success',
-        'Sucesso',
-        hasId || enderecoService.getStoredAddressId(scope)
-          ? 'Endereço atualizado.'
-          : 'Endereço cadastrado.',
-      );
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao salvar endereço';
-      console.error('[AddressSettingsPanel]', err);
-      addToast('error', 'Erro', msg);
-    } finally {
-      setIsSaving(false);
-    }
-  };
+  const { form, setForm, isSaving, isDirty, persistence, save } = useAddressForm(scope);
+  const missingServerId = !persistence.serverAddressId;
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -59,21 +28,27 @@ export const AddressSettingsPanel: React.FC<AddressSettingsPanelProps> = ({
           {title}
         </h2>
         {subtitle ? <p className="text-sm text-gray-500 mt-1">{subtitle}</p> : null}
-        {!hasId && (scope === 'client' ? enderecoService.hasClientAddressFlag() : enderecoService.hasEmpresaAddressFlag()) ? (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3">
-            Endereço já cadastrado. A API não devolve o ID no create — a primeira edição via PATCH
-            gravará o ID localmente para próximas atualizações.
+        {missingServerId && (persistence.hasLocalDraft || persistence.persistedOnServer) ? (
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-3">
+            Rascunho neste dispositivo. Sem o identificador do endereço, o servidor recusa a
+            edição (cadastro 1:1). O que você salvar agora só fica neste navegador.
           </p>
+        ) : null}
+        {persistence.persistedOnServer && persistence.serverAddressId ? (
+          <p className="text-xs text-emerald-800 mt-3">Endereço vinculado a este dispositivo.</p>
         ) : null}
       </div>
 
       <EnderecoFormFields value={form} onChange={setForm} disabled={isSaving} title="" />
 
-      <div className="pt-2">
-        <Button onClick={() => void handleSave()} isLoading={isSaving}>
+      <div className="pt-2 flex items-center gap-3">
+        <Button onClick={() => void save()} isLoading={isSaving}>
           <Save className="w-4 h-4 mr-2" />
           Salvar endereço
         </Button>
+        {isDirty ? (
+          <span className="text-xs text-slate-500">Alterações ainda não confirmadas no servidor.</span>
+        ) : null}
       </div>
     </div>
   );

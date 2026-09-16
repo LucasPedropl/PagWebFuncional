@@ -1,3 +1,8 @@
+import { sessionService } from '../../../services/session';
+
+export const isEmpresaDualAccount = (): boolean =>
+  sessionService.isEmpresaOwner() || sessionService.getSession().user?.tipo === 'Empresa';
+
 export const getProfileInitials = (name?: string): string => {
   if (!name) return 'PW';
   const parts = name.trim().split(/\s+/);
@@ -15,3 +20,4 @@ export const formatNotificationTimeAgo = (isoString: string): string => {
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h atrás`;
   return `${Math.floor(diffInSeconds / 86400)}d atrás`;
 };
+

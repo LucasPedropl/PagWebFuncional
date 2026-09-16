@@ -10,6 +10,17 @@ import { useToast } from '../../context/ToastContext';
 import { jsPDF } from 'jspdf';
 import { SearchSelect } from '../../components/ui/SearchSelect';
 import { formFilterInputClass, formSearchInputClass } from '../../components/ui/formStyles';
+import { useSearchParams } from 'react-router-dom';
+
+/** Valores aceitos no filtro de status desta tela (inclui o agrupador 'Pendente'). */
+const STATUS_FILTER_VALUES: string[] = [
+  'Todos',
+  'Pendente',
+  'Aberto',
+  'Pago',
+  'Atrasado',
+  'Baixado',
+];
 import { pagamentoService } from '../../features/single-payment/services/pagamentoService';
 import { MetodoPagamento, PagamentoUnicoResponse } from '../../features/single-payment/schemas/cobrancaSchemas';
 import { PaymentResultModal } from '../../features/single-payment/components/CobrancaPayDialogs';
@@ -26,8 +37,11 @@ export const Pagamentos: React.FC = () => {
 
   // Filters State
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  // O card "Total Pendente" do dashboard chega aqui com ?status=Pendente.
+  const [searchParams] = useSearchParams();
+  const statusFromUrl = searchParams.get('status');
   const [filters, setFilters] = useState({
-    status: 'Todos',
+    status: statusFromUrl && STATUS_FILTER_VALUES.includes(statusFromUrl) ? statusFromUrl : 'Todos',
     dateFrom: '',
     dateTo: '',
     valueMin: '',
@@ -88,8 +102,11 @@ export const Pagamentos: React.FC = () => {
     setIsLoading(true);
     try {
       let data: any[] = [];
-      if (searchTerm || (filters.status && filters.status !== 'Todos')) {
-          data = await pagamentoService.buscaMensalidades(searchTerm, filters.status);
+      // 'Pendente' é um agrupador só do frontend (Aberto + Atrasado): a API não
+      // conhece esse status, então a busca remota vai sem ele e o filtro é local.
+      const remoteStatus = filters.status === 'Pendente' ? '' : filters.status;
+      if (searchTerm || (remoteStatus && remoteStatus !== 'Todos')) {
+          data = await pagamentoService.buscaMensalidades(searchTerm, remoteStatus);
       } else {
           const today = new Date();
           data = await pagamentoService.getExtrato(today.getMonth() + 1, today.getFullYear());
@@ -314,8 +331,12 @@ export const Pagamentos: React.FC = () => {
       inv.nomeEmpresa.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.idMensalidade.toString().includes(searchTerm);
     
-    // Status
-    const matchesStatus = filters.status === 'Todos' || inv.status === filters.status;
+    // Status — 'Pendente' cobre o que compõe o card "Total Pendente" do dashboard.
+    const matchesStatus =
+      filters.status === 'Todos' ||
+      (filters.status === 'Pendente'
+        ? inv.status === 'Aberto' || inv.status === 'Atrasado'
+        : inv.status === filters.status);
 
     // Date Range
     let matchesDate = true;
@@ -389,6 +410,7 @@ export const Pagamentos: React.FC = () => {
               <SearchSelect 
                 options={[
                   { value: 'Todos', label: 'Todos' },
+                  { value: 'Pendente', label: 'Pendente (aberto + atrasado)' },
                   { value: 'Aberto', label: 'Aberto' },
                   { value: 'Pago', label: 'Pago' },
                   { value: 'Atrasado', label: 'Atrasado' },

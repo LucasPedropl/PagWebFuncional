@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Cobranca, CreateCobrancaInput } from '../schemas/cobrancaSchemas';
 import { cobrancaService } from '../services/cobrancaService';
+import { localSinglePaymentStore } from '../services/localSinglePaymentStore';
 
 interface UseCobrancasResult {
   cobrancas: Cobranca[];
@@ -25,6 +26,7 @@ export const useCobrancas = (): UseCobrancasResult => {
     setError(null);
     try {
       const data = await cobrancaService.listByEmpresa();
+      localSinglePaymentStore.reconcileDueDates(data);
       setCobrancas(data);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao carregar cobranças';
@@ -43,6 +45,13 @@ export const useCobrancas = (): UseCobrancasResult => {
   const createCobranca = useCallback(
     async (input: CreateCobrancaInput): Promise<string> => {
       const result = await cobrancaService.create(input);
+      localSinglePaymentStore.rememberDueDate({
+        responseText: result,
+        idUser: input.idUser,
+        valorTotal: input.valorTotal,
+        descricao: input.descricao,
+        vencimento: input.dataVencimento,
+      });
       await refresh();
       window.dispatchEvent(new CustomEvent('pagweb:refresh-counts'));
       return result;
