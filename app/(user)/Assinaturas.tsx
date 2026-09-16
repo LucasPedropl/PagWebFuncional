@@ -53,7 +53,7 @@ export const Assinaturas: React.FC = () => {
       notificacoes: true,
       notificacoesAtraso: 0,
       email: true,
-      sms: true,
+      sms: false,
       whatsApp: true,
     },
     paymentMethod: 'pix', // 'pix', 'boleto', or card ID
@@ -371,7 +371,7 @@ export const Assinaturas: React.FC = () => {
           notificacoes: settings.notificacoes ?? true,
           notificacoesAtraso: settings.notificacoesAtraso ?? 0,
           email: settings.email ?? true,
-          sms: settings.sms ?? true,
+          sms: settings.sms ?? false,
           whatsApp: settings.whatsApp ?? true,
         }
       }));

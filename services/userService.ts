@@ -10,23 +10,11 @@ import {
 } from "../utils/api";
 
 import { apiV1Url } from "../utils/apiOrigin";
-import {
-  ALL_NOTIFICATION_CHANNELS_ENABLED,
-  parseNotificationSettings,
-  resolveNotificationSettingsWithApiDefault,
-} from "../features/notifications/notificationSettingsDefaults";
 
 const BASE_URL = apiV1Url();
 
 const isEmpresaDualAccount = (): boolean =>
   sessionService.isEmpresaOwner() || sessionService.getSession().user?.tipo === "Empresa";
-
-function notificationSettingsOwnerKey(): string {
-  const user = sessionService.getSession().user;
-  if (user?.email) return user.email.toLowerCase();
-  if (typeof user?.idUser === 'number') return String(user.idUser);
-  return 'anonymous';
-}
 
 // Helper privado para requisições autenticadas com renovação automática
 const authRequest = async (endpoint: string, options: RequestInit = {}, isRetry = false): Promise<Response> => {
@@ -290,28 +278,31 @@ export const userService = {
 
   async getNotificationSettings(): Promise<NotificationSettings> {
     const response = await authRequest('/Notificacao/configuracoes/pesquisar', { method: 'GET' });
-    let loaded = { ...ALL_NOTIFICATION_CHANNELS_ENABLED };
-    if (response.ok) {
-      try {
-        loaded = parseNotificationSettings(await response.json());
-      } catch {
-        loaded = { ...ALL_NOTIFICATION_CHANNELS_ENABLED };
-      }
+    if (!response.ok) {
+        if (response.status === 404) {
+            return {
+                notificacoes: true,
+                email: true,
+                whatsApp: true,
+                sms: true
+            };
+        }
+        return {
+            notificacoes: true,
+            email: true,
+            whatsApp: true,
+            sms: true
+        };
     }
-
-    return resolveNotificationSettingsWithApiDefault(
-      loaded,
-      () => userService.updateNotificationSettings(ALL_NOTIFICATION_CHANNELS_ENABLED),
-      notificationSettingsOwnerKey(),
-    );
-  },
-
-  /** Garante o default no banco sem o usuário abrir Configurações. */
-  async ensureNotificationDefaults(): Promise<void> {
     try {
-      await userService.getNotificationSettings();
-    } catch (error) {
-      console.error('Falha ao aplicar default de notificações', error);
+        return await response.json();
+    } catch {
+        return {
+            notificacoes: true,
+            email: true,
+            whatsApp: true,
+            sms: true
+        };
     }
   },
 

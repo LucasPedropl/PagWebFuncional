@@ -131,7 +131,6 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
         setSessionReady(true);
         fetchNotifications();
         fetchProfile();
-        void userService.ensureNotificationDefaults();
         if (sessionUser?.tipo === 'Empresa') {
           fetchCompany();
         }
