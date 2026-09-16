@@ -158,6 +158,26 @@ export const PagamentoUnicoResponseSchema = z
 
 export type PagamentoUnicoResponse = z.infer<typeof PagamentoUnicoResponseSchema>;
 
+export const emptyPagamentoUnicoResponse = (): PagamentoUnicoResponse => ({
+  pixEmv: null,
+  barcode: null,
+  digitableLine: null,
+  bankSlipUrl: null,
+  invoiceId: null,
+  status: null,
+  paymentType: null,
+});
+
+/** Código de pagamento ou invoiceId — o que o cliente precisa para concluir. */
+export const hasPagamentoUnicoInstrument = (response: PagamentoUnicoResponse): boolean =>
+  Boolean(
+    response.pixEmv ||
+      response.barcode ||
+      response.digitableLine ||
+      response.bankSlipUrl ||
+      response.invoiceId,
+  );
+
 // ---------------------------------------------------------------------------
 // Extrato
 // ---------------------------------------------------------------------------

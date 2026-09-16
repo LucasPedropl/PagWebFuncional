@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '../../../components/ui/Button';
 import { SearchSelect } from '../../../components/ui/SearchSelect';
 import { CheckCircle2, Copy, X } from 'lucide-react';
@@ -11,13 +12,16 @@ import {
 } from '../schemas/cobrancaSchemas';
 import { presentCobranca, formatCobrancaCurrency } from '../utils/cobrancaPresentation';
 
+/**
+ * Cartão e Transferência existem no enum da API, mas SolicitarUnico devolve
+ * BadRequest genérico (não implementados). SearchSelect não tem opção
+ * desabilitada — as duas saíram da lista em vez de aparecer clicáveis.
+ */
 const METODO_OPTIONS: Array<{ value: MetodoPagamento; label: string }> = [
   { value: 'PIX', label: 'PIX' },
   { value: 'PixCaixa', label: 'PIX na caixa' },
   { value: 'Boleto', label: 'Boleto bancário' },
   { value: 'BoletoPix', label: 'Boleto + PIX' },
-  { value: 'Cartao', label: 'Cartão de crédito' },
-  { value: 'Transferencia', label: 'Transferência bancária' },
   { value: 'Dinheiro', label: 'Dinheiro' },
 ];
 
@@ -31,20 +35,20 @@ export const PaymentResultModal: React.FC<PaymentResultModalProps> = ({
   onClose,
 }) => {
   const { addToast } = useToast();
-  const paymentCode =
-    result.pixEmv ?? result.barcode ?? result.digitableLine ?? result.bankSlipUrl ?? null;
+  const pixEmv = result.pixEmv;
+  const boletoCode = result.barcode ?? result.digitableLine ?? result.bankSlipUrl ?? null;
+  const copyTarget = pixEmv ?? boletoCode;
 
-  const handleCopy = () => {
-    if (!paymentCode) return;
+  const handleCopy = (value: string) => {
     navigator.clipboard
-      .writeText(paymentCode)
+      .writeText(value)
       .then(() => addToast('success', 'Copiado!', 'Código copiado para a área de transferência.'))
       .catch(() => addToast('error', 'Erro', 'Não foi possível copiar o código.'));
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-6 h-6 text-green-600" />
@@ -56,27 +60,68 @@ export const PaymentResultModal: React.FC<PaymentResultModalProps> = ({
         </div>
 
         <p className="text-sm text-gray-500">
-          Use o código abaixo para concluir o pagamento no seu aplicativo bancário.
+          {pixEmv
+            ? 'Escaneie o QR Code ou copie o código PIX no aplicativo do banco.'
+            : copyTarget
+              ? 'Use o código abaixo para concluir o pagamento no seu aplicativo bancário.'
+              : 'Pagamento registrado. Acompanhe o status em sua conta.'}
         </p>
 
-        {paymentCode ? (
+        {pixEmv ? (
+          <div className="space-y-3">
+            <figure className="flex flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white p-4">
+              <QRCodeSVG
+                value={pixEmv}
+                size={208}
+                bgColor="#ffffff"
+                fgColor="#111827"
+                level="M"
+                marginSize={2}
+                title="QR Code PIX para pagamento"
+              />
+              <figcaption className="text-xs text-gray-500 text-center">
+                QR Code PIX — aponte a câmera do aplicativo do banco
+              </figcaption>
+            </figure>
+            <p className="text-xs text-amber-900 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+              Este PIX expira em 15 a 30 minutos. Depois disso, solicite um novo. Boleto
+              continua válido por dias.
+            </p>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-2">
+              <p className="text-xs text-gray-400 uppercase font-semibold tracking-wide">
+                Código PIX (copia e cola)
+              </p>
+              <p className="text-xs text-gray-700 break-all font-mono leading-relaxed">{pixEmv}</p>
+              <Button
+                type="button"
+                onClick={() => handleCopy(pixEmv)}
+                className="w-full bg-violet-600 hover:bg-violet-700 text-sm"
+              >
+                <Copy className="w-4 h-4 mr-2" />
+                Copiar código
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {boletoCode && boletoCode !== pixEmv ? (
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-2">
             <p className="text-xs text-gray-400 uppercase font-semibold tracking-wide">
-              {result.pixEmv ? 'Código PIX' : 'Código do boleto'}
+              Código do boleto
             </p>
-            <p className="text-xs text-gray-700 break-all font-mono leading-relaxed">{paymentCode}</p>
-            <Button type="button" onClick={handleCopy} className="w-full bg-violet-600 hover:bg-violet-700 text-sm">
+            <p className="text-xs text-gray-700 break-all font-mono leading-relaxed">{boletoCode}</p>
+            <Button
+              type="button"
+              onClick={() => handleCopy(boletoCode)}
+              className="w-full bg-violet-600 hover:bg-violet-700 text-sm"
+            >
               <Copy className="w-4 h-4 mr-2" />
               Copiar código
             </Button>
           </div>
-        ) : (
-          <p className="text-sm text-gray-500 text-center">
-            Pagamento registrado. Acompanhe o status em sua conta.
-          </p>
-        )}
+        ) : null}
 
-        {result.bankSlipUrl && (
+        {result.bankSlipUrl ? (
           <a
             href={result.bankSlipUrl}
             target="_blank"
@@ -85,7 +130,7 @@ export const PaymentResultModal: React.FC<PaymentResultModalProps> = ({
           >
             Abrir boleto em nova aba
           </a>
-        )}
+        ) : null}
 
         <Button type="button" onClick={onClose} className="w-full bg-slate-900 hover:bg-slate-800">
           Fechar
@@ -165,7 +210,7 @@ export const PayCobrancaDialog: React.FC<PayDialogProps> = ({
         {!gatewayPaymentUnlocked ? (
           <p className="text-xs text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
             PIX e boleto via gateway estão bloqueados até a liberação do módulo de Pagamentos.
-            Métodos manuais (caixa, transferência, dinheiro) continuam disponíveis.
+            Métodos manuais (caixa e dinheiro) continuam disponíveis.
           </p>
         ) : null}
 

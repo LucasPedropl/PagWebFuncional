@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Banknote,
   Ban,
+  Rocket,
 } from 'lucide-react';
 import { sessionService } from '../../services/session';
 import { useToast } from '../../context/ToastContext';
@@ -130,6 +131,7 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
         setSessionReady(true);
         fetchNotifications();
         fetchProfile();
+        void userService.ensureNotificationDefaults();
         if (sessionUser?.tipo === 'Empresa') {
           fetchCompany();
         }
@@ -335,7 +337,9 @@ export const UserLayout: React.FC<UserLayoutProps> = ({ children }) => {
     // que era a única porta para /tornar-estabelecimento no desktop. Mantém o
     // funil aberto como item de menu, igual ao que MenuMobile já faz no mobile.
     ...(showAdminUpgradeCta
-      ? [{ icon: Store, label: 'Torne-se admin', path: '/tornar-estabelecimento' }]
+      // Ícone distinto do Store de "Estabelecimentos": com a sidebar recolhida
+      // só o ícone aparece, e dois Store seguidos viram a mesma coisa.
+      ? [{ icon: Rocket, label: 'Torne-se admin', path: '/tornar-estabelecimento' }]
       : []),
   ];
 

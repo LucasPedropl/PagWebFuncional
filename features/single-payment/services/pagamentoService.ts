@@ -3,9 +3,12 @@ import { parseApiError } from '../../../utils/formatters';
 import {
   BuscaPagamento,
   BuscaPagamentoSchema,
+  emptyPagamentoUnicoResponse,
   ExtratoPagamento,
   ExtratoPagamentoSchema,
+  hasPagamentoUnicoInstrument,
   METODO_PAGAMENTO_TO_API,
+  MetodoPagamento,
   PagamentoMensalidadeSolicitarInput,
   PagamentoUnicoResponse,
   PagamentoUnicoResponseSchema,
@@ -39,8 +42,92 @@ const buildHeaders = (): HeadersInit => {
   };
 };
 
+const GENERIC_PAYMENT_REQUEST_FAILURE =
+  /erro ao solicitar pagamento\.?\s*tente novamente mais tarde/i;
+
+const ADDRESS_FALLBACK_HINT =
+  'A causa mais comum é o endereço incompleto no cadastro — não é possível confirmar só por esta mensagem. Cadastre ou revise em Configurações > Meu perfil > Endereço residencial e tente de novo.';
+
+const MISSING_PAYMENT_CODE_ERROR =
+  'O servidor aceitou o pedido, mas não devolveu código de pagamento nem identificador da fatura. Tente novamente ou escolha outro método.';
+
+/** Mensagem genérica de unico-solicitar/solicitar quando PagamentoCora retorna null. */
+export const isGenericPaymentRequestFailure = (message: string): boolean =>
+  GENERIC_PAYMENT_REQUEST_FAILURE.test(message);
+
+const isCashConfirmationText = (value: string): boolean =>
+  /pagamento em dinheiro/i.test(value);
+
+const looksLikePixEmv = (value: string): boolean =>
+  /^000201/.test(value) || /br\.gov\.bcb\.pix/i.test(value);
+
+const looksLikeUrl = (value: string): boolean => /^https?:\/\//i.test(value);
+
+const stripWrappingQuotes = (value: string): string =>
+  value.replace(/^"+|"+$/g, '').trim();
+
+const withPixEmv = (pixEmv: string): PagamentoUnicoResponse => ({
+  ...emptyPagamentoUnicoResponse(),
+  pixEmv,
+});
+
+const withBarcode = (barcode: string): PagamentoUnicoResponse => ({
+  ...emptyPagamentoUnicoResponse(),
+  barcode,
+});
+
+const withDigitableLine = (digitableLine: string): PagamentoUnicoResponse => ({
+  ...emptyPagamentoUnicoResponse(),
+  digitableLine,
+});
+
+const withBankSlipUrl = (bankSlipUrl: string): PagamentoUnicoResponse => ({
+  ...emptyPagamentoUnicoResponse(),
+  bankSlipUrl,
+});
+
+/**
+ * `SolicitarUnico` responde `Ok(codigoPagamento)` — string JSON, não o DTO Bixs.
+ * Dinheiro devolve texto de confirmação, sem código de pagamento.
+ */
+const pagamentoUnicoResponseFromText = (
+  rawText: string,
+  metodo: MetodoPagamento,
+): PagamentoUnicoResponse => {
+  const value = stripWrappingQuotes(rawText);
+  if (!value || /^n\/a$/i.test(value)) {
+    throw new Error(MISSING_PAYMENT_CODE_ERROR);
+  }
+  if (metodo === 'Dinheiro' || isCashConfirmationText(value)) {
+    return emptyPagamentoUnicoResponse();
+  }
+  if (looksLikePixEmv(value)) return withPixEmv(value);
+  if (looksLikeUrl(value)) return withBankSlipUrl(value);
+
+  const digits = value.replace(/\D/g, '');
+  if (digits.length >= 47 && digits.length <= 48) return withDigitableLine(value);
+  if (digits.length === 44) return withBarcode(value);
+
+  if (metodo === 'PIX' || metodo === 'PixCaixa') return withPixEmv(value);
+  if (metodo === 'Boleto' || metodo === 'BoletoPix') {
+    return digits.length >= 47 ? withDigitableLine(value) : withBarcode(value);
+  }
+
+  throw new Error(MISSING_PAYMENT_CODE_ERROR);
+};
+
+const assertUsablePaymentResponse = (
+  parsed: PagamentoUnicoResponse,
+  metodo: MetodoPagamento,
+): PagamentoUnicoResponse => {
+  if (hasPagamentoUnicoInstrument(parsed)) return parsed;
+  if (metodo === 'Dinheiro') return parsed;
+  throw new Error(MISSING_PAYMENT_CODE_ERROR);
+};
+
 /**
  * Extrai mensagens úteis do gateway embutidas no 500 da API PagWeb.
+ * A mensagem original da API permanece no texto — a heurística só acrescenta caminho.
  */
 const formatPaymentGatewayError = (raw: string): string => {
   const issues: string[] = [];
@@ -68,6 +155,11 @@ const formatPaymentGatewayError = (raw: string): string => {
     return details;
   }
 
+  if (isGenericPaymentRequestFailure(raw)) {
+    const apiText = stripWrappingQuotes(raw);
+    return `${apiText} ${ADDRESS_FALLBACK_HINT}`;
+  }
+
   if (raw.length > 320) return `${raw.slice(0, 320)}…`;
   return raw;
 };
@@ -75,26 +167,31 @@ const formatPaymentGatewayError = (raw: string): string => {
 const parsePaymentResponse = async (
   response: Response,
   fallbackMsg: string,
+  metodo: MetodoPagamento,
 ): Promise<PagamentoUnicoResponse> => {
   if (!response.ok) {
     const raw = (await parseApiError(response)) || fallbackMsg;
     throw new Error(formatPaymentGatewayError(raw));
   }
-  const raw: unknown = await response.json();
-  const result = PagamentoUnicoResponseSchema.safeParse(raw);
-  if (!result.success) {
-    console.warn('[pagamentoService] parse warning:', result.error.issues, raw);
-    return {
-      pixEmv: null,
-      barcode: null,
-      digitableLine: null,
-      bankSlipUrl: null,
-      invoiceId: null,
-      status: null,
-      paymentType: null,
-    };
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error(MISSING_PAYMENT_CODE_ERROR);
   }
-  return result.data;
+
+  if (typeof payload === 'string') {
+    return pagamentoUnicoResponseFromText(payload, metodo);
+  }
+
+  const result = PagamentoUnicoResponseSchema.safeParse(payload);
+  if (!result.success) {
+    console.warn('[pagamentoService] parse warning:', result.error.issues, payload);
+    throw new Error(MISSING_PAYMENT_CODE_ERROR);
+  }
+
+  return assertUsablePaymentResponse(result.data, metodo);
 };
 
 const buildBuscaQuery = (busca?: string, status?: string): string => {
@@ -136,7 +233,7 @@ export const pagamentoService = {
       body: JSON.stringify(body),
     });
 
-    return parsePaymentResponse(response, 'Erro ao solicitar pagamento');
+    return parsePaymentResponse(response, 'Erro ao solicitar pagamento', input.metodo);
   },
 
   /** POST /solicitar — mensalidade de assinatura via Bixs. */
@@ -154,7 +251,11 @@ export const pagamentoService = {
       body: JSON.stringify(body),
     });
 
-    return parsePaymentResponse(response, 'Erro ao solicitar pagamento da mensalidade');
+    return parsePaymentResponse(
+      response,
+      'Erro ao solicitar pagamento da mensalidade',
+      input.metodo,
+    );
   },
 
   async getExtrato(mes?: number, ano?: number): Promise<ExtratoPagamento[]> {

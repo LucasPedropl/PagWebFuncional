@@ -93,6 +93,7 @@ export const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children }) => {
         fetchNotifications();
         fetchProfile();
         fetchCompany();
+        void userService.ensureNotificationDefaults();
       };
       init();
       return () => { cancelled = true; };
