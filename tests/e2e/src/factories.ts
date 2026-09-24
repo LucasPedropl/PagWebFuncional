@@ -18,8 +18,8 @@ export const TIPO_CONTRATO = { Nenhum: 0, Termo: 1, Contrato: 2 } as const;
 /** `AssinaturaStatus`: 0 Ativo, 1 Suspenso, 2 Cancelado, 3 Pendente. */
 export const ASSINATURA_STATUS = { Ativo: 0, Suspenso: 1, Cancelado: 2, Pendente: 3 } as const;
 
-/** `Estado` (ControleAcesso): 0 Ativo, 1 Inativo, 2 Solicitado. */
-export const ESTADO = { Ativo: 0, Inativo: 1, Solicitado: 2 } as const;
+/** `Estado` (ControleAcesso): 0 Inativo, 1 Ativo, 2 Solicitado. */
+export const ESTADO = { Inativo: 0, Ativo: 1, Solicitado: 2 } as const;
 
 export interface Plano {
   idPlano: number;

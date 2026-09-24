@@ -23,6 +23,8 @@ interface SearchSelectProps {
   roundedClass?: string;
   /** Conteúdo extra no rodapé do dropdown (ex.: botão de cadastro rápido). */
   footer?: React.ReactNode;
+  /** Substitui o conteúdo padrão (ícone + label) no botão fechado. */
+  renderSelected?: (option: SelectOption | undefined) => React.ReactNode;
 }
 
 interface DropdownPos {
@@ -45,6 +47,7 @@ export const SearchSelect: React.FC<SearchSelectProps> = ({
   disabled = false,
   roundedClass = FORM_RADIUS,
   footer,
+  renderSelected,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -198,15 +201,21 @@ export const SearchSelect: React.FC<SearchSelectProps> = ({
           onClick={() => !disabled && setIsOpen(!isOpen)}
           className={triggerClass}
         >
-          <div className="flex items-center gap-2 truncate">
-            {selectedOption?.icon ? <span>{selectedOption.icon}</span> : null}
-            <span className="truncate">
-              {selectedOption ? (
-                selectedOption.label
-              ) : (
-                <span className="text-slate-400">{placeholder}</span>
-              )}
-            </span>
+          <div className="flex items-center gap-2 truncate min-w-0">
+            {renderSelected ? (
+              renderSelected(selectedOption)
+            ) : (
+              <>
+                {selectedOption?.icon ? <span>{selectedOption.icon}</span> : null}
+                <span className="truncate">
+                  {selectedOption ? (
+                    selectedOption.label
+                  ) : (
+                    <span className="text-slate-400">{placeholder}</span>
+                  )}
+                </span>
+              </>
+            )}
           </div>
           <ChevronDown
             className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}

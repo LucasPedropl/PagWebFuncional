@@ -1,14 +1,14 @@
 import { z } from 'zod';
 
-/** Ordem do enum C# Estado. */
-export const ESTADO_ACESSO_VALUES = ['Ativo', 'Inativo', 'Solicitado'] as const;
+/** Ordem do enum C# `PagWebV1.Models.Estado`: Inativo=0, Ativo=1, Solicitado=2. */
+export const ESTADO_ACESSO_VALUES = ['Inativo', 'Ativo', 'Solicitado'] as const;
 export type EstadoAcesso = (typeof ESTADO_ACESSO_VALUES)[number];
 
 export const EstadoAcessoEnum = z.enum(ESTADO_ACESSO_VALUES);
 
 export const ESTADO_ACESSO_TO_API: Record<EstadoAcesso, number> = {
-  Ativo: 0,
-  Inativo: 1,
+  Inativo: 0,
+  Ativo: 1,
   Solicitado: 2,
 };
 

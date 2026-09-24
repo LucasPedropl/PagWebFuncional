@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { MessageCircle, QrCode, CheckCircle2, Smartphone, Info, Loader2, RefreshCw, LogOut, Send } from 'lucide-react';
 import { businessService } from '../../services/businessService';
@@ -12,6 +12,14 @@ import {
   ModuleAccessBanner,
   ModuleAccessLockOverlay,
 } from '../../features/controle-acesso/components/ModuleAccessBanner';
+import {
+  clearWhatsAppConnectionCache,
+  readWhatsAppConnectionCache,
+  writeWhatsAppConnectionCache,
+} from '../../features/whatsapp/whatsappConnectionCache';
+
+const REFRESH_INTERVAL = 40;
+const MAX_REFRESHES = 4;
 
 export const ConectarWhatsapp: React.FC = () => {
   const { addToast } = useToast();
@@ -26,45 +34,104 @@ export const ConectarWhatsapp: React.FC = () => {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [isInstanceCreated, setIsInstanceCreated] = useState(false);
+  const [isInstanceCreated, setIsInstanceCreated] = useState(
+    () => readWhatsAppConnectionCache()?.isInstanceCreated ?? false,
+  );
   const [refreshCount, setRefreshCount] = useState(0);
 
-  const [isConnected, setIsConnected] = useState(false);
-  const [connectedNumber, setConnectedNumber] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(
+    () => readWhatsAppConnectionCache()?.isConnected ?? false,
+  );
+  const [connectedNumber, setConnectedNumber] = useState<string | null>(
+    () => readWhatsAppConnectionCache()?.connectedNumber ?? null,
+  );
 
-  const [isChecking, setIsChecking] = useState(true);
+  // Só mostra "Verificando..." na primeira visita (sem cache).
+  const [isChecking, setIsChecking] = useState(
+    () => readWhatsAppConnectionCache() == null,
+  );
   const [msgNumero, setMsgNumero] = useState('');
   const [msgTexto, setMsgTexto] = useState('');
   const [isSendingMsg, setIsSendingMsg] = useState(false);
+  const hasCheckedThisSessionRef = useRef(false);
 
-  const checkConnection = useCallback(async () => {
-    setIsChecking(true);
+  const persistConnectionSnapshot = useCallback(
+    (snapshot: {
+      isConnected: boolean;
+      isInstanceCreated: boolean;
+      connectedNumber: string | null;
+    }) => {
+      writeWhatsAppConnectionCache(snapshot);
+    },
+    [],
+  );
+
+  const checkConnection = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true || readWhatsAppConnectionCache() != null;
+    if (!silent) {
+      setIsChecking(true);
+    }
     try {
       const status = await businessService.checkWhatsAppInstance();
       if (status && status.status === 'connected') {
+        const number =
+          typeof status.ntelefone === 'string' ? status.ntelefone : null;
         setIsConnected(true);
-        setConnectedNumber(status.ntelefone);
+        setConnectedNumber(number);
         setIsInstanceCreated(true);
+        persistConnectionSnapshot({
+          isConnected: true,
+          isInstanceCreated: true,
+          connectedNumber: number,
+        });
       } else if (status) {
         setIsInstanceCreated(true);
+        setIsConnected(false);
+        persistConnectionSnapshot({
+          isConnected: false,
+          isInstanceCreated: true,
+          connectedNumber: null,
+        });
         if (status.qrCode) {
            setQrCode(status.qrCode);
            setTimeLeft(REFRESH_INTERVAL);
         }
+      } else {
+        setIsConnected(false);
+        setIsInstanceCreated(false);
+        setConnectedNumber(null);
+        persistConnectionSnapshot({
+          isConnected: false,
+          isInstanceCreated: false,
+          connectedNumber: null,
+        });
       }
     } catch (error) {
       console.error("Erro ao verificar conexão:", error);
     } finally {
       setIsChecking(false);
     }
-  }, []);
+  }, [persistConnectionSnapshot]);
 
   useEffect(() => {
     if (whatsappLocked) {
+      if (readWhatsAppConnectionCache() != null) {
+        setIsChecking(false);
+      }
+      return;
+    }
+    if (hasCheckedThisSessionRef.current) {
+      return;
+    }
+    hasCheckedThisSessionRef.current = true;
+
+    // Cache hit: UI já hidratada — não chama a API de novo ao reentrar na página.
+    if (readWhatsAppConnectionCache() != null) {
       setIsChecking(false);
       return;
     }
-    checkConnection();
+
+    void checkConnection({ silent: false });
   }, [checkConnection, whatsappLocked]);
 
   const handleCreateInstance = useCallback(async () => {
@@ -89,11 +156,21 @@ export const ConectarWhatsapp: React.FC = () => {
       if (qrCodeData?.status === 'connected' || qrCodeData?.message?.includes('conectado')) {
         setIsConnected(true);
         setConnectedNumber(qrCodeData.ntelefone || null);
+        persistConnectionSnapshot({
+          isConnected: true,
+          isInstanceCreated: true,
+          connectedNumber: qrCodeData.ntelefone || null,
+        });
         addToast('success', 'Sucesso', 'WhatsApp já está conectado!');
       } else if (qrCodeData?.qrCode) {
         setQrCode(qrCodeData.qrCode);
         setTimeLeft(REFRESH_INTERVAL);
         setRefreshCount(0);
+        persistConnectionSnapshot({
+          isConnected: false,
+          isInstanceCreated: true,
+          connectedNumber: null,
+        });
         addToast('success', 'Sucesso', 'QR Code gerado! Escaneie para conectar.');
       } else {
         addToast('error', 'Aviso', 'A instância foi criada, mas o QR Code não foi fornecido pelo servidor. Tente atualizar.');
@@ -103,7 +180,7 @@ export const ConectarWhatsapp: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [addToast, whatsappLocked]);
+  }, [addToast, whatsappLocked, persistConnectionSnapshot]);
 
   const handleRefreshQRCode = useCallback(async () => {
     if (whatsappLocked) return;
@@ -114,10 +191,20 @@ export const ConectarWhatsapp: React.FC = () => {
         setIsConnected(true);
         setIsInstanceCreated(true);
         setQrCode(null);
+        persistConnectionSnapshot({
+          isConnected: true,
+          isInstanceCreated: true,
+          connectedNumber: connectedNumber,
+        });
         addToast('success', 'Sucesso', 'WhatsApp conectado com sucesso.');
       } else if (data?.qrCode) {
         setQrCode(data.qrCode);
         setTimeLeft(REFRESH_INTERVAL);
+        persistConnectionSnapshot({
+          isConnected: false,
+          isInstanceCreated: true,
+          connectedNumber: null,
+        });
         addToast('success', 'Atualizado', 'QR Code atualizado automaticamente.');
       } else {
         addToast('error', 'Erro', 'O servidor retornou um QR Code vazio. A API do WhatsApp pode estar instável.');
@@ -129,7 +216,7 @@ export const ConectarWhatsapp: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [addToast, handleCreateInstance]);
+  }, [addToast, handleCreateInstance, connectedNumber, persistConnectionSnapshot, whatsappLocked]);
 
   useEffect(() => {
     if (!qrCode || loading) return;
@@ -150,9 +237,6 @@ export const ConectarWhatsapp: React.FC = () => {
     return () => clearTimeout(timer);
   }, [timeLeft, qrCode, loading, refreshCount, handleRefreshQRCode, handleCreateInstance, addToast]);
 
-  const REFRESH_INTERVAL = 40;
-  const MAX_REFRESHES = 4;
-
   const handleDisconnect = async () => {
     if (!window.confirm('Tem certeza que deseja desconectar o WhatsApp?')) return;
     
@@ -165,6 +249,8 @@ export const ConectarWhatsapp: React.FC = () => {
       setIsInstanceCreated(false);
       setIsConnected(false);
       setConnectedNumber(null);
+      clearWhatsAppConnectionCache();
+      hasCheckedThisSessionRef.current = false;
       addToast('success', 'Desconectado', 'WhatsApp desconectado com sucesso.');
     } catch (error: any) {
       addToast('error', 'Erro', error.message || 'Erro ao desconectar WhatsApp');

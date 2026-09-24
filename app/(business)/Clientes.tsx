@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, Loader2, Send, CheckCircle2, Mail, Unplug, AlertTriangle, User as UserIcon, Calendar, CreditCard, MessageSquare, FlaskConical, LogIn } from 'lucide-react';
+import { Plus, Search, Filter, Loader2, Mail, Unplug, AlertTriangle, User as UserIcon, Calendar, CreditCard, MessageSquare, FlaskConical, LogIn } from 'lucide-react';
 import { businessService } from '../../services/businessService';
 import { User, SubscriptionResponse } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -8,9 +8,9 @@ import { SearchSelect } from '../../components/ui/SearchSelect';
 import React, { useState, useEffect } from 'react';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { formSearchInputClass } from '../../components/ui/formStyles';
+import { ConnectClientModal } from '../../features/connect-client/components/ConnectClientModal';
 import { SeedTestClientsModal } from '../../features/test-clients/components/SeedTestClientsModal';
 import { isTestClientEmail } from '../../features/test-clients/utils/testClientGenerators';
 import { openTestClientDashboardInNewTab } from '../../features/test-clients/utils/openTestClientDashboard';
@@ -40,22 +40,9 @@ export const Clientes: React.FC = () => {
   const [clientSubscriptions, setClientSubscriptions] = useState<SubscriptionResponse[]>([]);
   const [clientToDelete, setClientToDelete] = useState<{id: number, nome: string} | null>(null);
 
-  // Form State
-  const [emailToConnect, setEmailToConnect] = useState('');
-  const [successEmail, setSuccessEmail] = useState<string | null>(null);
-  
-
   useEffect(() => {
     fetchClients();
   }, []);
-
-  // Reset modal state when closed
-  useEffect(() => {
-    if (!isModalOpen) {
-        setEmailToConnect('');
-        setSuccessEmail(null);
-    }
-  }, [isModalOpen]);
 
   const handleOpenChat = (client: User, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -87,25 +74,9 @@ export const Clientes: React.FC = () => {
     }
   };
 
-  const handleConnect = async () => {
-    if (!emailToConnect) return;
-    try {
-      setIsSaving(true);
-      await businessService.connectClient(emailToConnect);
-      await fetchClients();
-      setSuccessEmail(emailToConnect);
-      addToast('success', 'Convite Enviado', `Solicitação enviada para ${emailToConnect}`);
-    } catch (error: any) {
-      const msg = error.message || "Erro desconhecido";
-      if (msg.includes("sucesso") || msg.includes("convidado")) {
-           setSuccessEmail(emailToConnect);
-           addToast('success', 'Convite Enviado', `Solicitação enviada para ${emailToConnect}`);
-      } else {
-           addToast('error', 'Erro ao conectar', msg);
-      }
-    } finally {
-      setIsSaving(false);
-    }
+  const handleInviteSent = async (email: string) => {
+    await fetchClients();
+    addToast('success', 'Convite Enviado', `Solicitação enviada para ${email}`);
   };
 
   const openDeleteModal = (id: number, nome: string, e: React.MouseEvent) => {
@@ -488,64 +459,12 @@ export const Clientes: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Modal Conectar */}
-      <Modal
+      <ConnectClientModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={successEmail ? "Convite Enviado" : "Conectar Novo Cliente"}
-        size="md"
-        onSubmit={!successEmail ? (e) => { e.preventDefault(); handleConnect(); } : undefined}
-        footer={
-          !successEmail ? (
-            <>
-              <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancelar</Button>
-              <Button type="submit" isLoading={isSaving} className="bg-slate-900 hover:bg-slate-800">
-                <Send className="w-4 h-4 mr-2" />
-                Enviar Convite
-              </Button>
-            </>
-          ) : (
-            <Button onClick={() => setIsModalOpen(false)} className="w-full bg-slate-900 hover:bg-slate-800">
-              Entendido
-            </Button>
-          )
-        }
-      >
-        {successEmail ? (
-          <div className="text-center py-4 animate-fadeIn">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-8 h-8 text-green-600" />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Solicitação enviada!</h3>
-            <p className="text-gray-600 mb-4 leading-relaxed">
-              Um convite foi enviado para <strong className="text-gray-900">{successEmail}</strong>.
-            </p>
-            <div className="bg-gray-50 rounded-lg p-4 text-sm text-left border border-gray-100">
-                <p className="text-gray-600 flex gap-2">
-                    <Mail className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
-                    <span>
-                        Se o cliente já possuir conta, ele receberá uma notificação para aceitar.
-                        Caso contrário, ele será instruído a criar uma conta gratuita para se conectar à sua empresa.
-                    </span>
-                </p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-              <div className="text-sm text-gray-500">
-                  Informe o e-mail do seu cliente para iniciar o vínculo.
-              </div>
-              <Input 
-                  label="E-mail do Cliente" 
-                  placeholder="cliente@exemplo.com" 
-                  type="email"
-                  value={emailToConnect}
-                  onChange={(e) => setEmailToConnect(e.target.value)}
-                  autoFocus
-              />
-          </div>
-        )}
-      </Modal>
+        onInviteSent={handleInviteSent}
+        onInviteError={(message) => addToast('error', 'Erro ao conectar', message)}
+      />
 
       <SeedTestClientsModal
         isOpen={isSeedTestModalOpen}
