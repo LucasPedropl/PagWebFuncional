@@ -174,25 +174,9 @@ export const ConnectClientModal: React.FC<ConnectClientModalProps> = ({
                 maxLength={14}
                 autoComplete="off"
               />
-
-              <PhoneInput
-                label="Telefone"
-                ddi={formData.ddi}
-                onDdiChange={handleDdiChange}
-                phoneNumber={formData.telefone}
-                onPhoneChange={handlePhoneChange}
-              />
             </div>
           ) : (
             <div className="space-y-5 animate-in fade-in slide-in-from-right-3 duration-300">
-              <div>
-                <h4 className="text-sm font-bold text-slate-900">Dados de contato</h4>
-                <p className="text-xs text-slate-500 mt-1">
-                  O convite será enviado para este e-mail. Sem senha — o cliente define o acesso ao
-                  criar ou aceitar a conta.
-                </p>
-              </div>
-
               <Input
                 label="E-mail do cliente"
                 name="email"
@@ -203,6 +187,14 @@ export const ConnectClientModal: React.FC<ConnectClientModalProps> = ({
                 placeholder="cliente@exemplo.com"
                 autoComplete="email"
                 autoFocus
+              />
+
+              <PhoneInput
+                label="Telefone"
+                ddi={formData.ddi}
+                onDdiChange={handleDdiChange}
+                phoneNumber={formData.telefone}
+                onPhoneChange={handlePhoneChange}
               />
             </div>
           )}

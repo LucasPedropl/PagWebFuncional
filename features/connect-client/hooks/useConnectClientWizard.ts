@@ -84,7 +84,7 @@ export function useConnectClientWizard({
     setFieldError(null);
 
     if (step === 1) {
-      if (!formData.nome || !formData.sobreNome || !formData.cpf || !formData.telefone) {
+      if (!formData.nome || !formData.sobreNome || !formData.cpf) {
         setFieldError('Preencha todos os campos obrigatórios.');
         return false;
       }
@@ -100,19 +100,19 @@ export function useConnectClientWizard({
         setFieldError('CPF inválido.');
         return false;
       }
-      if (!isValidPhone(formData.telefone, formData.ddi)) {
-        setFieldError('Telefone inválido.');
-        return false;
-      }
       return true;
     }
 
-    if (!formData.email.trim()) {
-      setFieldError('Informe o e-mail do cliente.');
+    if (!formData.email.trim() || !formData.telefone) {
+      setFieldError('Preencha e-mail e telefone.');
       return false;
     }
     if (!isValidEmail(formData.email)) {
       setFieldError('E-mail inválido.');
+      return false;
+    }
+    if (!isValidPhone(formData.telefone, formData.ddi)) {
+      setFieldError('Telefone inválido.');
       return false;
     }
     return true;
