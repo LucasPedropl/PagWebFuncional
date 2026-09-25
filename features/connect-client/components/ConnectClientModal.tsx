@@ -6,6 +6,7 @@ import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
 import { PhoneInput } from '../../../components/ui/PhoneInput';
 import { getAuthTheme } from '../../../utils/authTheme';
+import type { User } from '../../../types';
 import {
   CONNECT_CLIENT_STEPS,
   useConnectClientWizard,
@@ -16,6 +17,7 @@ interface ConnectClientModalProps {
   onClose: () => void;
   onInviteSent: (email: string) => void;
   onInviteError: (message: string) => void;
+  existingClients?: User[];
 }
 
 export const ConnectClientModal: React.FC<ConnectClientModalProps> = ({
@@ -23,6 +25,7 @@ export const ConnectClientModal: React.FC<ConnectClientModalProps> = ({
   onClose,
   onInviteSent,
   onInviteError,
+  existingClients,
 }) => {
   const theme = getAuthTheme('business');
   const {
@@ -41,6 +44,7 @@ export const ConnectClientModal: React.FC<ConnectClientModalProps> = ({
     isOpen,
     onSuccess: onInviteSent,
     onError: onInviteError,
+    existingClients,
   });
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -54,13 +58,13 @@ export const ConnectClientModal: React.FC<ConnectClientModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={successEmail ? 'Convite Enviado' : 'Conectar Novo Cliente'}
+      title={successEmail ? 'Cliente Cadastrado' : 'Cadastrar Novo Cliente'}
       size="lg"
       onSubmit={!successEmail ? handleFormSubmit : undefined}
       footer={
         successEmail ? (
           <Button onClick={onClose} className="w-full bg-slate-900 hover:bg-slate-800">
-            Entendido
+            Concluir
           </Button>
         ) : (
           <div className="flex w-full items-center justify-between gap-2">
@@ -91,7 +95,7 @@ export const ConnectClientModal: React.FC<ConnectClientModalProps> = ({
                 className="bg-slate-900 hover:bg-slate-800"
               >
                 <Send className="w-4 h-4 mr-2" />
-                Enviar Convite
+                Cadastrar Cliente
               </Button>
             )}
           </div>
@@ -100,20 +104,19 @@ export const ConnectClientModal: React.FC<ConnectClientModalProps> = ({
     >
       {successEmail ? (
         <div className="text-center py-4 animate-fadeIn">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="w-8 h-8 text-green-600" />
+          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 className="w-8 h-8 text-emerald-600" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900 mb-2">Solicitação enviada!</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-2">Cliente cadastrado com sucesso!</h3>
           <p className="text-gray-600 mb-4 leading-relaxed">
-            Um convite foi enviado para <strong className="text-gray-900">{successEmail}</strong>.
+            O cliente <strong className="text-gray-900">{successEmail}</strong> foi vinculado à sua empresa.
           </p>
-          <div className="bg-gray-50 rounded-lg p-4 text-sm text-left border border-gray-100">
-            <p className="text-gray-600 flex gap-2">
-              <Mail className="w-4 h-4 mt-0.5 shrink-0 text-slate-400" />
+          <div className="bg-emerald-50 rounded-lg p-4 text-sm text-left border border-emerald-100">
+            <p className="text-emerald-800 flex gap-2">
+              <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" />
               <span>
-                Se o cliente já possuir conta, ele receberá uma notificação para aceitar. Caso
-                contrário, ele será instruído a criar uma conta gratuita para se conectar à sua
-                empresa.
+                O cliente está pronto para receber cobranças por WhatsApp e E-mail, sem precisar
+                ativar conta ou criar senha.
               </span>
             </p>
           </div>

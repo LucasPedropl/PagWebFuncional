@@ -40,6 +40,8 @@ import { Chat as BusinessChat } from './app/(business)/Chat';
 import { Feedback as UserFeedback } from './app/(user)/Feedback';
 import { Feedback as BusinessFeedback } from './app/(business)/Feedback';
 import { TornarEstabelecimento } from './app/(user)/TornarEstabelecimento';
+import { PublicInvoiceCheckout } from './app/(public)/PublicInvoiceCheckout';
+import { PublicSubscriptionAccept } from './app/(public)/PublicSubscriptionAccept';
 
 // --- Guards de Rota (Proteção por Tipo de Usuário) ---
 
@@ -141,6 +143,12 @@ const App: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/activate" element={<Activate />} />
+
+          {/* Rotas Públicas de Fatura e Assinatura (Guest Payer) */}
+          <Route path="/p/:token" element={<PublicInvoiceCheckout />} />
+          <Route path="/fatura/:token" element={<PublicInvoiceCheckout />} />
+          <Route path="/a/:token" element={<PublicSubscriptionAccept />} />
+          <Route path="/assinatura/:token" element={<PublicSubscriptionAccept />} />
           
           {/* Rotas de Usuário (Cliente) */}
           <Route 

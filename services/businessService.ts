@@ -1,6 +1,8 @@
 
 import { PlanPayload, PlanResponse, User, SubscriptionPayload, SubscriptionResponse, Mensalidade } from "../types";
 import { sessionService } from "./session";
+import { companyService } from "./companyService";
+import { userService } from "./userService";
 import { normalizePaymentDay, parseApiError } from "../utils/formatters";
 import { resolveContractPath, toAssinaturaStatusCode } from "../utils/api";
 
@@ -240,6 +242,53 @@ export const businessService = {
       return Array.isArray(data) ? data : [];
     } catch (e) {
       return [];
+    }
+  },
+
+  async registerClient(data: {
+    nome: string;
+    sobreNome: string;
+    cpf: string;
+    telefone: string;
+    email: string;
+  }): Promise<void> {
+    const company = await companyService.getMyCompany();
+    if (!company?.idEmpresa) {
+      throw new Error("Não foi possível identificar a sua empresa.");
+    }
+
+    const cleanCPF = data.cpf.replace(/\D/g, '');
+    const cleanPhone = data.telefone.replace(/\D/g, '');
+
+    try {
+      await userService.register(
+        {
+          nome: data.nome.trim(),
+          sobreNome: data.sobreNome.trim(),
+          cpf: cleanCPF,
+          email: data.email.trim(),
+          password: "Senha Senha", // Senha sentinela acordada com o backend
+          telefone: cleanPhone,
+        },
+        company.idEmpresa
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      // Caso o usuário já exista na base geral, o endpoint de cadastro pode acusar conta existente.
+      // Realizamos fallback automático chamando conecta-cliente para vincular o cliente existente.
+      if (message.includes("já possui uma conta") || message.includes("já cadastrado")) {
+        try {
+          await this.connectClient(data.email.trim());
+          return;
+        } catch (connectError: unknown) {
+          const connectMsg = connectError instanceof Error ? connectError.message : String(connectError);
+          if (connectMsg.includes("vinculo") || connectMsg.includes("já") || connectMsg.includes("existente")) {
+            throw new Error("Este cliente já está cadastrado e vinculado à sua empresa.");
+          }
+          throw connectError;
+        }
+      }
+      throw error;
     }
   },
 

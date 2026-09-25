@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import { businessService } from '../../../services/businessService';
+import type { User } from '../../../types';
 import { formatCPF, formatPhone } from '../../../utils/formatters';
 import {
   isValidCPF,
@@ -37,16 +38,18 @@ interface UseConnectClientWizardParams {
   isOpen: boolean;
   onSuccess: (email: string) => void;
   onError: (message: string) => void;
+  existingClients?: User[];
 }
 
 /**
- * Wizard de “Conectar Cliente”. Coleta nome/CPF/telefone/e-mail como no cadastro,
- * mas a API atual só aceita e-mail — só isso é enviado em connectClient.
+ * Wizard de “Cadastrar Cliente”. Coleta nome/CPF/telefone/e-mail e submete
+ * com senha sentinela acordada com o backend para clientes pagadores sem conta.
  */
 export function useConnectClientWizard({
   isOpen,
   onSuccess,
   onError,
+  existingClients,
 }: UseConnectClientWizardParams) {
   const [step, setStep] = useState<ConnectClientWizardStep>(1);
   const [formData, setFormData] = useState<ConnectClientFormData>(emptyForm);
@@ -100,6 +103,22 @@ export function useConnectClientWizard({
         setFieldError('CPF inválido.');
         return false;
       }
+
+      // Validação preventiva: cliente com mesmo CPF já cadastrado na empresa
+      if (existingClients && existingClients.length > 0) {
+        const cleanFormCpf = formData.cpf.replace(/\D/g, '');
+        const duplicateClient = existingClients.find(
+          (c) => c.cpf && c.cpf.replace(/\D/g, '') === cleanFormCpf
+        );
+        if (duplicateClient) {
+          const clientName = [duplicateClient.nome, duplicateClient.sobreNome].filter(Boolean).join(' ');
+          setFieldError(
+            `Este CPF já pertence ao cliente ${clientName || 'cadastrado'} na sua empresa. Não é necessário recadastrá-lo.`
+          );
+          return false;
+        }
+      }
+
       return true;
     }
 
@@ -115,8 +134,24 @@ export function useConnectClientWizard({
       setFieldError('Telefone inválido.');
       return false;
     }
+
+    // Validação preventiva: cliente com mesmo e-mail já cadastrado na empresa
+    if (existingClients && existingClients.length > 0) {
+      const cleanFormEmail = formData.email.trim().toLowerCase();
+      const duplicateClient = existingClients.find(
+        (c) => c.email && c.email.trim().toLowerCase() === cleanFormEmail
+      );
+      if (duplicateClient) {
+        const clientName = [duplicateClient.nome, duplicateClient.sobreNome].filter(Boolean).join(' ');
+        setFieldError(
+          `O e-mail informado já pertence ao cliente ${clientName || 'cadastrado'} na sua empresa.`
+        );
+        return false;
+      }
+    }
+
     return true;
-  }, [formData, step]);
+  }, [existingClients, formData, step]);
 
   const goNext = useCallback(() => {
     if (!validateStep()) return;
@@ -134,22 +169,28 @@ export function useConnectClientWizard({
     const email = formData.email.trim();
     try {
       setIsSaving(true);
-      // Backend ainda não recebe nome/CPF/telefone — só e-mail, como antes.
-      await businessService.connectClient(email);
+      await businessService.registerClient({
+        nome: formData.nome,
+        sobreNome: formData.sobreNome,
+        cpf: formData.cpf,
+        telefone: formData.telefone,
+        email,
+      });
       setSuccessEmail(email);
       onSuccess(email);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erro desconhecido';
-      if (message.includes('sucesso') || message.includes('convidado')) {
+      if (message.includes('sucesso') || message.includes('convidado') || message.includes('vinculado')) {
         setSuccessEmail(email);
         onSuccess(email);
       } else {
+        setFieldError(message);
         onError(message);
       }
     } finally {
       setIsSaving(false);
     }
-  }, [formData.email, onError, onSuccess, validateStep]);
+  }, [formData, onError, onSuccess, validateStep]);
 
   return {
     step,

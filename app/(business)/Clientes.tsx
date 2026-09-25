@@ -76,7 +76,7 @@ export const Clientes: React.FC = () => {
 
   const handleInviteSent = async (email: string) => {
     await fetchClients();
-    addToast('success', 'Convite Enviado', `Solicitação enviada para ${email}`);
+    addToast('success', 'Cliente Cadastrado', `Cliente ${email} cadastrado e vinculado com sucesso.`);
   };
 
   const openDeleteModal = (id: number, nome: string, e: React.MouseEvent) => {
@@ -464,6 +464,7 @@ export const Clientes: React.FC = () => {
         onClose={() => setIsModalOpen(false)}
         onInviteSent={handleInviteSent}
         onInviteError={(message) => addToast('error', 'Erro ao conectar', message)}
+        existingClients={clientes}
       />
 
       <SeedTestClientsModal
