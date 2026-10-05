@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import {
   CreditCard,
   Building2,
@@ -47,7 +47,9 @@ interface PublicSubscriptionData {
 const BASE_URL = 'https://lojas.vlks.com.br/api/v1';
 
 export const PublicSubscriptionAccept: React.FC = () => {
-  const { token } = useParams<{ token: string }>();
+  const { token: rawToken } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
+  const token = (rawToken?.replace(/^tokenAcesso=/, '') || searchParams.get('tokenAcesso') || rawToken || '').trim();
 
   const [subscription, setSubscription] = useState<PublicSubscriptionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -115,7 +117,8 @@ export const PublicSubscriptionAccept: React.FC = () => {
       });
 
       if (!res.ok) {
-        throw new Error('Falha ao registrar aceite da assinatura.');
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.message || 'Falha ao registrar aceite da assinatura.');
       }
 
       const data = await res.json();

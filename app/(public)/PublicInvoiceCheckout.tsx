@@ -122,11 +122,22 @@ export const PublicInvoiceCheckout: React.FC = () => {
           'Content-Type': 'application/json',
           accept: '*/*',
         },
-        body: JSON.stringify({ metodo: 'PIX' }),
+        body: JSON.stringify({
+          idCobranca: invoice?.id ?? 0,
+          metodo: 'PIX',
+        }),
       });
 
       if (!res.ok) {
-        throw new Error('Falha ao gerar o código Pix. Tente novamente.');
+        const errText = await res.text().catch(() => '');
+        let errMsg = 'Falha ao gerar o código Pix. Tente novamente.';
+        try {
+          const errJson = JSON.parse(errText);
+          errMsg = errJson.message || errJson.erro || errText || errMsg;
+        } catch {
+          if (errText) errMsg = errText;
+        }
+        throw new Error(errMsg);
       }
 
       const raw = await res.text();
@@ -157,6 +168,7 @@ export const PublicInvoiceCheckout: React.FC = () => {
           accept: '*/*',
         },
         body: JSON.stringify({
+          idCobranca: invoice?.id ?? 0,
           metodo: 'Boleto',
           endereco: {
             cep: cep.replace(/\D/g, ''),
@@ -170,7 +182,15 @@ export const PublicInvoiceCheckout: React.FC = () => {
       });
 
       if (!res.ok) {
-        throw new Error('Falha ao gerar o boleto bancário.');
+        const errText = await res.text().catch(() => '');
+        let errMsg = 'Falha ao gerar o boleto bancário.';
+        try {
+          const errJson = JSON.parse(errText);
+          errMsg = errJson.message || errJson.erro || errText || errMsg;
+        } catch {
+          if (errText) errMsg = errText;
+        }
+        throw new Error(errMsg);
       }
 
       const data = await res.json();

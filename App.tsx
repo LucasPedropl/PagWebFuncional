@@ -149,6 +149,8 @@ const App: React.FC = () => {
           <Route path="/fatura/:token" element={<PublicInvoiceCheckout />} />
           <Route path="/a/:token" element={<PublicSubscriptionAccept />} />
           <Route path="/assinatura/:token" element={<PublicSubscriptionAccept />} />
+          <Route path="/ativar-assinatura/:token" element={<PublicSubscriptionAccept />} />
+          <Route path="/ativar-assinatura" element={<PublicSubscriptionAccept />} />
           
           {/* Rotas de Usuário (Cliente) */}
           <Route 
