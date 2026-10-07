@@ -177,6 +177,50 @@ export const userService = {
     return data;
   },
 
+  async requestPasswordReset(email: string): Promise<{ message?: string }> {
+    const response = await fetch(`${BASE_URL}/User/esqueci-senha`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "accept": "*/*"
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      const errorMessage = await parseApiError(response);
+      throw new Error(errorMessage || "Falha ao solicitar recuperação de senha.");
+    }
+
+    try {
+      return await response.json();
+    } catch {
+      return { message: "Instruções de recuperação enviadas para o seu e-mail." };
+    }
+  },
+
+  async resetPassword(data: { email: string; token: string; novaSenha: string }): Promise<{ message?: string }> {
+    const response = await fetch(`${BASE_URL}/User/redefinir-senha`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "accept": "*/*"
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorMessage = await parseApiError(response);
+      throw new Error(errorMessage || "Falha ao redefinir a senha.");
+    }
+
+    try {
+      return await response.json();
+    } catch {
+      return { message: "Senha redefinida com sucesso." };
+    }
+  },
+
   async getMyAccount(): Promise<UserAccountResponse> {
     const response = await authRequest('/User/minha-conta', {
       method: "GET"

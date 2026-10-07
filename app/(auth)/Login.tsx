@@ -232,15 +232,12 @@ export const Login: React.FC = () => {
               />
               Lembrar e-mail e senha
             </label>
-            <button
-              type="button"
+            <Link
+              to={`/forgot-password?type=${audience}`}
               className="text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
-              onClick={() =>
-                console.warn('[PagWeb] Recuperação de senha ainda não implementada.')
-              }
             >
               Esqueceu a senha?
-            </button>
+            </Link>
           </div>
 
           {error && <AuthAlert variant="error">{error}</AuthAlert>}

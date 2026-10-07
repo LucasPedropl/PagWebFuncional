@@ -4,6 +4,7 @@ import { ToastProvider } from './context/ToastContext';
 import { Login } from './app/(auth)/Login';
 import { Register } from './app/(auth)/Register';
 import { Activate } from './app/(auth)/Activate';
+import { ForgotPassword } from './app/(auth)/ForgotPassword';
 import { Dashboard as UserDashboard } from './app/(user)/Dashboard';
 import { Empresas as UserEmpresas } from './app/(user)/Empresas';
 import { Assinaturas as UserAssinaturas } from './app/(user)/Assinaturas';
@@ -42,6 +43,7 @@ import { Feedback as BusinessFeedback } from './app/(business)/Feedback';
 import { TornarEstabelecimento } from './app/(user)/TornarEstabelecimento';
 import { PublicInvoiceCheckout } from './app/(public)/PublicInvoiceCheckout';
 import { PublicSubscriptionAccept } from './app/(public)/PublicSubscriptionAccept';
+import { AtivarAssinatura } from './app/(public)/AtivarAssinatura';
 
 // --- Guards de Rota (Proteção por Tipo de Usuário) ---
 
@@ -143,14 +145,19 @@ const App: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/activate" element={<Activate />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/recuperar-senha" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ForgotPassword />} />
+          <Route path="/redefinir-senha" element={<ForgotPassword />} />
 
           {/* Rotas Públicas de Fatura e Assinatura (Guest Payer) */}
           <Route path="/p/:token" element={<PublicInvoiceCheckout />} />
           <Route path="/fatura/:token" element={<PublicInvoiceCheckout />} />
-          <Route path="/a/:token" element={<PublicSubscriptionAccept />} />
-          <Route path="/assinatura/:token" element={<PublicSubscriptionAccept />} />
-          <Route path="/ativar-assinatura/:token" element={<PublicSubscriptionAccept />} />
-          <Route path="/ativar-assinatura" element={<PublicSubscriptionAccept />} />
+          <Route path="/ativar-assinatura/tokenAcesso=:token" element={<AtivarAssinatura />} />
+          <Route path="/ativar-assinatura/:token" element={<AtivarAssinatura />} />
+          <Route path="/ativar-assinatura" element={<AtivarAssinatura />} />
+          <Route path="/a/:token" element={<AtivarAssinatura />} />
+          <Route path="/assinatura/:token" element={<AtivarAssinatura />} />
           
           {/* Rotas de Usuário (Cliente) */}
           <Route 
