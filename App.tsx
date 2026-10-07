@@ -44,6 +44,7 @@ import { TornarEstabelecimento } from './app/(user)/TornarEstabelecimento';
 import { PublicInvoiceCheckout } from './app/(public)/PublicInvoiceCheckout';
 import { PublicSubscriptionAccept } from './app/(public)/PublicSubscriptionAccept';
 import { AtivarAssinatura } from './app/(public)/AtivarAssinatura';
+import { PublicSubscriptionInvoice } from './app/(public)/PublicSubscriptionInvoice';
 
 // --- Guards de Rota (Proteção por Tipo de Usuário) ---
 
@@ -153,6 +154,9 @@ const App: React.FC = () => {
           {/* Rotas Públicas de Fatura e Assinatura (Guest Payer) */}
           <Route path="/p/:token" element={<PublicInvoiceCheckout />} />
           <Route path="/fatura/:token" element={<PublicInvoiceCheckout />} />
+          <Route path="/p-assinatura/:token" element={<PublicSubscriptionInvoice />} />
+          <Route path="/p-assinatura/tokenAcesso=:token" element={<PublicSubscriptionInvoice />} />
+          <Route path="/p-assinatura" element={<PublicSubscriptionInvoice />} />
           <Route path="/ativar-assinatura/tokenAcesso=:token" element={<AtivarAssinatura />} />
           <Route path="/ativar-assinatura/:token" element={<AtivarAssinatura />} />
           <Route path="/ativar-assinatura" element={<AtivarAssinatura />} />

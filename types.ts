@@ -205,6 +205,7 @@ export interface SubscriptionResponse {
 
 export interface Mensalidade {
   idMensalidade: number;
+  tokenAcesso?: string;
   nomeCliente: string;
   emailCliente: string;
   vencimento: string; // Formato DD/MM/YYYY
@@ -256,6 +257,7 @@ export interface ClientSubscription {
 
 export interface ClientInvoice {
   idMensalidade: number;
+  tokenAcesso?: string;
   nomeEmpresa: string;
   nomeAdmin: string;
   vencimento: string; // DD/MM/YYYY

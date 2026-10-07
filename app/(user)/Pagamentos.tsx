@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { UserLayout } from '../../components/layout/UserLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { Download, Filter, Search, FileText, Loader2, ArrowRight, CreditCard, QrCode, Barcode, CheckCircle2, Lock, PlusCircle } from 'lucide-react';
+import { Download, Filter, Search, FileText, Loader2, ArrowRight, CreditCard, QrCode, Barcode, CheckCircle2, Lock, PlusCircle, ExternalLink } from 'lucide-react';
 import { userService } from '../../services/userService';
 import { ClientInvoice, SavedCard } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -536,12 +536,23 @@ export const Pagamentos: React.FC = () => {
                                 </td>
                                 <td className="px-6 py-4 text-right">
                                     {inv.status === 'Aberto' || inv.status === 'Atrasado' ? (
-                                        <button 
-                                            onClick={() => handlePayClick(inv)}
-                                            className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium inline-flex items-center transition-colors"
-                                        >
-                                            Pagar <ArrowRight className="w-3 h-3 ml-1" />
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2">
+                                            <a 
+                                                href={`#/p-assinatura/${inv.tokenAcesso || inv.idMensalidade}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-medium inline-flex items-center transition-colors"
+                                                title="Visualizar fatura e boleto público"
+                                            >
+                                                <ExternalLink className="w-3 h-3 mr-1 text-slate-500" /> Boleto Externo
+                                            </a>
+                                            <button 
+                                                onClick={() => handlePayClick(inv)}
+                                                className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-medium inline-flex items-center transition-colors"
+                                            >
+                                                Pagar <ArrowRight className="w-3 h-3 ml-1" />
+                                            </button>
+                                        </div>
                                     ) : (
                                         <button 
                                             onClick={() => generateReceiptPDF(inv)}

@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { BusinessLayout } from '../../components/layout/BusinessLayout';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
-import { Search, Filter, Download, Calendar, MoreHorizontal, ArrowUpRight, ArrowDownRight, Loader2, RefreshCw, HelpCircle, XCircle } from 'lucide-react';
+import { Search, Filter, Download, Calendar, MoreHorizontal, ArrowUpRight, ArrowDownRight, Loader2, RefreshCw, HelpCircle, XCircle, Copy, ExternalLink } from 'lucide-react';
 import { Mensalidade } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { SearchSelect } from '../../components/ui/SearchSelect';
@@ -429,17 +429,32 @@ export const Pagamentos: React.FC = () => {
                                </button>
                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 hidden group-hover:block border border-gray-100">
                                   <div className="py-1">
-                                    {displayStatus === 'Aberto' || displayStatus === 'Atrasado' ? (
+                                    <a
+                                      href={`#/p-assinatura/${trx.tokenAcesso || trx.idMensalidade}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center"
+                                    >
+                                      <ExternalLink className="w-4 h-4 mr-2 text-slate-400" /> Ver Link da Fatura
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const url = `${window.location.origin}/#/p-assinatura/${trx.tokenAcesso || trx.idMensalidade}`;
+                                        void navigator.clipboard.writeText(url);
+                                        addToast('success', 'Link Copiado', 'Link público da fatura copiado com sucesso.');
+                                      }}
+                                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center"
+                                    >
+                                      <Copy className="w-4 h-4 mr-2 text-slate-400" /> Copiar Link de Pagamento
+                                    </button>
+                                    {(displayStatus === 'Aberto' || displayStatus === 'Atrasado') && (
                                       <button 
                                         onClick={() => handleCancelClick(trx)}
-                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
+                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center border-t border-slate-100"
                                       >
                                         <XCircle className="w-4 h-4 mr-2" /> Cancelar Pagamento
                                       </button>
-                                    ) : (
-                                      <div className="px-4 py-2 text-sm text-gray-400 italic">
-                                        Nenhuma ação disponível
-                                      </div>
                                     )}
                                   </div>
                                </div>
