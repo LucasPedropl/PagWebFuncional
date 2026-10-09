@@ -36,7 +36,7 @@ export const ForgotPassword: React.FC = () => {
     const urlToken = searchParams.get('token');
     if (urlEmail) setEmail(urlEmail);
     if (urlToken) {
-      setToken(urlToken.toUpperCase());
+      setToken(urlToken.trim());
       setMode('reset');
     }
   }, [searchParams]);
@@ -78,6 +78,12 @@ export const ForgotPassword: React.FC = () => {
       setError('A nova senha deve ter no mínimo 8 caracteres.');
       return;
     }
+    const hasLetter = /[a-zA-Z]/.test(newPassword);
+    const hasDigit = /[0-9]/.test(newPassword);
+    if (!hasLetter || !hasDigit) {
+      setError('A senha deve conter pelo menos uma letra e um número.');
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setError('As senhas digitadas não coincidem.');
       return;
@@ -88,7 +94,7 @@ export const ForgotPassword: React.FC = () => {
       setError(null);
       const res = await userService.resetPassword({
         email: email.trim(),
-        token: token.trim().toUpperCase(),
+        token: token.trim(),
         novaSenha: newPassword,
       });
       setIsCompleted(true);
@@ -105,6 +111,7 @@ export const ForgotPassword: React.FC = () => {
 
   return (
     <AuthLayout
+      audience={audience}
       title={
         isCompleted
           ? 'Senha Alterada!'
@@ -212,9 +219,9 @@ export const ForgotPassword: React.FC = () => {
             type="text"
             icon={KeyRound}
             value={token}
-            onChange={(e) => setToken(e.target.value.toUpperCase())}
+            onChange={(e) => setToken(e.target.value)}
             required
-            placeholder="Ex: 8A4F1B"
+            placeholder="Cole o código recebido por e-mail"
           />
 
           <AuthInput

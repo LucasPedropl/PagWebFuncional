@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { apiV1Url } from '../../utils/apiOrigin';
 
 interface PublicInvoiceItem {
   id?: number;
@@ -44,7 +45,7 @@ interface PublicInvoiceData {
   urlBoleto?: string;
 }
 
-const BASE_URL = 'https://lojas.vlks.com.br/api/v1';
+const BASE_URL = apiV1Url();
 
 export const PublicInvoiceCheckout: React.FC = () => {
   const { token } = useParams<{ token: string }>();
@@ -124,7 +125,7 @@ export const PublicInvoiceCheckout: React.FC = () => {
         },
         body: JSON.stringify({
           idCobranca: invoice?.id ?? 0,
-          metodo: 'PIX',
+          metodo: 0, // MetodoPagamento.PIX no backend C#
         }),
       });
 
@@ -133,10 +134,20 @@ export const PublicInvoiceCheckout: React.FC = () => {
         let errMsg = 'Falha ao gerar o código Pix. Tente novamente.';
         try {
           const errJson = JSON.parse(errText);
-          errMsg = errJson.message || errJson.erro || errText || errMsg;
+          errMsg = errJson.message || errJson.erro || errJson.title || errText || errMsg;
         } catch {
           if (errText) errMsg = errText;
         }
+
+        if (/já foi gerado um pagamento/i.test(errMsg) || /ja foi gerado/i.test(errMsg)) {
+          void fetchInvoice();
+          return;
+        }
+
+        if (/erro ao tentar solicitar código/i.test(errMsg) || /erro ao solicitar pagamento/i.test(errMsg)) {
+          errMsg = 'O gateway de pagamento não conseguiu gerar o Pix no momento. Tente novamente mais tarde ou contate o emissor da fatura.';
+        }
+
         throw new Error(errMsg);
       }
 
@@ -144,7 +155,7 @@ export const PublicInvoiceCheckout: React.FC = () => {
       let code = raw.replace(/^"+|"+$/g, '').trim();
       try {
         const json = JSON.parse(raw);
-        code = json.pixEmv || json.codigoPagamento || code;
+        code = json.codigo || json.codigoPagamento || json.pixEmv || code;
       } catch {
         // mantem raw
       }
@@ -169,7 +180,7 @@ export const PublicInvoiceCheckout: React.FC = () => {
         },
         body: JSON.stringify({
           idCobranca: invoice?.id ?? 0,
-          metodo: 'Boleto',
+          metodo: 2, // MetodoPagamento.Boleto no backend C#
           endereco: {
             cep: cep.replace(/\D/g, ''),
             logradouro,
@@ -186,16 +197,43 @@ export const PublicInvoiceCheckout: React.FC = () => {
         let errMsg = 'Falha ao gerar o boleto bancário.';
         try {
           const errJson = JSON.parse(errText);
-          errMsg = errJson.message || errJson.erro || errText || errMsg;
+          errMsg = errJson.message || errJson.erro || errJson.title || errText || errMsg;
         } catch {
           if (errText) errMsg = errText;
         }
+
+        if (/já foi gerado um pagamento/i.test(errMsg) || /ja foi gerado/i.test(errMsg)) {
+          void fetchInvoice();
+          return;
+        }
+
+        if (/erro ao tentar solicitar código/i.test(errMsg) || /erro ao solicitar pagamento/i.test(errMsg)) {
+          errMsg = 'O gateway de pagamento não conseguiu gerar o boleto no momento. Tente novamente mais tarde ou contate o emissor da fatura.';
+        }
+
         throw new Error(errMsg);
       }
 
-      const data = await res.json();
-      setBarcode(data.linhaDigitavel || data.barcode || '');
-      setBoletoUrl(data.bankSlipUrl || data.urlBoleto || '');
+      const raw = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = { codigo: raw.replace(/^"+|"+$/g, '').trim() };
+      }
+
+      const extractedBarcode =
+        data.linhaDigitavel ||
+        data.barcode ||
+        data.codigoPagamento ||
+        (typeof data.codigo === 'string' && !data.codigo.startsWith('http') ? data.codigo : '');
+      const extractedUrl =
+        data.bankSlipUrl ||
+        data.urlBoleto ||
+        (typeof data.codigo === 'string' && data.codigo.startsWith('http') ? data.codigo : '');
+
+      setBarcode(extractedBarcode);
+      setBoletoUrl(extractedUrl);
     } catch (err: unknown) {
       setPaymentError(err instanceof Error ? err.message : 'Erro ao gerar boleto.');
     } finally {
