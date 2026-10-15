@@ -33,8 +33,9 @@ test.describe('Login', () => {
     await preencherLogin(page, tenant.admin.email, tenant.admin.password);
     await page.getByRole('button', { name: 'Entrar no painel' }).click();
 
-    await expect(page).toHaveURL(/#\/business\/dashboard/);
-    await expect(tituloDaPagina(page, 'Dashboard Overview')).toBeVisible();
+    // Se já aprovado vai para o dashboard; enquanto pendente de aprovação Bixs, o guard BusinessRoute redireciona para configurações/integrações
+    await expect(page).toHaveURL(/#\/business\/(dashboard|configuracoes)/);
+    await expect(page.getByRole('main').getByRole('heading', { name: /(Dashboard Overview|Configurações)/ })).toBeVisible();
   });
 
   test('senha errada mostra alerta sem sair da tela', async ({ page, tenant }) => {
